@@ -1,0 +1,38 @@
+@import 'tailwindcss';
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --bg-base:        #0D1B2E;
+  --bg-surface:     #132035;
+  --bg-elevated:    #1A2D47;
+  --bg-card:        #152030;
+  --border:         #1E3350;
+  --text-primary:   #EEF2FF;
+  --text-secondary: #94A3B8;
+  --text-muted:     #64748B;
+  --brand:          #2563EB;
+  --brand-hover:    #1D4ED8;
+  --amber:          #F59E0B;
+  --green:          #10B981;
+  --red:            #EF4444;
+  --purple:         #8B5CF6;
+  --sidebar-w:      220px;
+}
+
+.light {
+  --bg-base:        #F0F4FF;
+  --bg-surface:     #FFFFFF;
+  --bg-elevated:    #F8FAFC;
+  --bg-card:        #FFFFFF;
+  --border:         #E2E8F0;
+  --text-primary:   #0F172A;
+  --text-secondary: #475569;
+  --text-muted:     #94A3B8;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+}
