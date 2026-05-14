@@ -242,22 +242,29 @@ class BovedaController extends Controller
         abort_unless($entry->business_id === Auth::user()->business_id, 403);
         abort_if($entry->closed_at !== null, 422, 'Entrada ya cerrada.');
 
+        $disponible = round(
+            (float) $entry->kg_entrada
+            - (float) $entry->kg_surtido_vitrina
+            - (float) $entry->waste_kg,
+            3
+        );
+
         $data = $request->validate([
-            'waste_kg' => ['required', 'numeric', 'min:0.001'],
+            'peso_actual' => ['required', 'numeric', 'min:0'],
         ]);
 
-        $disponible = (float) $entry->kg_entrada
-            - (float) $entry->kg_surtido_vitrina
-            - (float) $entry->waste_kg;
+        $pesoActual = round((float) $data['peso_actual'], 3);
 
-        if ((float) $data['waste_kg'] > $disponible) {
+        if ($pesoActual >= $disponible) {
             return response()->json(
-                ['errors' => ['waste_kg' => ["La merma no puede superar {$disponible} kg disponibles."]]],
+                ['errors' => ['peso_actual' => ["El peso actual ({$pesoActual} kg) debe ser menor que el disponible ({$disponible} kg)."]]],
                 422
             );
         }
 
-        $entry->increment('waste_kg', (float) $data['waste_kg']);
+        $mermaCalculada = round($disponible - $pesoActual, 3);
+
+        $entry->increment('waste_kg', $mermaCalculada);
 
         ActivityLog::create([
             'business_id' => Auth::user()->business_id,
@@ -267,7 +274,10 @@ class BovedaController extends Controller
             'model_id'    => $entry->id,
         ]);
 
-        return response()->json(['message' => 'Merma registrada.']);
+        return response()->json([
+            'message'          => 'Merma registrada.',
+            'merma_calculada'  => $mermaCalculada,
+        ]);
     }
 
     public function storeProduct(Request $request): \Illuminate\Http\JsonResponse

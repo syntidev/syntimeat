@@ -206,8 +206,8 @@ const helpSteps = [
     {
         icon: '⚖️',
         title: 'Registrar merma (si aplica)',
-        body: 'Si la pieza perdió peso mientras estaba en bóveda (evaporación natural por frío), pésala antes de despachar. Si pesa menos que al entrar, registra esa diferencia con el botón Merma.',
-        tip: 'Ejemplo: entró 50 kg el lunes, el miércoles pesa 48 kg → registra 2 kg de merma. El kg disponible se ajusta a la realidad.',
+        body: 'Antes de despachar, pon la pieza en la balanza. Haz clic en Merma e ingresa el peso que ves ahora. El sistema calcula y registra la diferencia solo — tú no tienes que restar nada.',
+        tip: 'Ejemplo: sistema muestra 50 kg disponibles, la balanza marca 48 kg → ingresas 48 → el sistema registra 2 kg de merma automáticamente.',
     },
     {
         icon: '🔪',
@@ -233,7 +233,7 @@ const helpFaqs = [
     },
     {
         q: 'La carne mermó entre el lunes y el miércoles. ¿Cómo afecta el inventario?',
-        a: 'Si no registras la merma, el sistema cree que hay más kg disponibles de los que realmente hay. Antes de surtir, pesa la pieza completa. Si pesa menos que al entrar, haz clic en el botón Merma y registra la diferencia. El kg disponible se corregirá automáticamente.',
+        a: 'Haz clic en el botón Merma de esa fila e ingresa el peso que marca la balanza ahora mismo. El sistema hace la resta: disponible actual menos el peso que ingresaste = merma. Tú no calculas nada. El kg disponible se corrige al instante.',
     },
     {
         q: '¿Puedo surtir parcialmente varias veces?',
@@ -248,14 +248,20 @@ const helpFaqs = [
 // ─── Merma ────────────────────────────────────────────────────────────────────
 const showMermaModal = ref(false);
 const mermaEntry     = ref(null);
-const mermaForm      = ref({ waste_kg: '' });
+const mermaForm      = ref({ peso_actual: '' });
 const mermaErrors    = ref({});
 const savingMerma    = ref(false);
 
+const mermaCalculada = computed(() => {
+    if (!mermaEntry.value || !mermaForm.value.peso_actual) return null;
+    const diff = mermaEntry.value.kg_disponible - parseFloat(mermaForm.value.peso_actual || 0);
+    return diff > 0 ? diff.toFixed(3) : null;
+});
+
 function openMerma(entry) {
-    mermaEntry.value   = entry;
-    mermaForm.value    = { waste_kg: '' };
-    mermaErrors.value  = {};
+    mermaEntry.value     = entry;
+    mermaForm.value      = { peso_actual: '' };
+    mermaErrors.value    = {};
     showMermaModal.value = true;
 }
 async function saveMerma() {
@@ -677,34 +683,46 @@ async function deactivateProduct(product) {
                             Disponible actual: <strong>{{ fmtKg(mermaEntry?.kg_disponible) }}</strong>
                         </p>
                         <p class="merma-hint">
-                            Pesa la pieza completa. Si pesa menos que el disponible, la diferencia es merma.
-                            Ingresa solo los kg perdidos.
+                            Pon la pieza en la balanza y anota el peso que ves ahora.
+                            El sistema calcula la merma automáticamente.
                         </p>
 
                         <div class="form-grid">
                             <div class="form-field full">
-                                <label>Kg de merma a registrar</label>
+                                <label>Peso actual de la pieza (kg)</label>
                                 <input
-                                    v-model="mermaForm.waste_kg"
+                                    v-model="mermaForm.peso_actual"
                                     type="number"
                                     class="form-input"
-                                    min="0.001"
+                                    min="0"
                                     step="0.001"
-                                    placeholder="Ej: 2.000"
+                                    placeholder="Ej: 48.000"
                                     autofocus
                                 />
-                                <span v-if="mermaErrors.waste_kg" class="field-err">{{ mermaErrors.waste_kg[0] }}</span>
+                                <span v-if="mermaErrors.peso_actual" class="field-err">{{ mermaErrors.peso_actual[0] }}</span>
                             </div>
+                        </div>
+
+                        <!-- Preview merma calculada -->
+                        <div v-if="mermaCalculada" class="merma-preview">
+                            <span class="merma-preview__label">Merma calculada:</span>
+                            <span class="merma-preview__val">{{ mermaCalculada }} kg</span>
+                            <span class="merma-preview__eq">
+                                ({{ fmtKg(mermaEntry?.kg_disponible) }} disponible − {{ mermaForm.peso_actual }} kg actual)
+                            </span>
+                        </div>
+                        <div v-else-if="mermaForm.peso_actual && !mermaCalculada" class="merma-preview merma-preview--warn">
+                            El peso actual debe ser menor que el disponible ({{ fmtKg(mermaEntry?.kg_disponible) }})
                         </div>
 
                         <div class="modal-actions">
                             <button class="btn-ghost" @click="showMermaModal = false">Cancelar</button>
                             <button
                                 class="btn-brand btn-merma-confirm"
-                                :disabled="savingMerma || !mermaForm.waste_kg"
+                                :disabled="savingMerma || !mermaCalculada"
                                 @click="saveMerma"
                             >
-                                {{ savingMerma ? 'Registrando…' : 'Registrar merma' }}
+                                {{ savingMerma ? 'Registrando…' : 'Confirmar merma' }}
                             </button>
                         </div>
                     </div>
@@ -835,6 +853,26 @@ async function deactivateProduct(product) {
 .btn-merma-confirm { background: #d97706; color: #fff; }
 .btn-merma-confirm:not(:disabled):hover { background: #b45309; }
 .merma-hint { font-size: 0.82rem; color: var(--text-muted); margin: 0; line-height: 1.4; }
+
+.merma-preview {
+    background: rgba(245,158,11,0.1);
+    border: 1px solid rgba(245,158,11,0.35);
+    border-radius: 8px;
+    padding: 0.65rem 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.merma-preview--warn {
+    background: rgba(239,68,68,0.08);
+    border-color: rgba(239,68,68,0.3);
+    font-size: 0.82rem;
+    color: #ef4444;
+}
+.merma-preview__label { font-size: 0.8rem; color: var(--text-muted); }
+.merma-preview__val   { font-size: 1.1rem; font-weight: 700; color: #d97706; }
+.merma-preview__eq    { font-size: 0.78rem; color: var(--text-muted); }
 
 /* ─── Modal ──────────────────────────────────────────────────────────────────*/
 .modal-bg  { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 1rem; }
