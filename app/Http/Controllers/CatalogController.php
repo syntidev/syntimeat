@@ -27,8 +27,11 @@ class CatalogController extends Controller
             ->orderBy('sort_order')
             ->get();
 
+        $branchId = Auth::user()->branch_id;
+
         $products = Product::with(['category', 'subcategory'])
             ->where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->where('location', '!=', 'boveda')
             ->orderBy('category_id')
             ->orderBy('sort_order')

@@ -12,7 +12,7 @@ class Client extends Model
 {
     protected $fillable = [
         'business_id',
-        'client_code',
+        'cedula',
         'name',
         'phone',
         'email',
@@ -26,28 +26,6 @@ class Client extends Model
         return [
             'active' => 'boolean',
         ];
-    }
-
-    protected static function boot(): void
-    {
-        parent::boot();
-
-        static::creating(function (self $client): void {
-            if (! empty($client->client_code)) {
-                return;
-            }
-
-            $last = static::where('business_id', $client->business_id)
-                ->orderByDesc('id')
-                ->value('client_code');
-
-            $next = 1;
-            if ($last && preg_match('/(\d+)$/', $last, $m)) {
-                $next = (int) $m[1] + 1;
-            }
-
-            $client->client_code = 'CLI-' . str_pad((string) $next, 4, '0', STR_PAD_LEFT);
-        });
     }
 
     public function business(): BelongsTo

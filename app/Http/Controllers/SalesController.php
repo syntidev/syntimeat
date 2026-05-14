@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
+use App\Models\CashRegister;
 use App\Models\PaymentMethod;
 use App\Models\Sale;
+use App\Models\SalePayment;
 use App\Models\User;
+use App\Services\DollarRateService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,6 +20,8 @@ use Inertia\Response;
 
 class SalesController extends Controller
 {
+    public function __construct(private readonly DollarRateService $rates) {}
+
     // ─── Listado de ventas del día ────────────────────────────────────────────
 
     public function index(Request $request): Response
@@ -51,12 +56,15 @@ class SalesController extends Controller
                 'id'                  => $sale->id,
                 'ticket_number'       => $sale->ticket_number,
                 'status'              => $sale->status,
+                'payment_status'      => $sale->payment_status,
+                'origin'              => $sale->origin,
                 'cashier'             => $sale->cashier?->name,
                 'payment_method'      => $sale->payment_method,
                 'total_bs'            => (float) $sale->total_bs,
                 'total_usd'           => (float) $sale->total_usd,
                 'rate_used'           => (float) $sale->rate_used,
                 'sold_at'             => $sale->sold_at?->format('H:i'),
+                'client_name'         => $sale->client_name,
                 'items_count'         => $sale->items->count(),
                 'cancelled_at'        => $sale->cancelled_at?->format('d/m H:i'),
                 'cancellation_reason' => $sale->cancellation_reason,
@@ -81,12 +89,45 @@ class SalesController extends Controller
             ->orderBy('sort_order')
             ->get(['id', 'name', 'type']);
 
+        $rate = $this->rates->getTodayRate();
+
+        // Cobros pendientes: crédito + delivery sin cobrar
+        $cobrosPendientes = Sale::with(['items', 'cashier'])
+            ->where('business_id', $businessId)
+            ->where(function ($q) {
+                $q->where('payment_status', 'pendiente_cobro')
+                  ->orWhere(fn ($q2) => $q2->where('origin', 'delivery')->where('status', 'pending'));
+            })
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn (Sale $s) => [
+                'id'           => $s->id,
+                'ticket_number'=> $s->ticket_number,
+                'sale_type'    => $s->origin === 'delivery' ? 'delivery' : 'credit',
+                'origin'       => $s->origin,
+                'client_name'  => $s->client_name,
+                'client_phone' => $s->client_phone,
+                'total_usd'    => (float) $s->total_usd,
+                'total_bs'     => round((float) $s->total_usd * $rate, 2),
+                'cashier_name' => $s->cashier?->name ?? '—',
+                'created_at'   => $s->created_at?->toDateTimeString(),
+                'items'        => $s->items->map(fn ($i) => [
+                    'product_name'   => $i->product_name,
+                    'quantity_value' => (float) $i->quantity_value,
+                    'unit_label'     => $i->unit_label,
+                    'subtotal_bs'    => round((float) $i->subtotal_usd * $rate, 2),
+                ])->values(),
+            ])
+            ->values();
+
         return Inertia::render('Sales/Index', [
-            'sales'          => $sales,
-            'totals'         => $totals,
-            'cashiers'       => $cashiers,
-            'paymentMethods' => $paymentMethods,
-            'filters'        => compact('date', 'cashier', 'method', 'status'),
+            'sales'            => $sales,
+            'totals'           => $totals,
+            'cashiers'         => $cashiers,
+            'paymentMethods'   => $paymentMethods,
+            'cobrosPendientes' => $cobrosPendientes,
+            'todayRate'        => $rate,
+            'filters'          => compact('date', 'cashier', 'method', 'status'),
         ]);
     }
 

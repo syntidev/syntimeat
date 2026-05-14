@@ -27,13 +27,18 @@ class CashRegisterController extends Controller
         $businessId = $user->business->id;
         $todayRate  = $this->rates->getTodayRate();
 
+        $branchId = $user->branch_id;
+
+        // Bug fix: buscar cualquier caja sin cerrar, no solo la de hoy
         $cashRegister = CashRegister::with(['movements.creator'])
             ->where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->whereNull('closed_at')
-            ->whereDate('opened_at', today())
+            ->orderBy('opened_at')
             ->first();
 
         $history = CashRegister::where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->whereNotNull('closed_at')
             ->orderByDesc('closed_at')
             ->limit(30)
@@ -46,13 +51,16 @@ class CashRegisterController extends Controller
                 ->where('status', 'paid')
                 ->sum('total_bs');
 
-            $movIn  = (float) $cashRegister->movements()->where('type', 'in')->sum('amount_usd');
-            $movOut = (float) $cashRegister->movements()->where('type', 'out')->sum('amount_usd');
+            // Movimientos en Bs. (cada movimiento guardó amount_usd con la tasa del momento)
+            $movInBs  = (float) $cashRegister->movements()->where('type', 'in')->sum('amount_usd') * $todayRate;
+            $movOutBs = (float) $cashRegister->movements()->where('type', 'out')->sum('amount_usd') * $todayRate;
 
-            $expectedUsd = round((float) $cashRegister->opening_amount_usd + $movIn - $movOut, 2);
+            // Bug fix: usar opening_amount_bs guardado — no reconvertir con tasa actual
+            $openingBs   = (float) $cashRegister->opening_amount_bs;
+            $expectedBs  = round($openingBs + $movInBs - $movOutBs, 2);
 
             $kpis = [
-                'expected_bs'     => round($expectedUsd * $todayRate, 2),
+                'expected_bs'     => $expectedBs,
                 'sales_total_bs'  => round((float) $salesTotalBs, 2),
                 'movements_count' => $cashRegister->movements()->count(),
                 'rate'            => $todayRate,
@@ -74,13 +82,16 @@ class CashRegisterController extends Controller
         $user       = Auth::user();
         $businessId = $user->business->id;
 
+        $branchId = $user->branch_id;
+
+        // Bug fix: bloquear si existe CUALQUIER caja sin cerrar en esta sucursal
         $alreadyOpen = CashRegister::where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->whereNull('closed_at')
-            ->whereDate('opened_at', today())
             ->exists();
 
         if ($alreadyOpen) {
-            return back()->withErrors(['caja' => 'Ya hay una caja abierta hoy.']);
+            return back()->withErrors(['caja' => 'Hay una caja abierta sin cerrar. Haz el corte antes de abrir una nueva.']);
         }
 
         $data = $request->validate([
@@ -94,9 +105,11 @@ class CashRegisterController extends Controller
 
         CashRegister::create([
             'business_id'        => $businessId,
+            'branch_id'          => $branchId,
             'name'               => 'Caja ' . now()->format('d/m/Y'),
             'opened_at'          => now(),
             'opening_amount_usd' => $openingUsd,
+            'opening_amount_bs'  => (float) $data['opening_amount_bs'],
             'rate_at_opening'    => $rate,
             'opened_by'          => $user->id,
         ]);
@@ -119,10 +132,11 @@ class CashRegisterController extends Controller
         $businessId = $user->business->id;
         $rate       = $this->rates->getTodayRate();
 
+        // Bug fix: buscar cualquier caja sin cerrar (puede ser de días anteriores)
         $cashRegister = CashRegister::with(['movements.creator', 'opener'])
             ->where('business_id', $businessId)
             ->whereNull('closed_at')
-            ->whereDate('opened_at', today())
+            ->orderBy('opened_at')
             ->first();
 
         if ($cashRegister === null) {
@@ -296,10 +310,13 @@ class CashRegisterController extends Controller
 
         $rate = $this->rates->getTodayRate();
 
-        $movIn  = (float) $cashRegister->movements()->where('type', 'in')->sum('amount_usd');
-        $movOut = (float) $cashRegister->movements()->where('type', 'out')->sum('amount_usd');
+        $movInBs  = (float) $cashRegister->movements()->where('type', 'in')->sum('amount_usd') * $rate;
+        $movOutBs = (float) $cashRegister->movements()->where('type', 'out')->sum('amount_usd') * $rate;
 
-        $expectedUsd   = round((float) $cashRegister->opening_amount_usd + $movIn - $movOut, 2);
+        // Usar opening_amount_bs guardado — no reconvertir
+        $openingBs     = (float) $cashRegister->opening_amount_bs;
+        $expectedBs    = round($openingBs + $movInBs - $movOutBs, 2);
+        $expectedUsd   = $rate > 0 ? round($expectedBs / $rate, 2) : 0.0;
         $countedUsd    = $rate > 0 ? round((float) $data['counted_cash_bs'] / $rate, 2) : 0.0;
         $differenceUsd = round($countedUsd - $expectedUsd, 2);
 

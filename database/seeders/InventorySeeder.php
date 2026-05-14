@@ -20,7 +20,7 @@ class InventorySeeder extends Seeder
         'Pollo'       => [25,  60, 0.05, 0.08, 2.40],
         'Charcutería' => [12,  30, 0.02, 0.04, 5.00],
         'Embutidos'   => [12,  36, 0.00, 0.01, 3.80],
-        'Abarrotes'   => [12,  48, 0.00, 0.00, 1.50],
+        'Víveres'     => [12,  48, 0.00, 0.00, 1.50],
     ];
 
     public function run(): void
@@ -48,8 +48,8 @@ class InventorySeeder extends Seeder
         $count     = 0;
 
         foreach ($products as $product) {
-            $categoryName = $product->category?->name ?? 'Abarrotes';
-            $cfg          = $this->config[$categoryName] ?? $this->config['Abarrotes'];
+            $categoryName = $product->category?->name ?? 'Víveres';
+            $cfg          = $this->config[$categoryName] ?? $this->config['Víveres'];
 
             [$qMin, $qMax, $wMin, $wMax, $cost] = $cfg;
 

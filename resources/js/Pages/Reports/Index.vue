@@ -277,8 +277,8 @@ const typeClass   = { internal: 'badge-amber', external: 'badge-blue' }
                                 <th>Cliente</th>
                                 <th class="center">Items</th>
                                 <th>Métodos Pago</th>
-                                <th class="right">Total Bs.</th>
                                 <th class="right">Total USD</th>
+                                <th class="right">Total Bs.</th>
                                 <th>Estado</th>
                             </tr>
                         </thead>
@@ -289,8 +289,8 @@ const typeClass   = { internal: 'badge-amber', external: 'badge-blue' }
                                 <td>{{ r.client_name }}</td>
                                 <td class="center muted">{{ r.items_count }}</td>
                                 <td class="muted small">{{ r.metodos_pago }}</td>
-                                <td class="right amount">{{ fmtBs(r.total_bs) }}</td>
-                                <td class="right muted">{{ fmtUsd(r.total_usd) }}</td>
+                                <td class="right amount">{{ fmtUsd(r.total_usd) }}</td>
+                                <td class="right muted">{{ fmtBs(r.total_bs) }}</td>
                                 <td><span class="pill" :class="statusClass[r.status]">{{ statusLabel[r.status] ?? r.status }}</span></td>
                             </tr>
                             <tr v-if="!rows.ventas.length && !loading">
@@ -409,6 +409,7 @@ const typeClass   = { internal: 'badge-amber', external: 'badge-blue' }
                             <thead>
                                 <tr>
                                     <th>Categoría</th>
+                                    <th class="right">Vendido USD</th>
                                     <th class="right">Vendido Bs.</th>
                                     <th class="right">Costo USD</th>
                                     <th class="right">Utilidad USD</th>
@@ -418,14 +419,16 @@ const typeClass   = { internal: 'badge-amber', external: 'badge-blue' }
                             <tbody>
                                 <tr v-for="row in dayData.categories" :key="row.categoria">
                                     <td>{{ row.categoria }}</td>
-                                    <td class="right amount">{{ fmtBs(row.vendido_bs) }}</td>
+                                    <td class="right amount">{{ fmtUsd(row.vendido_usd) }}</td>
+                                    <td class="right muted">{{ fmtBs(row.vendido_bs) }}</td>
                                     <td class="right muted">{{ fmtUsd(row.costo_usd) }}</td>
                                     <td class="right" :class="row.utilidad_usd >= 0 ? 'text-green' : 'text-red'">{{ fmtUsd(row.utilidad_usd) }}</td>
                                     <td class="right">{{ row.margen_pct }}%</td>
                                 </tr>
                                 <tr class="dia-totals-row">
                                     <td><strong>TOTAL</strong></td>
-                                    <td class="right"><strong>{{ fmtBs(dayData.totals.vendido_bs) }}</strong></td>
+                                    <td class="right"><strong>{{ fmtUsd(dayData.totals.vendido_usd) }}</strong></td>
+                                    <td class="right muted"><strong>{{ fmtBs(dayData.totals.vendido_bs) }}</strong></td>
                                     <td class="right muted"><strong>{{ fmtUsd(dayData.totals.costo_usd) }}</strong></td>
                                     <td class="right" :class="dayData.totals.utilidad_usd >= 0 ? 'text-green' : 'text-red'"><strong>{{ fmtUsd(dayData.totals.utilidad_usd) }}</strong></td>
                                     <td class="right"><strong>{{ dayData.totals.margen_pct }}%</strong></td>
@@ -562,8 +565,8 @@ const typeClass   = { internal: 'badge-amber', external: 'badge-blue' }
 .results-count { font-size: 0.78rem; color: var(--text-muted); font-weight: 600; }
 
 /* ─── Tabla ────────────────────────────────────────────────────────────────── */
-.table-wrap { overflow-x: auto; }
-.rep-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; min-width: 0; }
+.rep-table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 0.84rem; }
 .rep-table th {
     padding: 0.45rem 0.75rem;
     text-align: left;
@@ -640,6 +643,36 @@ const typeClass   = { internal: 'badge-amber', external: 'badge-blue' }
     .filter-bar { gap: 0.5rem; }
     .filter-actions { margin-left: 0; width: 100%; }
     .tab-bar { width: 100%; overflow-x: auto; }
+}
+
+@media (max-width: 640px) {
+    .rep-wrap { padding: 1rem 0.75rem; }
+
+    /* Tab bar scrollable */
+    .tab-bar { padding: 0.25rem; }
+    .tab { padding: 0.5rem 0.85rem; font-size: 0.82rem; }
+
+    /* Filter bar stacks */
+    .filter-bar { flex-direction: column; align-items: stretch; }
+    .filter-group { width: 100%; }
+    .filter-input { width: 100%; min-width: unset; font-size: 1rem; /* prevent iOS zoom */ }
+    .filter-actions { flex-direction: column; gap: 0.5rem; }
+    .btn-brand, .btn-outline { width: 100%; justify-content: center; min-height: 44px; }
+
+    /* Card padding */
+    .card { padding: 0.85rem; }
+
+    /* Pagination touch targets */
+    .page-btn { width: 2.75rem; height: 2.75rem; }
+
+    /* Bar chart: label narrower on small screens */
+    .bar-label { width: 70px; min-width: 70px; font-size: 0.76rem; }
+    .bar-value { width: 65px; min-width: 65px; font-size: 0.76rem; }
+}
+
+@media (max-width: 480px) {
+    /* Day report table also needs min-width */
+    .dia-table { font-size: 0.8rem; }
 }
 
 /* ─── Reporte del Día ────────────────────────────────────────────────────────── */

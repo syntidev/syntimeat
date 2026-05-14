@@ -625,8 +625,8 @@ async function deactivateProduct(product) {
 .empty-icon  { font-size: 2.5rem; }
 
 /* ─── Table ──────────────────────────────────────────────────────────────────*/
-.table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
-.bov-table  { width: 100%; border-collapse: collapse; font-size: 0.85rem; background: var(--bg-card); }
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; min-width: 0; border-radius: 10px; border: 1px solid var(--border); }
+.bov-table  { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 0.85rem; background: var(--bg-card); }
 .bov-table th { padding: 0.6rem 0.8rem; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); background: var(--bg); border-bottom: 1px solid var(--border); white-space: nowrap; }
 .bov-table td { padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--border); color: var(--text-primary); vertical-align: middle; }
 .bov-table tr:last-child td { border-bottom: none; }

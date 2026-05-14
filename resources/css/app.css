@@ -55,3 +55,10 @@ select option {
   background-color: var(--bg-input);
   color: var(--text-primary);
 }
+
+/* ── Scrollbar custom ─────────────────────────────────────────────────────── */
+::-webkit-scrollbar              { width: 6px; height: 6px; }
+::-webkit-scrollbar-track        { background: var(--bg-base); }
+::-webkit-scrollbar-thumb        { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover  { background: var(--brand); }
+* { scrollbar-width: thin; scrollbar-color: var(--border) var(--bg-base); }

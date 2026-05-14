@@ -28,7 +28,7 @@ class ClientController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhere('phone', 'like', "%{$search}%")
-                  ->orWhere('client_code', 'like', "%{$search}%");
+                  ->orWhere('cedula', 'like', "%{$search}%");
             });
         }
 
@@ -61,12 +61,23 @@ class ClientController extends Controller
         $businessId = Auth::user()->business->id;
 
         $data = $request->validate([
+            'cedula'  => ['nullable', 'string', 'max:20'],
             'name'    => ['required', 'string', 'max:100'],
             'phone'   => ['nullable', 'string', 'max:30'],
             'email'   => ['nullable', 'email', 'max:100'],
             'address' => ['nullable', 'string'],
             'notes'   => ['nullable', 'string'],
         ]);
+
+        if (! empty($data['cedula'])) {
+            $exists = Client::where('business_id', $businessId)
+                ->where('cedula', $data['cedula'])
+                ->exists();
+
+            if ($exists) {
+                return back()->withErrors(['cedula' => 'Ya existe un cliente con esa cédula.']);
+            }
+        }
 
         if (! empty($data['phone'])) {
             $exists = Client::where('business_id', $businessId)
@@ -91,6 +102,7 @@ class ClientController extends Controller
         abort_unless($client->business_id === $businessId, 403);
 
         $data = $request->validate([
+            'cedula'  => ['nullable', 'string', 'max:20'],
             'name'    => ['required', 'string', 'max:100'],
             'phone'   => ['nullable', 'string', 'max:30'],
             'email'   => ['nullable', 'email', 'max:100'],
@@ -98,6 +110,17 @@ class ClientController extends Controller
             'notes'   => ['nullable', 'string'],
             'active'  => ['boolean'],
         ]);
+
+        if (! empty($data['cedula'])) {
+            $exists = Client::where('business_id', $businessId)
+                ->where('cedula', $data['cedula'])
+                ->where('id', '!=', $client->id)
+                ->exists();
+
+            if ($exists) {
+                return back()->withErrors(['cedula' => 'Ya existe un cliente con esa cédula.']);
+            }
+        }
 
         if (! empty($data['phone'])) {
             $exists = Client::where('business_id', $businessId)
@@ -153,9 +176,9 @@ class ClientController extends Controller
             ->where(function ($query) use ($q) {
                 $query->where('name', 'like', "%{$q}%")
                       ->orWhere('phone', 'like', "%{$q}%")
-                      ->orWhere('client_code', 'like', "%{$q}%");
+                      ->orWhere('cedula', 'like', "%{$q}%");
             })
-            ->select('id', 'client_code', 'name', 'phone')
+            ->select('id', 'cedula', 'name', 'phone')
             ->limit(10)
             ->get();
 

@@ -342,11 +342,11 @@ function submitClose() {
 @media (max-width: 900px) { .dc-cols { grid-template-columns: 1fr; } }
 
 /* Cards */
-.dc-card       { background: var(--bg-card); border: 1px solid var(--border); border-radius: .75rem; padding: 1.25rem; margin-bottom: 1.25rem; }
+.dc-card       { background: var(--bg-card); border: 1px solid var(--border); border-radius: .75rem; padding: 1.25rem; margin-bottom: 1.25rem; overflow-x: auto; -webkit-overflow-scrolling: touch; min-width: 0; }
 .dc-card-title { font-size: 1rem; font-weight: 600; color: var(--text-primary); margin: 0 0 1rem; }
 
 /* Tables */
-.dc-table      { width: 100%; border-collapse: collapse; font-size: .875rem; }
+.dc-table      { width: 100%; min-width: 420px; border-collapse: collapse; font-size: .875rem; }
 .dc-table th   { text-align: left; color: var(--text-muted); font-weight: 500; padding: .5rem .75rem; border-bottom: 1px solid var(--border); }
 .dc-table td   { padding: .5rem .75rem; border-bottom: 1px solid var(--border-faint, var(--border)); color: var(--text-primary); }
 .dc-table tr:last-child td { border-bottom: none; }
@@ -395,6 +395,48 @@ function submitClose() {
 .btn-danger  { background: var(--color-danger, #ef4444); color: #fff; }
 .btn-ghost:hover { background: var(--bg-hover, rgba(255,255,255,.06)); }
 .btn-danger:hover:not(:disabled) { opacity: .88; }
+
+/* ─── Responsive ────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .dc-wrap { padding: 1rem 0.75rem; }
+    .dc-kpis { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 640px) {
+    /* Header stacks */
+    .dc-header { flex-direction: column; align-items: flex-start; }
+    .dc-header .btn { width: 100%; justify-content: center; min-height: 44px; }
+
+    /* KPIs: 1 col */
+    .dc-kpis { grid-template-columns: 1fr; }
+
+    /* Tables scroll */
+    .dc-card { padding: 0.85rem; }
+    .dc-table { font-size: 0.8rem; }
+
+    /* Confirm button full-width */
+    .dc-btn-close { min-height: 44px; }
+
+    /* Input prevent iOS zoom */
+    .dc-input { font-size: 1rem; }
+
+    /* Modal → bottom sheet */
+    .modal-overlay { align-items: flex-end; }
+    .modal-box { border-radius: 16px 16px 0 0; max-height: 90dvh; width: 100%; max-width: 100%; }
+    .modal-actions .btn { min-height: 44px; flex: 1; justify-content: center; }
+
+    /* Bov grid: 1 col */
+    .bov-grid { grid-template-columns: 1fr; }
+    .bov-metrics { grid-template-columns: repeat(2, 1fr); }
+
+    /* Macro grid: 2 col */
+    .macro-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 480px) {
+    .macro-grid { grid-template-columns: 1fr; }
+    .bov-metrics { grid-template-columns: 1fr 1fr; }
+}
 
 /* ── Utilidad por Bóveda ──────────────────────────────────────────────────── */
 .bov-section   { margin-bottom: 0; }

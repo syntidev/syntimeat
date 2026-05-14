@@ -68,8 +68,8 @@ class CatalogSeederChaguaramas extends Seeder
             Product::create(['business_id'=>$bid,'category_id'=>$emb->id,'name'=>$n,'sale_mode'=>'unit','base_unit_label'=>'und','price_per_unit_usd'=>0.56,'location'=>'vitrina','active'=>true,'sort_order'=>$i]);
         }
 
-        // ─── Abarrotes ────────────────────────────────────────────────────────
-        $abarr = Category::create(['business_id'=>$bid,'name'=>'Abarrotes','color'=>'#10B981','sort_order'=>7]);
+        // ─── Víveres ────────────────────────────────────────────────────────
+        $abarr = Category::create(['business_id'=>$bid,'name'=>'Víveres','color'=>'#10B981','sort_order'=>7]);
         foreach ([['Malta',0.28],['Refresco 2L',0.83],['Aceite 1L',1.11],['Mayonesa 445g',1.67]] as $i=>[$n,$p]) {
             Product::create(['business_id'=>$bid,'category_id'=>$abarr->id,'name'=>$n,'sale_mode'=>'unit','base_unit_label'=>'und','price_per_unit_usd'=>$p,'location'=>'despensa','active'=>true,'sort_order'=>$i]);
         }

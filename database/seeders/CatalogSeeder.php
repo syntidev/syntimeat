@@ -26,7 +26,7 @@ class CatalogSeeder extends Seeder
         $this->seedPollo($business->id);
         $this->seedCharcuteria($business->id);
         $this->seedEmbutidos($business->id);
-        $this->seedAbarrotes($business->id);
+        $this->seedVíveres($business->id);
 
         $this->command->info('CatalogSeeder: ' . Product::where('business_id', $business->id)->count() . ' productos creados.');
     }
@@ -100,11 +100,11 @@ class CatalogSeeder extends Seeder
         $this->product($businessId, $cat->id, null, 'Queso de Mano', 'unit', null, 2.22);
     }
 
-    // ─── Abarrotes ────────────────────────────────────────────────────────────
+    // ─── Víveres ────────────────────────────────────────────────────────────
 
-    private function seedAbarrotes(int $businessId): void
+    private function seedVíveres(int $businessId): void
     {
-        $cat = $this->category($businessId, 'Abarrotes', '#10B981', '🛒', 6);
+        $cat = $this->category($businessId, 'Víveres', '#10B981', '🛒', 6);
 
         $this->product($businessId, $cat->id, null, 'Malta',         'unit', null, 0.28);
         $this->product($businessId, $cat->id, null, 'Refresco 2L',   'unit', null, 0.83);

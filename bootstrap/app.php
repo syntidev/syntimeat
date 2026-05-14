@@ -16,6 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
 
+        $middleware->web(append: [
+            \App\Http\Middleware\EnforceUserSession::class,
+        ]);
+
         $middleware->alias([
             'check.onboarding' => \App\Http\Middleware\CheckOnboarding::class,
             'role'             => \App\Http\Middleware\EnsureRole::class,

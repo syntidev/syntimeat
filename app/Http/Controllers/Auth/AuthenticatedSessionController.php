@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +10,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -32,6 +35,12 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
 
         $request->session()->regenerate();
+
+        // Sesión única: genera token y lo graba en el usuario y en la sesión
+        $token = Str::random(48);
+        $user  = Auth::user();
+        $user->updateQuietly(['session_token' => $token]);
+        $request->session()->put('user_session_token', $token);
 
         return redirect()->intended(route('dashboard', absolute: false));
     }

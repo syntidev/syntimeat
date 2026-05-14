@@ -136,6 +136,7 @@ class DashboardController extends Controller
                 'sold_at'        => $s->sold_at?->toDateTimeString(),
                 'items_count'    => $s->items_count,
                 'total_bs'       => (float) $s->total_bs,
+                'total_usd'      => (float) $s->total_usd,
                 'payment_method' => $s->payment_method,
                 'status'         => $s->status,
             ])

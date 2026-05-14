@@ -154,28 +154,40 @@ class SettingsController extends Controller
 
     public function cashRegisters(): Response
     {
-        $business = Auth::user()->business;
+        $user     = Auth::user();
+        $business = $user->business;
+        $branchId = $user->branch_id;
 
         $registers = CashRegister::where('business_id', $business->id)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->orderBy('id')
-            ->get(['id', 'name', 'opened_at', 'closed_at']);
+            ->get(['id', 'name', 'branch_id', 'opened_at', 'closed_at']);
+
+        $branches = \App\Models\Branch::where('business_id', $business->id)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
         return Inertia::render('Settings/CashRegisters', [
             'registers' => $registers,
+            'branches'  => $branches,
         ]);
     }
 
     public function storeCashRegister(Request $request): RedirectResponse
     {
-        $business = Auth::user()->business;
+        $user     = Auth::user();
+        $business = $user->business;
 
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:100'],
+            'name'      => ['required', 'string', 'max:100'],
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
         ]);
 
         CashRegister::create([
             'name'        => $data['name'],
             'business_id' => $business->id,
+            'branch_id'   => $data['branch_id'] ?? $user->branch_id,
         ]);
 
         return back()->with('success', 'Caja registradora creada.');

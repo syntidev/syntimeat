@@ -61,7 +61,7 @@ class TestFlowSeeder extends Seeder
         );
 
         $catDespensa = Category::firstOrCreate(
-            ['business_id' => $this->business->id, 'name' => 'Abarrotes'],
+            ['business_id' => $this->business->id, 'name' => 'Víveres'],
             ['color' => '#10B981', 'sort_order' => 6, 'active' => true],
         );
 

@@ -43,18 +43,18 @@ function closeDrawer() {
 // ─── Modal crear/editar ───────────────────────────────────────────────────────
 const showModal = ref(false)
 const modalMode = ref('create') // 'create' | 'edit'
-const form      = ref({ name: '', phone: '', email: '', address: '', notes: '' })
+const form      = ref({ cedula: '', name: '', phone: '', email: '', address: '', notes: '' })
 const errors    = ref({})
 const saving    = ref(false)
 
 function openCreate() {
-    form.value  = { name: '', phone: '', email: '', address: '', notes: '' }
+    form.value  = { cedula: '', name: '', phone: '', email: '', address: '', notes: '' }
     errors.value = {}
     modalMode.value = 'create'
     showModal.value = true
 }
 function openEdit(client) {
-    form.value  = { name: client.name, phone: client.phone ?? '', email: client.email ?? '', address: client.address ?? '', notes: client.notes ?? '' }
+    form.value  = { cedula: client.cedula ?? '', name: client.name, phone: client.phone ?? '', email: client.email ?? '', address: client.address ?? '', notes: client.notes ?? '' }
     errors.value = {}
     modalMode.value = 'edit'
     showModal.value = true
@@ -130,7 +130,7 @@ function toggleActive(client) {
                     v-model="search"
                     type="search"
                     class="search-input"
-                    placeholder="Buscar por nombre, teléfono o código…"
+                    placeholder="Buscar por nombre, teléfono o cédula…"
                 />
                 <button class="btn btn-brand" @click="openCreate">+ Nuevo cliente</button>
             </div>
@@ -140,7 +140,7 @@ function toggleActive(client) {
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Código</th>
+                            <th>Cédula</th>
                             <th>Nombre</th>
                             <th>Teléfono</th>
                             <th>Última compra</th>
@@ -156,7 +156,7 @@ function toggleActive(client) {
                             class="data-row"
                             @click="openDrawer(c)"
                         >
-                            <td><span class="code-badge">{{ c.client_code }}</span></td>
+                            <td><span class="code-badge">{{ c.cedula ?? '—' }}</span></td>
                             <td class="name-cell">{{ c.name }}</td>
                             <td class="muted-cell">{{ c.phone ?? '—' }}</td>
                             <td class="muted-cell">{{ fmtDate(c.sales_max_sold_at) }}</td>
@@ -197,13 +197,14 @@ function toggleActive(client) {
                 <div class="drawer">
                     <div class="drawer-header">
                         <div>
-                            <span class="code-badge">{{ activeClient.client_code }}</span>
+                            <span v-if="activeClient.cedula" class="code-badge">{{ activeClient.cedula }}</span>
                             <h3 class="drawer-name">{{ activeClient.name }}</h3>
                         </div>
                         <button class="modal-close" @click="closeDrawer">×</button>
                     </div>
 
                     <div class="drawer-info">
+                        <div class="info-row"><span>Cédula</span><span>{{ activeClient.cedula ?? '—' }}</span></div>
                         <div class="info-row"><span>Teléfono</span><span>{{ activeClient.phone ?? '—' }}</span></div>
                         <div class="info-row"><span>Email</span><span>{{ activeClient.email ?? '—' }}</span></div>
                         <div class="info-row"><span>Dirección</span><span>{{ activeClient.address ?? '—' }}</span></div>
@@ -244,6 +245,11 @@ function toggleActive(client) {
                     </div>
 
                     <div class="form-grid">
+                        <div class="form-field">
+                            <label>Cédula <span class="opt">(V- / E-)</span></label>
+                            <input v-model="form.cedula" type="text" maxlength="20" class="form-input" placeholder="Ej. V-12345678" />
+                            <span v-if="errors.cedula" class="field-error">{{ errors.cedula[0] }}</span>
+                        </div>
                         <div class="form-field">
                             <label>Nombre *</label>
                             <input v-model="form.name" type="text" maxlength="100" class="form-input" />
@@ -298,8 +304,8 @@ function toggleActive(client) {
 .search-input:focus { outline: none; border-color: var(--brand); }
 
 /* Table */
-.table-wrap { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-.data-table { width: 100%; border-collapse: collapse; }
+.table-wrap { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; min-width: 0; }
+.data-table { width: 100%; min-width: 540px; border-collapse: collapse; }
 .data-table th { padding: 0.65rem 1rem; text-align: left; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--border); background: var(--bg-base); }
 .data-row { cursor: pointer; transition: background 0.12s; }
 .data-row:hover { background: var(--bg-base); }
@@ -309,6 +315,7 @@ function toggleActive(client) {
 .muted-cell { color: var(--text-muted); }
 .empty-row { text-align: center; color: var(--text-muted); padding: 2rem !important; }
 .code-badge { display: inline-block; font-family: monospace; font-size: 0.78rem; background: var(--bg-base); border: 1px solid var(--border); border-radius: 4px; padding: 0.1rem 0.4rem; color: var(--text-muted); }
+.opt { font-weight: 400; color: var(--text-muted); font-size: 0.75rem; }
 .status-pill { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 99px; font-weight: 600; }
 .status-pill.active   { background: rgba(22,163,74,0.15); color: #16a34a; }
 .status-pill.inactive { background: rgba(239,68,68,0.12); color: #ef4444; }
@@ -362,8 +369,23 @@ function toggleActive(client) {
 .btn-ghost:hover { color: var(--text-primary); }
 
 @media (max-width: 768px) {
-    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-    .top-bar { flex-wrap: wrap; }
-    .drawer { width: 100vw; }
+    .clients-wrap { padding: 1rem 0.75rem; }
+    .kpi-grid     { grid-template-columns: repeat(2, 1fr); }
+    .top-bar      { flex-wrap: wrap; }
+    .top-bar .btn { width: 100%; justify-content: center; }
+    .search-input { width: 100%; }
+    .data-table   { font-size: 0.8rem; }
+    .drawer       { width: 100vw; }
+}
+@media (max-width: 640px) {
+    .clients-wrap { padding: 0.75rem 0.6rem; min-height: 100dvh; }
+    .kpi-grid     { grid-template-columns: 1fr 1fr; }
+    .kpi-value    { font-size: 1.35rem; }
+    .modal-overlay { align-items: flex-end; padding: 0; }
+    .modal-box    { width: 100%; max-width: 100%; border-radius: 16px 16px 0 0; max-height: 90dvh; overflow-y: auto; padding: 1.25rem 1rem; }
+    .form-grid    { grid-template-columns: 1fr; }
+    .form-input   { font-size: 1rem; }
+    .btn          { min-height: 44px; touch-action: manipulation; }
+    .icon-btn     { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
 }
 </style>

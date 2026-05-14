@@ -63,11 +63,22 @@ class OrderController extends Controller
             ->whereDate('updated_at', today())
             ->count();
 
-        $cobrosPendientes = Sale::with(['items', 'cashier'])
+        // Cobros pendientes: crédito (payment_status) + delivery (status=pending)
+        $creditPending   = Sale::with(['items', 'cashier'])
             ->where('business_id', $businessId)
             ->where('payment_status', 'pendiente_cobro')
             ->orderByDesc('created_at')
-            ->get()
+            ->get();
+
+        $deliveryPending = Sale::with(['items', 'cashier'])
+            ->where('business_id', $businessId)
+            ->where('origin', 'delivery')
+            ->where('status', 'pending')
+            ->orderByDesc('created_at')
+            ->get();
+
+        $cobrosPendientes = $creditPending->merge($deliveryPending)
+            ->sortByDesc('created_at')
             ->map(fn (Sale $s) => $this->formatSalePending($s, $rate))
             ->values();
 
@@ -673,11 +684,16 @@ class OrderController extends Controller
 
     private function formatSalePending(Sale $sale, float $rate): array
     {
+        // sale_type determina qué endpoint usa el frontend al cobrar
+        $saleType = $sale->origin === 'delivery' ? 'delivery' : 'credit';
+
         return [
             'id'            => $sale->id,
             'ticket_number' => $sale->ticket_number,
             'client_name'   => $sale->client_name,
+            'client_phone'  => $sale->client_phone,
             'origin'        => $sale->origin,
+            'sale_type'     => $saleType,
             'total_usd'     => (float) $sale->total_usd,
             'total_bs'      => round((float) $sale->total_usd * $rate, 2),
             'cashier_name'  => $sale->cashier?->name ?? '—',

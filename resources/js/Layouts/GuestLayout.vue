@@ -1,9 +1,110 @@
 <script setup>
 import AppLogo from '@/Components/AppLogo.vue'
+import { onMounted, onUnmounted, ref } from 'vue'
+
+const canvasRef = ref(null)
+let animId = null
+
+onMounted(() => {
+    const canvas = canvasRef.value
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+
+    const resize = () => {
+        canvas.width  = window.innerWidth
+        canvas.height = window.innerHeight
+    }
+    resize()
+    window.addEventListener('resize', resize)
+
+    // Paleta: rojos oscuros (carne), cremas (grasa), borgoñas
+    const palette = [
+        'rgba(185,28,28,',   // rojo brand
+        'rgba(153,27,27,',   // rojo oscuro
+        'rgba(220,80,60,',   // rojo vivo
+        'rgba(240,200,160,', // crema/grasa
+        'rgba(200,160,120,', // tostado
+        'rgba(120,20,20,',   // borgoña
+    ]
+
+    const COUNT = 55
+
+    const particles = Array.from({ length: COUNT }, () => {
+        const color = palette[Math.floor(Math.random() * palette.length)]
+        const r = 3 + Math.random() * 28          // radio 3–31px
+        const alpha = 0.06 + Math.random() * 0.18 // semitransparentes
+        return {
+            x:  Math.random() * window.innerWidth,
+            y:  Math.random() * window.innerHeight,
+            r,
+            color,
+            alpha,
+            alphaDir: Math.random() < 0.5 ? 1 : -1,
+            alphaSpeed: 0.0003 + Math.random() * 0.0007,
+            vx: (Math.random() - 0.5) * 0.35,
+            vy: (Math.random() - 0.5) * 0.35,
+            // forma elíptica para evocar veteado
+            rx: r,
+            ry: r * (0.4 + Math.random() * 0.8),
+            angle: Math.random() * Math.PI,
+            angleSpeed: (Math.random() - 0.5) * 0.004,
+        }
+    })
+
+    const draw = () => {
+        const W = canvas.width
+        const H = canvas.height
+        ctx.clearRect(0, 0, W, H)
+
+        for (const p of particles) {
+            // pulso de opacidad
+            p.alpha += p.alphaSpeed * p.alphaDir
+            if (p.alpha > 0.22 || p.alpha < 0.04) p.alphaDir *= -1
+
+            // movimiento
+            p.x += p.vx
+            p.y += p.vy
+            p.angle += p.angleSpeed
+
+            // wrap suave
+            if (p.x < -p.r * 2) p.x = W + p.r
+            if (p.x > W + p.r * 2) p.x = -p.r
+            if (p.y < -p.r * 2) p.y = H + p.r
+            if (p.y > H + p.r * 2) p.y = -p.r
+
+            // dibujar elipse rotada
+            ctx.save()
+            ctx.translate(p.x, p.y)
+            ctx.rotate(p.angle)
+
+            const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, p.rx)
+            grad.addColorStop(0, `${p.color}${p.alpha.toFixed(3)})`)
+            grad.addColorStop(1, `${p.color}0)`)
+
+            ctx.beginPath()
+            ctx.ellipse(0, 0, p.rx, p.ry, 0, 0, Math.PI * 2)
+            ctx.fillStyle = grad
+            ctx.fill()
+            ctx.restore()
+        }
+
+        animId = requestAnimationFrame(draw)
+    }
+
+    draw()
+
+    onUnmounted(() => {
+        cancelAnimationFrame(animId)
+        window.removeEventListener('resize', resize)
+    })
+})
 </script>
 
 <template>
     <div class="guest-root">
+        <!-- Canvas animado: partículas marmoladas -->
+        <canvas ref="canvasRef" class="guest-canvas" aria-hidden="true" />
+
         <div class="guest-card">
             <!-- Logo SYNTImeat -->
             <div class="guest-brand">
@@ -22,10 +123,6 @@ import AppLogo from '@/Components/AppLogo.vue'
                 © {{ new Date().getFullYear() }} SYNTIDEV · SYNTImeat
             </p>
         </div>
-
-        <!-- Decoración fondo -->
-        <div class="guest-bg-orb guest-bg-orb--1" aria-hidden="true" />
-        <div class="guest-bg-orb guest-bg-orb--2" aria-hidden="true" />
     </div>
 </template>
 
@@ -42,23 +139,14 @@ import AppLogo from '@/Components/AppLogo.vue'
     font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
-/* Orbes decorativos */
-.guest-bg-orb {
+/* Canvas de partículas */
+.guest-canvas {
     position: absolute;
-    border-radius: 50%;
-    filter: blur(80px);
+    inset: 0;
+    width: 100%;
+    height: 100%;
     pointer-events: none;
     z-index: 0;
-}
-.guest-bg-orb--1 {
-    width: 400px; height: 400px;
-    background: radial-gradient(circle, rgba(185,28,28,0.18) 0%, transparent 70%);
-    top: -80px; left: -80px;
-}
-.guest-bg-orb--2 {
-    width: 350px; height: 350px;
-    background: radial-gradient(circle, rgba(37,99,235,0.12) 0%, transparent 70%);
-    bottom: -60px; right: -60px;
 }
 
 /* Card */

@@ -7,15 +7,18 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\Branch;
 
 class CashRegister extends Model
 {
     protected $fillable = [
         'business_id',
+        'branch_id',
         'name',
         'opened_at',
         'closed_at',
         'opening_amount_usd',
+        'opening_amount_bs',
         'expected_cash_usd',
         'counted_cash_usd',
         'difference_usd',
@@ -31,6 +34,7 @@ class CashRegister extends Model
             'opened_at'          => 'datetime',
             'closed_at'          => 'datetime',
             'opening_amount_usd' => 'decimal:2',
+            'opening_amount_bs'  => 'decimal:2',
             'expected_cash_usd'  => 'decimal:2',
             'counted_cash_usd'   => 'decimal:2',
             'difference_usd'     => 'decimal:2',
@@ -41,6 +45,11 @@ class CashRegister extends Model
     public function business(): BelongsTo
     {
         return $this->belongsTo(Business::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     public function opener(): BelongsTo

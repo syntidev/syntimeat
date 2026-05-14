@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\PaymentMethod;
+use App\Models\PaymentTerminal;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,8 +23,14 @@ class PaymentMethodController extends Controller
             ->orderBy('id')
             ->get();
 
+        $terminals = PaymentTerminal::where('business_id', $business->id)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
         return Inertia::render('Settings/PaymentMethods', [
-            'methods' => $methods,
+            'methods'   => $methods,
+            'terminals' => $terminals,
         ]);
     }
 

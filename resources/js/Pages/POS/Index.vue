@@ -1,6 +1,7 @@
 ﻿<script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { usePage } from '@inertiajs/vue3';
+import AppLogo from '@/Components/AppLogo.vue';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 const props = defineProps({
@@ -198,9 +199,10 @@ const cartCount    = computed(() => cart.value.reduce((s, i) => s + i.quantity_v
 const showMobileCart = ref(false);
 
 // ─── Modal de cobro (multi-pago) ─────────────────────────────────────────────
-const payModal  = ref(false);
-const paying    = ref(false);
-const payments  = ref([]);
+const payModal    = ref(false);
+const paying      = ref(false);
+const payments    = ref([]);
+const saleOrigin  = ref('onsite'); // onsite | delivery | credit
 
 const newPmtMethodId  = ref(null);
 const newPmtAmountBs  = ref('');
@@ -213,8 +215,6 @@ const payTotalBs    = computed(() => roundCents(cartTotalBs.value));
 const payPaidBs     = computed(() => roundCents(payments.value.reduce((s, p) => s + parseFloat(p.amount_bs || 0), 0)));
 const payRestBs     = computed(() => Math.max(0, roundCents(payTotalBs.value - payPaidBs.value)));
 const payChangeBs   = computed(() => Math.max(0, roundCents(payPaidBs.value - payTotalBs.value)));
-const payCanConfirm = computed(() => payments.value.length > 0 && payRestBs.value <= 0);
-
 const selectedMethodNeedsRef = computed(() => {
     if (!newPmtMethodId.value) return false;
     const m = props.paymentMethods.find(p => p.id === newPmtMethodId.value);
@@ -232,6 +232,7 @@ function openPayModal() {
 function launchPayModal() {
     showNegativeWarning.value = false;
     payments.value        = [];
+    saleOrigin.value      = 'onsite';
     newPmtMethodId.value  = props.paymentMethods[0]?.id ?? null;
     newPmtAmountBs.value  = exactBs(cartTotalBs.value);
     newPmtReference.value = '';
@@ -330,18 +331,71 @@ const successPayments = ref([]);   // snapshot de pagos
 const successDate     = ref('');   // fecha/hora de la venta
 const successClient   = ref({ name: '', phone: '' });  // snapshot del cliente
 
+// payCanConfirm depende del origen: delivery/credit no necesitan pagos
+const payCanConfirm = computed(() => {
+    if (saleOrigin.value === 'delivery' || saleOrigin.value === 'credit') return true;
+    return payments.value.length > 0 && payRestBs.value <= 0;
+});
+
 function confirmPay() {
     if (!payCanConfirm.value || paying.value) return;
     paying.value = true;
-    window.axios.post(route('sales.store'), {
-        items: cart.value.map(i => ({
-            product_id: i.product_id,
-            input_type: i.input_type,
-            ...(i.input_type === 'weight' && i.amount_bs
-                ? { amount_bs: i.amount_bs }
-                : { quantity_value: i.quantity_value }),
-        })),
-    })
+
+    const items = cart.value.map(i => ({
+        product_id: i.product_id,
+        input_type: i.input_type,
+        ...(i.input_type === 'weight' && i.amount_bs
+            ? { amount_bs: i.amount_bs }
+            : { quantity_value: i.quantity_value }),
+    }));
+
+    // ── Delivery: crea pedido pendiente, sin cobro inmediato ─────────────────
+    if (saleOrigin.value === 'delivery') {
+        window.axios.post(route('sales.store'), { items, origin: 'delivery' })
+            .then(({ data }) => {
+                if (!data.sale) throw new Error('Sin venta');
+                successTicket.value   = data.sale.ticket_number;
+                successTotal.value    = cartTotalBs.value;
+                successItems.value    = cart.value.map(i => ({ ...i, subtotal_bs: i.subtotal_usd * props.todayRate }));
+                successPayments.value = [];
+                successDate.value     = new Date().toLocaleString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                successClient.value   = { name: clientName.value.trim(), phone: clientPhone.value.trim() };
+                closePayModal();
+                successModal.value = true;
+                tickets.value[activeTicket.value].items = [];
+            })
+            .catch((err) => { alert(err?.response?.data?.error ?? err?.response?.data?.message ?? err?.message ?? 'Error al registrar el delivery.'); })
+            .finally(() => { paying.value = false; });
+        return;
+    }
+
+    // ── Crédito: despacha sin cobro, payment_status=pendiente_cobro ──────────
+    if (saleOrigin.value === 'credit') {
+        window.axios.post(route('sales.store'), {
+            items,
+            origin: 'credit',
+            client_name:  clientName.value.trim() || null,
+            client_phone: clientPhone.value.trim() || null,
+        })
+            .then(({ data }) => {
+                if (!data.sale) throw new Error('Sin venta');
+                successTicket.value   = data.sale.ticket_number;
+                successTotal.value    = cartTotalBs.value;
+                successItems.value    = cart.value.map(i => ({ ...i, subtotal_bs: i.subtotal_usd * props.todayRate }));
+                successPayments.value = [];
+                successDate.value     = new Date().toLocaleString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                successClient.value   = { name: clientName.value.trim(), phone: clientPhone.value.trim() };
+                closePayModal();
+                successModal.value = true;
+                tickets.value[activeTicket.value].items = [];
+            })
+            .catch((err) => { alert(err?.response?.data?.error ?? err?.response?.data?.message ?? err?.message ?? 'Error al registrar el crédito.'); })
+            .finally(() => { paying.value = false; });
+        return;
+    }
+
+    // ── En Sitio: flujo estándar store → pay ────────────────────────────────
+    window.axios.post(route('sales.store'), { items, origin: 'onsite' })
     .then(({ data }) => {
         if (!data.sale) throw new Error('Sin venta');
         const saleId       = data.sale.id;
@@ -354,7 +408,6 @@ function confirmPay() {
         }).then(() => ticketNumber);
     })
     .then((ticket) => {
-        // Snapshot antes de limpiar
         successTicket.value   = ticket;
         successTotal.value    = cartTotalBs.value;
         successItems.value    = cart.value.map(i => ({ ...i, subtotal_bs: i.subtotal_usd * props.todayRate }));
@@ -379,24 +432,87 @@ function newSale() {
     successPayments.value = [];
 }
 
-function whatsAppText() {
+function printTicket() {
     const biz   = props.businessInfo
-    const lines = [
-        `*${(biz.name || 'Mi Negocio').toUpperCase()}*`,
-        biz.city ? `${biz.city}${biz.state ? ', ' + biz.state : ''}` : '',
-        `Ticket: ${successTicket.value}`,
-        successDate.value,
-        '',
-        ...successItems.value.map(i => {
-            const qty = i.sale_mode === 'weight' ? fmtQty(i.quantity_value, i.sale_mode) + '  ' : ''
-            return `${i.product_name}  ${qty}${fmtBs(i.subtotal_bs)} Bs.`
-        }),
-        '',
-        `*TOTAL: ${fmtBs(successTotal.value)} Bs.*`,
-        ...successPayments.value.map(p => `Método: ${p.method_label || p.method || '—'}`),
-    ].filter(l => l !== undefined)
-    if (biz.ticket_footer) lines.push('', biz.ticket_footer)
-    return encodeURIComponent(lines.join('\n'))
+    const name  = (biz.name  || 'Mi Negocio').toUpperCase()
+    const addr  = [biz.address, biz.city, biz.state].filter(Boolean).join(', ')
+    const phone = biz.phone || ''
+
+    const itemRows = successItems.value.map(i => {
+        const qty = i.sale_mode === 'weight'
+            ? fmtQty(i.quantity_value, 'weight')
+            : `${Math.round(i.quantity_value)} u.`
+        return `<tr>
+            <td class="t-name">${i.product_name}</td>
+            <td class="t-qty">${qty}</td>
+            <td class="t-amt">${fmtBs(i.subtotal_bs)}</td>
+        </tr>`
+    }).join('')
+
+    const payRows = successPayments.value.map(p =>
+        `<tr><td colspan="2" class="t-pay-lbl">${p.method_label || p.method || '—'}</td><td class="t-amt">${fmtBs(p.amount_bs ?? 0)}</td></tr>`
+    ).join('')
+
+    const footer = biz.ticket_footer
+        ? `<p class="t-footer">${biz.ticket_footer}</p>`
+        : ''
+
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Ticket ${successTicket.value}</title>
+<style>
+  @page { size: 80mm auto; margin: 4mm 3mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Courier New', Courier, monospace; font-size: 10pt; color: #000; width: 74mm; }
+  .t-biz  { text-align: center; font-weight: bold; font-size: 12pt; margin-bottom: 1mm; }
+  .t-sub  { text-align: center; font-size: 8.5pt; margin-bottom: 0.5mm; }
+  .t-meta { text-align: center; font-size: 8.5pt; margin: 2mm 0; }
+  .t-sep  { border: none; border-top: 1px dashed #000; margin: 2mm 0; }
+  table   { width: 100%; border-collapse: collapse; }
+  th      { font-size: 8pt; text-align: left; border-bottom: 1px solid #000; padding-bottom: 1mm; }
+  th.t-amt, td.t-amt { text-align: right; }
+  th.t-qty, td.t-qty { text-align: center; width: 16mm; }
+  td      { font-size: 9pt; padding: 1mm 0; vertical-align: top; }
+  td.t-name { max-width: 35mm; word-break: break-word; }
+  .t-total-row td { font-weight: bold; font-size: 11pt; border-top: 1px solid #000; padding-top: 2mm; }
+  .t-pay-lbl { font-size: 8.5pt; color: #333; }
+  .t-footer { text-align: center; font-size: 8pt; margin-top: 3mm; }
+  .t-thanks { text-align: center; font-size: 9pt; font-weight: bold; margin-top: 3mm; }
+</style>
+</head>
+<body>
+  <p class="t-biz">${name}</p>
+  ${addr ? `<p class="t-sub">${addr}</p>` : ''}
+  ${phone ? `<p class="t-sub">Tel: ${phone}</p>` : ''}
+  <hr class="t-sep">
+  <p class="t-meta">Ticket: <strong>${successTicket.value}</strong></p>
+  <p class="t-meta">${successDate.value}</p>
+  ${successClient.value?.name ? `<p class="t-meta">Cliente: ${successClient.value.name}</p>` : ''}
+  <hr class="t-sep">
+  <table>
+    <thead><tr><th>Producto</th><th class="t-qty">Cant.</th><th class="t-amt">Monto</th></tr></thead>
+    <tbody>${itemRows}</tbody>
+  </table>
+  <hr class="t-sep">
+  <table>
+    <tbody>
+      <tr class="t-total-row"><td colspan="2">TOTAL Bs.</td><td class="t-amt">${fmtBs(successTotal.value)}</td></tr>
+      ${payRows}
+    </tbody>
+  </table>
+  ${footer}
+  <p class="t-thanks">¡Gracias por su compra!</p>
+</body>
+</html>`
+
+    const win = window.open('', '_blank', 'width=320,height=600')
+    win.document.write(html)
+    win.document.close()
+    win.focus()
+    win.print()
+    win.onafterprint = () => win.close()
 }
 
 function clearCart() { tickets.value[activeTicket.value].items = []; }
@@ -433,50 +549,62 @@ function productImageUrl(product) {
 
         <!-- ── HEADER ── -->
         <header class="pos-header">
-            <div class="pos-logo">SYNT<em>i</em>meat</div>
-            <div class="sep" />
 
-            <div class="rate-badge">
-                <span class="rate-dot" />
-                <span class="rate-lbl">Tasa del día</span>
-                <span class="rate-val">1 USD = {{ fmtBs(todayRate) }} Bs.</span>
-            </div>
-
-            <div class="sep" />
-
-            <!-- Ticket tabs -->
-            <div class="header-tabs">
-                <button
-                    v-for="(t, idx) in tickets"
-                    :key="t.id"
-                    class="h-ticket-tab"
-                    :class="{ active: activeTicket === idx }"
-                    @click="activeTicket = idx"
-                >
-                    {{ t.label }}
-                    <span v-if="tickets[idx].items.length" class="h-tab-badge">{{ tickets[idx].items.length }}</span>
-                    <span v-if="tickets.length > 1" class="h-tab-close" @click.stop="removeTicket(idx)">×</span>
-                </button>
-                <button class="h-ticket-add" :disabled="tickets.length >= 5" @click="addTicket" title="Nuevo ticket">+</button>
-            </div>
-
-            <span v-if="!cashRegister" class="no-caja-pill">⚠ Sin caja</span>
-
-            <span class="pos-time">{{ currentTime }}</span>
-
-            <div class="user-chip">
-                <div class="user-av">{{ (authUser?.name ?? 'U')[0].toUpperCase() }}</div>
-                <div class="user-info">
-                    <span class="user-name-label">{{ authUser?.name ?? 'Usuario' }}</span>
-                    <span class="user-role-label">{{ authUser?.role ?? '' }}</span>
+            <!-- Izquierda: back + logo -->
+            <div class="hd-left">
+                <a :href="route('dashboard')" class="nav-back" title="Volver al tablero">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                        <path d="M9 15l-5-5 5-5M4 10h12"/>
+                    </svg>
+                </a>
+                <div class="pos-logo">
+                    <AppLogo :dark="true" :size="28" />
+                    <span class="logo-text"><span class="logo-synti">SYNTI</span><span class="logo-meat">meat</span></span>
                 </div>
             </div>
 
-            <a :href="route('dashboard')" class="nav-back" title="Salir del POS">
-                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
-                    <path d="M9 15l-5-5 5-5M4 10h12"/>
-                </svg>
-            </a>
+            <div class="sep" />
+
+            <!-- Centro: tasa + tabs -->
+            <div class="hd-center">
+                <div class="rate-badge">
+                    <span class="rate-dot" />
+                    <span class="rate-lbl">Tasa</span>
+                    <span class="rate-val">{{ fmtBs(todayRate) }} Bs/$</span>
+                </div>
+
+                <div class="sep hd-sep-tabs" />
+
+                <!-- Ticket tabs -->
+                <div class="header-tabs">
+                    <button
+                        v-for="(t, idx) in tickets"
+                        :key="t.id"
+                        class="h-ticket-tab"
+                        :class="{ active: activeTicket === idx }"
+                        @click="activeTicket = idx"
+                    >
+                        {{ t.label }}
+                        <span v-if="tickets[idx].items.length" class="h-tab-badge">{{ tickets[idx].items.length }}</span>
+                        <span v-if="tickets.length > 1" class="h-tab-close" @click.stop="removeTicket(idx)">×</span>
+                    </button>
+                    <button class="h-ticket-add" :disabled="tickets.length >= 5" @click="addTicket" title="Nuevo ticket">+</button>
+                </div>
+            </div>
+
+            <!-- Derecha: estado + hora + usuario -->
+            <div class="hd-right">
+                <span v-if="!cashRegister" class="no-caja-pill">⚠ Sin caja</span>
+                <span class="pos-time">{{ currentTime }}</span>
+                <div class="user-chip">
+                    <div class="user-av">{{ (authUser?.name ?? 'U')[0].toUpperCase() }}</div>
+                    <div class="user-info">
+                        <span class="user-name-label">{{ authUser?.name ?? 'Usuario' }}</span>
+                        <span class="user-role-label">{{ authUser?.role ?? '' }}</span>
+                    </div>
+                </div>
+            </div>
+
         </header>
 
         <!-- ── MAIN ── -->
@@ -524,33 +652,37 @@ function productImageUrl(product) {
                             }"
                             @click="openQtyModal(product)"
                         >
-                            <div class="p-top">
-                                <div class="p-top-text">
-                                    <div class="p-cat" :style="{ color: catColor(product) }">
-                                        {{ product.subcategory?.name ?? product.category?.name ?? '' }}
-                                    </div>
+                            <!-- Zona imagen -->
+                            <div class="p-img-zone" :style="{ '--cat-color': catColor(product) }">
+                                <img
+                                    v-if="productImageUrl(product)"
+                                    :src="productImageUrl(product)"
+                                    :alt="product.name"
+                                    class="p-img"
+                                />
+                                <div v-else class="p-img-ph">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" width="28" height="28" opacity="0.3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                                    </svg>
                                 </div>
-                                <div class="p-thumb">
-                                    <img v-if="productImageUrl(product)" :src="productImageUrl(product)" :alt="product.name" class="p-thumb-img" />
-                                    <div v-else class="p-thumb-ph">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                                        </svg>
-                                    </div>
-                                </div>
+                                <!-- Categoría encima de la imagen -->
+                                <span class="p-cat-pill" :style="{ background: catColor(product) + '22', color: catColor(product) }">
+                                    {{ product.subcategory?.name ?? product.category?.name ?? '' }}
+                                </span>
+                                <!-- Badge stock encima de imagen -->
+                                <span v-if="stockStatus(product) === 'empty'" class="p-stock-pill p-stock-empty">Sin stock</span>
+                                <span v-else-if="stockStatus(product) === 'low'" class="p-stock-pill p-stock-low">Stock bajo</span>
                             </div>
 
-                            <div v-if="stockStatus(product) !== 'ok'" class="stock-row">
-                                <span v-if="stockStatus(product) === 'empty'" class="stock-badge stock-empty">Sin stock</span>
-                                <span v-else class="stock-badge stock-low">Stock bajo</span>
-                            </div>
-
-                            <div class="p-name">{{ product.name }}</div>
-                            <div class="p-bs">
-                                {{ fmtBs(priceBs(product)) }}<span class="p-bs-unit">Bs/{{ product.sale_mode === 'weight' ? 'kg' : 'und' }}</span>
-                            </div>
-                            <div class="p-usd">
-                                {{ fmtUsd(product.sale_mode === 'weight' ? product.price_per_kg_usd : product.price_per_unit_usd) }} / {{ product.sale_mode === 'weight' ? 'kg' : 'und' }}
+                            <!-- Info -->
+                            <div class="p-info">
+                                <div class="p-name">{{ product.name }}</div>
+                                <div class="p-bs">
+                                    {{ fmtUsd(product.sale_mode === 'weight' ? product.price_per_kg_usd : product.price_per_unit_usd) }}<span class="p-bs-unit"> / {{ product.sale_mode === 'weight' ? 'kg' : 'und' }}</span>
+                                </div>
+                                <div class="p-usd">
+                                    {{ fmtBs(priceBs(product)) }} Bs/{{ product.sale_mode === 'weight' ? 'kg' : 'und' }}
+                                </div>
                             </div>
                         </button>
 
@@ -588,7 +720,7 @@ function productImageUrl(product) {
                             <div class="ci-dual">
                                 <span class="ci-qty">{{ fmtQty(item.quantity_value, item.sale_mode) }}</span>
                                 <span class="ci-dot">·</span>
-                                <span class="ci-sub">{{ fmtBs(item.subtotal_usd * todayRate) }} Bs.</span>
+                                <span class="ci-sub">{{ fmtUsd(item.subtotal_usd) }}</span>
                             </div>
                         </div>
                         <button class="ci-rm" @click.stop="removeFromCart(idx)">×</button>
@@ -599,15 +731,15 @@ function productImageUrl(product) {
                     <div class="total-area">
                         <div class="total-meta">
                             <span class="total-lbl">Total</span>
-                            <span class="total-usd">{{ fmtUsd(cartTotalUsd) }} USD</span>
+                            <span class="total-usd">{{ fmtBs(cartTotalBs) }} Bs.</span>
                         </div>
                         <div class="total-main">
-                            <span class="total-bs">{{ fmtBs(cartTotalBs) }}</span>
-                            <span class="total-curr">Bs.</span>
+                            <span class="total-bs">{{ fmtUsd(cartTotalUsd) }}</span>
+                            <span class="total-curr">USD</span>
                         </div>
                     </div>
                     <button class="btn-cobrar" :disabled="!cart.length" @click="openPayModal">
-                        Cobrar · {{ fmtBs(cartTotalBs) }} Bs.
+                        Cobrar · {{ fmtUsd(cartTotalUsd) }} USD
                     </button>
                     <button v-if="cart.length" class="btn-clear-cart" @click="clearCart">Limpiar ticket</button>
                 </div>
@@ -776,6 +908,22 @@ function productImageUrl(product) {
                             <button class="close-btn" @click="closePayModal">×</button>
                         </div>
 
+                        <!-- Selector de origen -->
+                        <div class="origin-selector">
+                            <button class="origin-btn" :class="{ active: saleOrigin === 'onsite' }" @click="saleOrigin = 'onsite'">
+                                <span class="origin-icon">🏪</span>
+                                <span class="origin-label">En Sitio</span>
+                            </button>
+                            <button class="origin-btn" :class="{ active: saleOrigin === 'delivery' }" @click="saleOrigin = 'delivery'">
+                                <span class="origin-icon">🛵</span>
+                                <span class="origin-label">Delivery</span>
+                            </button>
+                            <button class="origin-btn" :class="{ active: saleOrigin === 'credit' }" @click="saleOrigin = 'credit'">
+                                <span class="origin-icon">📋</span>
+                                <span class="origin-label">Crédito</span>
+                            </button>
+                        </div>
+
                         <!-- Items del carrito -->
                         <div class="pay-items-scroll">
                             <div v-for="(item, idx) in cart" :key="idx" class="pay-item-row">
@@ -830,38 +978,59 @@ function productImageUrl(product) {
 
                     <!-- ── Columna derecha: métodos de pago ── -->
                     <div class="pay-col pay-col--right">
-                        <p class="pay-section-label">Pagos registrados</p>
 
-                        <!-- Pagos añadidos -->
-                        <div class="multipay-list" v-if="payments.length">
-                            <div v-for="(p, idx) in payments" :key="idx" class="multipay-row">
-                                <span class="multipay-method">{{ pmtMethodName(p.payment_method_id) }}</span>
-                                <span v-if="p.reference" class="multipay-ref">{{ p.reference }}</span>
-                                <span class="multipay-amount">{{ fmtBs(p.amount_bs) }} Bs.</span>
-                                <button class="multipay-remove" @click="removePayment(idx)">×</button>
+                        <!-- Aviso para delivery/crédito -->
+                        <div v-if="saleOrigin === 'delivery'" class="origin-notice origin-notice--delivery">
+                            <span class="origin-notice-icon">🛵</span>
+                            <div>
+                                <strong>Delivery pendiente</strong>
+                                <p>El pedido se registrará sin cobro. El cobro se realiza desde la pantalla de Pedidos al confirmar la entrega.</p>
                             </div>
                         </div>
-                        <p v-else class="pay-no-payments">Ningún pago añadido aún</p>
-
-                        <!-- Agregar pago -->
-                        <div v-if="payRestBs > 0 || !payments.length" class="multipay-add">
-                            <p class="pay-section-label" style="margin-top:0.75rem">+ Agregar pago</p>
-                            <div class="pay-methods">
-                                <button v-for="pm in paymentMethods" :key="pm.id" class="pay-method-card" :class="{ selected: newPmtMethodId === pm.id }" @click="newPmtMethodId = pm.id">
-                                    <span class="pm-name">{{ pm.name }}</span>
-                                    <span class="pm-type">{{ pm.type }}</span>
-                                </button>
+                        <div v-else-if="saleOrigin === 'credit'" class="origin-notice origin-notice--credit">
+                            <span class="origin-notice-icon">📋</span>
+                            <div>
+                                <strong>Venta a crédito</strong>
+                                <p>El producto se despacha ahora. El cobro queda pendiente y aparecerá en la sección "Por Cobrar" de Pedidos.</p>
                             </div>
-                            <input v-model="newPmtAmountBs" type="number" class="pay-amount-input" min="0.01" step="0.01" placeholder="Monto Bs." />
-                            <input v-if="selectedMethodNeedsRef" v-model="newPmtReference" type="text" class="pay-amount-input" maxlength="50" placeholder="Referencia (opcional)" style="margin-top:0.5rem;" />
-                            <button class="btn btn-ghost multipay-btn-add" @click="addPayment">Añadir pago</button>
                         </div>
+
+                        <!-- Pagos (solo onsite) -->
+                        <template v-if="saleOrigin === 'onsite'">
+                            <p class="pay-section-label">Pagos registrados</p>
+
+                            <div class="multipay-list" v-if="payments.length">
+                                <div v-for="(p, idx) in payments" :key="idx" class="multipay-row">
+                                    <span class="multipay-method">{{ pmtMethodName(p.payment_method_id) }}</span>
+                                    <span v-if="p.reference" class="multipay-ref">{{ p.reference }}</span>
+                                    <span class="multipay-amount">{{ fmtBs(p.amount_bs) }} Bs.</span>
+                                    <button class="multipay-remove" @click="removePayment(idx)">×</button>
+                                </div>
+                            </div>
+                            <p v-else class="pay-no-payments">Ningún pago añadido aún</p>
+
+                            <div v-if="payRestBs > 0 || !payments.length" class="multipay-add">
+                                <p class="pay-section-label" style="margin-top:0.75rem">+ Agregar pago</p>
+                                <div class="pay-methods">
+                                    <button v-for="pm in paymentMethods" :key="pm.id" class="pay-method-card" :class="{ selected: newPmtMethodId === pm.id }" @click="newPmtMethodId = pm.id">
+                                        <span class="pm-name">{{ pm.name }}</span>
+                                        <span class="pm-type">{{ pm.type }}</span>
+                                    </button>
+                                </div>
+                                <input v-model="newPmtAmountBs" type="number" class="pay-amount-input" min="0.01" step="0.01" placeholder="Monto Bs." />
+                                <input v-if="selectedMethodNeedsRef" v-model="newPmtReference" type="text" class="pay-amount-input" maxlength="50" placeholder="Referencia (opcional)" style="margin-top:0.5rem;" />
+                                <button class="btn btn-ghost multipay-btn-add" @click="addPayment">Añadir pago</button>
+                            </div>
+                        </template>
 
                         <!-- Acciones -->
                         <div class="pay-col-actions">
                             <button class="btn btn-ghost" @click="closePayModal">Cancelar</button>
                             <button class="btn btn-brand" :disabled="!payCanConfirm || paying" @click="confirmPay">
-                                {{ paying ? 'Procesando…' : 'Confirmar Pago' }}
+                                <template v-if="paying">Procesando…</template>
+                                <template v-else-if="saleOrigin === 'delivery'">Registrar Delivery</template>
+                                <template v-else-if="saleOrigin === 'credit'">Despachar a Crédito</template>
+                                <template v-else>Confirmar Pago</template>
                             </button>
                         </div>
                     </div>
@@ -939,10 +1108,10 @@ function productImageUrl(product) {
                     <!-- Acciones -->
                     <div class="sc-actions">
                         <button class="btn btn-ghost" @click="newSale">Cerrar</button>
-                        <a :href="`https://wa.me/?text=${whatsAppText()}`" target="_blank" rel="noopener" class="btn btn-whatsapp">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
-                            WhatsApp
-                        </a>
+                        <button class="btn btn-print" @click="printTicket">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                            Imprimir
+                        </button>
                     </div>
 
                 </div>
@@ -1014,17 +1183,38 @@ function productImageUrl(product) {
 /* ── Header ── */
 .pos-header {
     height: 56px;
-    display: flex; align-items: center; gap: 12px;
-    padding: 0 16px;
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 14px;
     background: var(--bg-card);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
     position: relative; z-index: 10;
-    overflow-x: auto;
+    overflow: visible;
 }
-.pos-logo    { font-size: 17px; font-weight: 800; letter-spacing: -0.4px; white-space: nowrap; flex-shrink: 0; }
-.pos-logo em { color: var(--brand); font-style: normal; }
+
+/* Grupos del header */
+.hd-left   { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.hd-center { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; overflow: hidden; }
+.hd-right  { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
+
+/* Logo — idéntico al sidebar */
+.pos-logo      { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.logo-text     { font-size: 1.05rem; font-weight: 800; letter-spacing: -0.3px; white-space: nowrap; line-height: 1; }
+.logo-synti    { color: var(--text-primary); }
+.logo-meat     { color: #B91C1C; }
+
+/* Back button — siempre visible a la izquierda */
+.nav-back {
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 7px;
+    border: 1.5px solid var(--border); background: var(--bg-base);
+    color: var(--text-secondary); text-decoration: none;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.nav-back:hover { background: var(--hover); border-color: var(--brand); color: var(--brand); }
+
 .sep         { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+.hd-sep-tabs { display: flex; }
 
 .rate-badge {
     display: flex; align-items: center; gap: 8px;
@@ -1072,7 +1262,7 @@ function productImageUrl(product) {
     background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
     border-radius: 6px; padding: 3px 10px; white-space: nowrap; flex-shrink: 0;
 }
-.pos-time { margin-left: auto; font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; flex-shrink: 0; }
+.pos-time { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; flex-shrink: 0; }
 .user-chip {
     display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 6px;
     background: var(--bg-base); border: 1px solid var(--border); border-radius: 8px;
@@ -1160,7 +1350,7 @@ function productImageUrl(product) {
     to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 .product-card {
-    background: var(--bg-card); border: 1px solid var(--border); border-top: 3px solid;
+    background: var(--bg-card); border: 1px solid var(--border); border-top: none;
     border-radius: 10px; padding: 10px 12px; cursor: pointer;
     display: flex; flex-direction: column; gap: 3px;
     position: relative; overflow: hidden; text-align: left;
@@ -1175,14 +1365,66 @@ function productImageUrl(product) {
 .product-card:hover::after { opacity: 0.6; transform: scale(1) rotate(0deg); }
 .product-card:active { transform: translateY(-1px) scale(0.99); }
 
-.p-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; min-height: 32px; }
-.p-top-text { flex: 1; min-width: 0; }
-.p-cat  { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.9px; }
-.p-thumb { width: 54px; height: 54px; flex-shrink: 0; border-radius: 6px; overflow: hidden; }
-.p-thumb-img { width: 100%; height: 100%; object-fit: cover; }
-.p-thumb-ph { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; border: 1.5px dashed var(--border); border-radius: 6px; color: var(--text-muted); }
-.stock-row { display: flex; gap: 4px; }
-.stock-badge { font-size: 0.6rem; font-weight: 700; padding: 0.08rem 0.4rem; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+/* Zona imagen — banner superior de la card */
+.p-img-zone {
+    position: relative;
+    width: calc(100% + 24px);
+    margin: -10px -12px 0;
+    height: 90px;
+    background: linear-gradient(160deg, color-mix(in srgb, var(--cat-color, #2563eb) 12%, var(--bg-base)), var(--bg-base));
+    overflow: hidden;
+    border-radius: 8px 8px 0 0;
+    flex-shrink: 0;
+}
+.p-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
+    padding: 6px;
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5));
+    transition: transform 0.25s ease;
+}
+.p-card:hover .p-img { transform: scale(1.06); }
+.p-img-ph {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+/* Pills sobre la imagen */
+.p-cat-pill {
+    position: absolute;
+    top: 6px; left: 7px;
+    font-size: 0.58rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    padding: 0.15rem 0.45rem;
+    border-radius: 99px;
+    backdrop-filter: blur(4px);
+    line-height: 1.4;
+}
+.p-stock-pill {
+    position: absolute;
+    top: 6px; right: 6px;
+    font-size: 0.55rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 0.12rem 0.4rem;
+    border-radius: 6px;
+    line-height: 1.5;
+    white-space: nowrap;
+    max-width: calc(100% - 12px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.p-stock-empty { background: #ef4444; color: #fff; }
+.p-stock-low   { background: #d97706; color: #fff; }
+/* Info bajo la imagen */
+.p-info { display: flex; flex-direction: column; gap: 0.1rem; padding-top: 0.35rem; }
 .stock-low   { background: rgba(245,158,11,0.18); color: #d97706; }
 .stock-empty { background: rgba(239,68,68,0.14);  color: #dc2626; }
 .p-name  { font-size: 13px; font-weight: 700; color: var(--text-primary); line-height: 1.2; }
@@ -1343,8 +1585,8 @@ function productImageUrl(product) {
 .btn-ghost:hover { color: var(--text-primary); }
 .btn-warn  { background: #d97706; color: #fff; }
 .btn-warn:hover { opacity: 0.88; }
-.btn-whatsapp { background: #25d366; color: #fff; display: block; width: 100%; text-align: center; text-decoration: none; border-radius: 8px; padding: 0.65rem; font-weight: 700; }
-.btn-whatsapp:hover { opacity: 0.88; }
+.btn-print { background: var(--brand); color: #fff; display: inline-flex; align-items: center; gap: 0.4rem; justify-content: center; width: 100%; border: none; border-radius: 8px; padding: 0.65rem; font-weight: 700; cursor: pointer; font-family: inherit; font-size: 0.9rem; }
+.btn-print:hover { opacity: 0.88; }
 
 /* Stock warning */
 .warn-text { font-size: 0.88rem; color: var(--text-muted); }
@@ -1396,6 +1638,50 @@ function productImageUrl(product) {
     color: var(--text-primary);
     margin: 0;
 }
+
+/* ── Selector de origen ── */
+.origin-selector {
+    display: flex;
+    gap: 0.4rem;
+    flex-shrink: 0;
+    margin-bottom: 0.25rem;
+}
+.origin-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.45rem 0.3rem;
+    border-radius: 8px;
+    border: 1.5px solid var(--border);
+    background: var(--bg-base);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    font-family: inherit;
+}
+.origin-btn:hover { border-color: var(--brand); }
+.origin-btn.active { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 12%, transparent); }
+.origin-icon { font-size: 1.1rem; }
+.origin-label { font-size: 0.65rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+
+/* ── Aviso delivery/crédito ── */
+.origin-notice {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    padding: 0.85rem 1rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg-base);
+    margin-bottom: 0.5rem;
+    flex: 1;
+}
+.origin-notice--delivery { border-color: #f59e0b44; background: #f59e0b0d; }
+.origin-notice--credit   { border-color: #8b5cf644; background: #8b5cf60d; }
+.origin-notice-icon { font-size: 1.6rem; flex-shrink: 0; }
+.origin-notice strong { display: block; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.3rem; }
+.origin-notice p { font-size: 0.75rem; color: var(--text-muted); margin: 0; line-height: 1.45; }
 
 /* lista de ítems: crece y hace scroll solo si hay muchos */
 .pay-items-scroll {
@@ -1618,16 +1904,23 @@ function productImageUrl(product) {
 .sc-actions .btn { flex: 1; justify-content: center; display: flex; align-items: center; gap: 0.4rem; }
 
 /* ── Responsive ── */
+@media (max-width: 1024px) {
+    .hd-sep-tabs { display: none; }
+    .rate-lbl    { display: none; }
+}
 @media (max-width: 900px) {
-    .pnl-cart    { display: none; }
-    .cart-fab    { display: flex; }
+    .pnl-cart     { display: none; }
+    .cart-fab     { display: flex; }
     .product-grid { grid-template-columns: repeat(2, 1fr); }
+    .header-tabs  { display: none; }
+    .hd-center    { display: none; }
 }
 @media (max-width: 640px) {
-    .pos-header  { gap: 8px; padding: 0 10px; }
-    .header-tabs { display: none; }
-    .pos-time    { display: none; }
-    .user-name-label { display: none; }
-    .product-grid { grid-template-columns: repeat(2, 1fr); }
+    .pos-header      { gap: 6px; padding: 0 10px; }
+    .pos-time        { display: none; }
+    .user-info       { display: none; }
+    .product-grid    { grid-template-columns: repeat(2, 1fr); }
+    .logo-text       { font-size: 14px; }
+    .no-caja-pill    { font-size: 0.68rem; padding: 2px 7px; }
 }
 </style>

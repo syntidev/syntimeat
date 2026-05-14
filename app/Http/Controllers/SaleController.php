@@ -32,8 +32,11 @@ class SaleController extends Controller
         $business   = $user->business;
         $businessId = $business->id;
 
+        $branchId = $user->branch_id;
+
         $products = Product::with(['category', 'subcategory'])
             ->where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->where('active', true)
             ->where('location', '!=', 'boveda')
             ->orderBy('sort_order')
@@ -112,7 +115,7 @@ class SaleController extends Controller
             // weight items: send amount_bs (new) OR quantity_value (legacy)
             'items.*.amount_bs'      => ['sometimes', 'numeric', 'min:0.01'],
             'items.*.quantity_value' => ['sometimes', 'numeric', 'min:0.001'],
-            'origin'                 => ['sometimes', 'string', 'in:onsite,delivery'],
+            'origin'                 => ['sometimes', 'string', 'in:onsite,delivery,credit'],
             'channel'                => ['sometimes', 'string', 'in:physical,online'],
         ]);
 
@@ -178,6 +181,71 @@ class SaleController extends Controller
 
         $origin  = $data['origin']  ?? 'onsite';
         $channel = $data['channel'] ?? 'physical';
+
+        // Crédito: despacho inmediato, cobro pendiente
+        if ($origin === 'credit') {
+            $cashRegister = CashRegister::where('business_id', $businessId)
+                ->whereNull('closed_at')
+                ->first();
+
+            $sale = DB::transaction(function () use (
+                $businessId, $user, $ticketNumber, $totalUsd, $itemsToCreate, $channel, $rate, $cashRegister
+            ) {
+                $totalBs = round($totalUsd * $rate, 2);
+
+                $sale = Sale::create([
+                    'business_id'     => $businessId,
+                    'ticket_number'   => $ticketNumber,
+                    'status'          => 'paid',
+                    'payment_status'  => 'pendiente_cobro',
+                    'total_usd'       => round($totalUsd, 2),
+                    'total_bs'        => $totalBs,
+                    'rate_used'       => $rate,
+                    'sold_at'         => now(),
+                    'cashier_id'      => $user->id,
+                    'origin'          => 'credit',
+                    'channel'         => $channel,
+                    'cash_register_id' => $cashRegister?->id,
+                ]);
+
+                foreach ($itemsToCreate as $item) {
+                    $sale->items()->create($item);
+                }
+
+                $sale->load('items');
+
+                // Descontar inventario inmediatamente (despacho sin cobro)
+                foreach ($sale->items as $item) {
+                    if ($item->input_type !== 'weight') {
+                        continue;
+                    }
+                    InventoryEntry::create([
+                        'business_id' => $businessId,
+                        'product_id'  => $item->product_id,
+                        'quantity_kg' => -abs((float) $item->quantity_value),
+                        'waste_kg'    => 0,
+                        'location'    => 'vitrina',
+                        'entered_at'  => now(),
+                        'created_by'  => $user->id,
+                        'notes'       => "Crédito {$sale->ticket_number}",
+                    ]);
+                }
+
+                ActivityLog::create([
+                    'business_id' => $businessId,
+                    'user_id'     => $user->id,
+                    'action'      => 'sale.credit_dispatched',
+                    'model_type'  => Sale::class,
+                    'model_id'    => $sale->id,
+                    'new_values'  => ['ticket_number' => $sale->ticket_number, 'total_bs' => $totalBs],
+                ]);
+
+                return $sale;
+            });
+
+            return response()->json(['sale' => $sale, 'credit' => true]);
+        }
+
         $status  = $origin === 'delivery' ? 'pending' : 'open';
 
         $sale = DB::transaction(function () use ($businessId, $user, $ticketNumber, $totalUsd, $itemsToCreate, $origin, $channel, $status) {

@@ -12,6 +12,7 @@ class Product extends Model
 {
     protected $fillable = [
         'business_id',
+        'branch_id',
         'category_id',
         'subcategory_id',
         'name',
@@ -50,6 +51,11 @@ class Product extends Model
     public function business(): BelongsTo
     {
         return $this->belongsTo(Business::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     public function category(): BelongsTo
