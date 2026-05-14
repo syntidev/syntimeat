@@ -1,6 +1,6 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue'
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, useTemplateRef } from 'vue'
 import { animate } from 'motion'
 import axios from 'axios'
 
@@ -104,21 +104,59 @@ function ticketTotal() {
 }
 
 // ─── Tendencia SVG ────────────────────────────────────────────────────────────
-const CHART_W = 640
-const CHART_H = 160
-const CHART_PAD = 10
+const CHART_W   = 640
+const CHART_H   = 130
+const CHART_PAD = { t: 16, r: 10, b: 10, l: 10 }
+const GRID_LINES = 3 // líneas horizontales intermedias
 
 const trendGeometry = computed(() => {
     const pts = tendencia.value
-    if (!pts.length) return { line: '', area: '', dots: [] }
-    const max  = Math.max(...pts.map(p => p.total_usd), 1)
-    const step = pts.length > 1 ? (CHART_W - CHART_PAD * 2) / (pts.length - 1) : 0
-    const sy   = v => CHART_H - CHART_PAD - (v / max) * (CHART_H - CHART_PAD * 2)
-    const dots = pts.map((p, i) => ({ x: CHART_PAD + i * step, y: sy(p.total_usd), dia: p.dia, v: p.total_usd }))
+    if (!pts.length) return { line: '', area: '', dots: [], gridY: [], max: 0, min: 0 }
+
+    const vals = pts.map(p => p.total_usd)
+    const max  = Math.max(...vals)
+    const min  = 0 // base siempre en 0 para que el área sea legible
+    const rng  = max - min || 1
+
+    const drawW = CHART_W - CHART_PAD.l - CHART_PAD.r
+    const drawH = CHART_H - CHART_PAD.t - CHART_PAD.b
+    const step  = pts.length > 1 ? drawW / (pts.length - 1) : 0
+    const sy    = v => CHART_PAD.t + drawH - ((v - min) / rng) * drawH
+
+    const dots = pts.map((p, i) => ({
+        x: CHART_PAD.l + i * step,
+        y: sy(p.total_usd),
+        dia: p.dia,
+        v: p.total_usd,
+    }))
+
     const line = dots.map((d, i) => `${i === 0 ? 'M' : 'L'}${d.x.toFixed(1)},${d.y.toFixed(1)}`).join(' ')
-    const area = `${line} L${dots.at(-1).x.toFixed(1)},${CHART_H} L${dots[0].x.toFixed(1)},${CHART_H} Z`
-    return { line, area, dots }
+    const area = `${line} L${dots.at(-1).x.toFixed(1)},${CHART_H - CHART_PAD.b} L${dots[0].x.toFixed(1)},${CHART_H - CHART_PAD.b} Z`
+
+    // Líneas de cuadrícula: N niveles equidistantes entre min y max
+    const gridY = Array.from({ length: GRID_LINES }, (_, i) => {
+        const frac = (i + 1) / (GRID_LINES + 1)
+        const val  = min + frac * rng
+        return { y: sy(val), val }
+    })
+
+    return { line, area, dots, gridY, max, min }
 })
+
+// ─── Tooltip de tendencia ─────────────────────────────────────────────────────
+const tooltip = reactive({ visible: false, x: 0, y: 0, dia: '', v: 0 })
+
+function showTip(dot, svgEl) {
+    const rect = svgEl.getBoundingClientRect()
+    const scaleX = rect.width  / CHART_W
+    const scaleY = rect.height / CHART_H
+    tooltip.x   = dot.x * scaleX
+    tooltip.y   = dot.y * scaleY
+    tooltip.dia = dot.dia
+    tooltip.v   = dot.v
+    tooltip.visible = true
+}
+function hideTip() { tooltip.visible = false }
 
 // ─── Donut ────────────────────────────────────────────────────────────────────
 const PALETTE = ['#2563EB','#16A34A','#EA580C','#7C3AED','#0891B2','#DC2626','#CA8A04','#DB2777']
@@ -274,25 +312,70 @@ function fmtDia(d) { return d ? new Date(d + 'T00:00:00').toLocaleDateString('es
             <div class="split-grid">
                 <section class="card anim-in">
                     <h2 class="card-title">Tendencia de ventas (USD)</h2>
-                    <div class="trend-wrap">
+                    <div class="trend-wrap" @mouseleave="hideTip">
                         <svg
                             v-if="trendGeometry.dots.length"
+                            ref="trendSvg"
                             class="trend-svg"
                             :viewBox="`0 0 ${CHART_W} ${CHART_H}`"
                             preserveAspectRatio="none"
                         >
                             <defs>
                                 <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%"   stop-color="var(--brand)" stop-opacity="0.32" />
+                                    <stop offset="0%"   stop-color="var(--brand)" stop-opacity="0.28" />
                                     <stop offset="100%" stop-color="var(--brand)" stop-opacity="0" />
                                 </linearGradient>
                             </defs>
+
+                            <!-- Grid lines -->
+                            <line
+                                v-for="g in trendGeometry.gridY" :key="g.y"
+                                :x1="CHART_PAD.l" :y1="g.y.toFixed(1)"
+                                :x2="CHART_W - CHART_PAD.r" :y2="g.y.toFixed(1)"
+                                class="grid-line"
+                            />
+
                             <path :d="trendGeometry.area" fill="url(#trendFill)" />
                             <path :d="trendGeometry.line" class="trend-line" />
-                            <circle v-for="d in trendGeometry.dots" :key="d.dia"
-                                :cx="d.x" :cy="d.y" r="3.5" class="trend-dot" />
+
+                            <!-- Línea vertical del tooltip -->
+                            <line v-if="tooltip.visible"
+                                :x1="trendGeometry.dots.find(d=>d.dia===tooltip.dia)?.x ?? 0"
+                                y1="0"
+                                :x2="trendGeometry.dots.find(d=>d.dia===tooltip.dia)?.x ?? 0"
+                                :y2="CHART_H"
+                                class="tip-vline"
+                            />
+
+                            <!-- Dots visibles + target táctil invisible -->
+                            <g v-for="d in trendGeometry.dots" :key="d.dia">
+                                <circle :cx="d.x" :cy="d.y" r="4" class="trend-dot"
+                                    :class="{ 'trend-dot--active': tooltip.dia === d.dia }" />
+                                <!-- target 24px para touch/mouse -->
+                                <circle :cx="d.x" :cy="d.y" r="16" fill="transparent"
+                                    style="cursor:pointer"
+                                    @mouseenter="showTip(d, $event.currentTarget.closest('svg'))"
+                                    @touchstart.prevent="showTip(d, $event.currentTarget.closest('svg'))"
+                                />
+                            </g>
+
+                            <!-- Y-axis labels (máx y mín) -->
+                            <text
+                                :x="CHART_PAD.l + 2" :y="CHART_PAD.t - 4"
+                                class="chart-label"
+                            >{{ fmtUsd(trendGeometry.max) }}</text>
                         </svg>
                         <p v-else class="empty-row">Sin ventas en el rango.</p>
+
+                        <!-- Tooltip flotante -->
+                        <div
+                            v-if="tooltip.visible"
+                            class="trend-tip"
+                            :style="{ left: tooltip.x + 'px', top: (tooltip.y - 52) + 'px' }"
+                        >
+                            <span class="tip-dia">{{ fmtDia(tooltip.dia) }}</span>
+                            <span class="tip-val">{{ fmtUsd(tooltip.v) }}</span>
+                        </div>
                     </div>
                     <div v-if="trendGeometry.dots.length" class="trend-axis">
                         <span>{{ fmtDia(tendencia[0]?.dia) }}</span>
@@ -634,11 +717,39 @@ function fmtDia(d) { return d ? new Date(d + 'T00:00:00').toLocaleDateString('es
 .split-grid { display: grid; grid-template-columns: 1fr; gap: 0.9rem; }
 
 /* ── Tendencia ──────────────────────────────────────────────────────────── */
-.trend-wrap { overflow: hidden; border-radius: 8px; }
-.trend-svg  { width: 100%; height: 150px; display: block; }
+.trend-wrap {
+    position: relative;
+    border-radius: 8px;
+    overflow: visible;
+}
+.trend-svg  { width: 100%; height: 130px; display: block; overflow: visible; }
 .trend-line { fill: none; stroke: var(--brand); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
-.trend-dot  { fill: var(--bg-card); stroke: var(--brand); stroke-width: 2; }
-.trend-axis { display: flex; justify-content: space-between; font-size: 0.68rem; color: var(--text-muted); margin-top: 0.35rem; }
+.trend-dot  { fill: var(--bg-card); stroke: var(--brand); stroke-width: 2; transition: r 0.12s ease; }
+.trend-dot--active { fill: var(--brand); r: 5; }
+.grid-line  { stroke: var(--border); stroke-width: 1; stroke-dasharray: 3 4; opacity: 0.6; }
+.tip-vline  { stroke: var(--brand); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.5; }
+.chart-label { font-size: 22px; fill: var(--text-muted); font-family: inherit; }
+.trend-axis { display: flex; justify-content: space-between; font-size: 0.68rem; color: var(--text-muted); margin-top: 0.2rem; }
+
+/* Tooltip */
+.trend-tip {
+    position: absolute;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.35rem 0.65rem;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.1rem;
+    transform: translateX(-50%);
+    box-shadow: 0 6px 20px -6px rgba(0,0,0,0.4);
+    z-index: 10;
+    white-space: nowrap;
+}
+.tip-dia { font-size: 0.68rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+.tip-val { font-size: 0.92rem; font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; }
 
 /* ── Donut ──────────────────────────────────────────────────────────────── */
 .donut-block  { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
@@ -781,6 +892,6 @@ function fmtDia(d) { return d ? new Date(d + 'T00:00:00').toLocaleDateString('es
     .emp-title  { font-size: 1.7rem; }
     .split-grid { grid-template-columns: 1.5fr 1fr; }
     .kpi-card:hover { transform: translateY(-3px); box-shadow: 0 12px 30px -12px rgba(0,0,0,0.4); }
-    .trend-svg  { height: 170px; }
+    .trend-svg  { height: 150px; }
 }
 </style>
