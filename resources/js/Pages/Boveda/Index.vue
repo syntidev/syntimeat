@@ -4,11 +4,10 @@ import AppLayout  from '@/Layouts/AppLayout.vue';
 import HelpModal  from '@/Components/HelpModal.vue';
 
 const props = defineProps({
-    activas:          { type: Array,  default: () => [] },
-    historial:        { type: Array,  default: () => [] },
-    productosVitrina: { type: Array,  default: () => [] },
-    bovedaProducts:   { type: Array,  default: () => [] },
-    kpis:             { type: Object, default: () => ({}) },
+    activas:        { type: Array,  default: () => [] },
+    historial:      { type: Array,  default: () => [] },
+    bovedaProducts: { type: Array,  default: () => [] },
+    kpis:           { type: Object, default: () => ({}) },
 });
 
 // ─── Tab ──────────────────────────────────────────────────────────────────────
@@ -107,34 +106,20 @@ async function saveEntrada() {
 // ─── Modal Surtir ─────────────────────────────────────────────────────────────
 const showSurtirModal = ref(false);
 const surtirEntry     = ref(null);
-const surtirForm      = ref({ product_id: '', kg_surtir: '' });
+const surtirForm      = ref({ kg_surtir: '' });
 const surtirErrors    = ref({});
 const savingSurtir    = ref(false);
-const surtirCatFilter = ref('Todos');
-
-const surtirCatList = computed(() => {
-    const cats = [...new Set(props.productosVitrina.map(p => p.category_name).filter(Boolean))].sort();
-    return ['Todos', ...cats];
-});
-const productosFiltered = computed(() => {
-    if (surtirCatFilter.value === 'Todos') return props.productosVitrina;
-    return props.productosVitrina.filter(p => p.category_name === surtirCatFilter.value);
-});
 
 function openSurtir(entry) {
     surtirEntry.value     = entry;
     surtirErrors.value    = {};
-    surtirCatFilter.value = 'Todos';
-    surtirForm.value      = {
-        product_id: props.productosVitrina[0]?.id ?? '',
-        kg_surtir:  '',
-    };
+    surtirForm.value      = { kg_surtir: '' };
     showSurtirModal.value = true;
 }
 async function saveSurtir() {
     if (savingSurtir.value || !surtirEntry.value) return;
-    savingSurtir.value  = true;
-    surtirErrors.value  = {};
+    savingSurtir.value = true;
+    surtirErrors.value = {};
     try {
         const res = await fetch(route('boveda.surte', { entry: surtirEntry.value.id }), {
             method: 'PATCH',
@@ -618,47 +603,47 @@ async function deactivateProduct(product) {
                 <div v-if="showSurtirModal" class="modal-bg" @click.self="showSurtirModal = false">
                     <div class="modal-box modal-sm">
                         <div class="modal-header">
-                            <h3>Surtir vitrina</h3>
+                            <h3>Surtir a vitrina</h3>
                             <button class="close-btn" @click="showSurtirModal = false">×</button>
                         </div>
 
                         <p class="surtir-info">
-                            Disponible:
-                            <strong>{{ fmtKg(surtirEntry?.kg_disponible) }}</strong>
-                            de <em>{{ surtirEntry?.product_type }}</em>
+                            Pieza: <strong>{{ surtirEntry?.product_type }}</strong>
+                            <span v-if="surtirEntry?.description"> — {{ surtirEntry.description }}</span><br>
+                            Disponible: <strong>{{ fmtKg(surtirEntry?.kg_disponible) }}</strong>
+                        </p>
+                        <p class="merma-hint">
+                            Indica cuántos kg físicos estás moviendo a vitrina.
+                            Los cortes se registran desde vitrina después.
                         </p>
 
                         <div class="form-grid">
                             <div class="form-field full">
-                                <label>Categoría destino</label>
-                                <div class="surtir-cats">
-                                    <button
-                                        v-for="cat in surtirCatList"
-                                        :key="cat"
-                                        class="cat-chip"
-                                        :class="{ 'cat-chip--active': surtirCatFilter === cat }"
-                                        @click="surtirCatFilter = cat; surtirForm.product_id = productosFiltered[0]?.id ?? ''"
-                                    >{{ cat }}</button>
-                                </div>
-                            </div>
-                            <div class="form-field full">
-                                <label>Producto destino (vitrina)</label>
-                                <select v-model="surtirForm.product_id" class="form-select">
-                                    <option v-for="p in productosFiltered" :key="p.id" :value="p.id">{{ p.name }}</option>
-                                </select>
-                                <span v-if="surtirErrors.product_id" class="field-err">{{ surtirErrors.product_id[0] }}</span>
-                            </div>
-                            <div class="form-field full">
-                                <label>Kg a surtir</label>
-                                <input v-model="surtirForm.kg_surtir" type="number" class="form-input" :class="{ 'input-error': excedeLimite }" min="0.001" step="0.001" placeholder="0.000" />
-                                <span v-if="excedeLimite" class="field-err">Excede kg disponibles ({{ fmtKg(surtirEntry?.kg_disponible) }})</span>
+                                <label>Kg a mover a vitrina</label>
+                                <input
+                                    v-model="surtirForm.kg_surtir"
+                                    type="number"
+                                    class="form-input"
+                                    :class="{ 'input-error': excedeLimite }"
+                                    min="0.001"
+                                    step="0.001"
+                                    placeholder="0.000"
+                                    autofocus
+                                />
+                                <span v-if="excedeLimite" class="field-err">
+                                    Excede disponible ({{ fmtKg(surtirEntry?.kg_disponible) }})
+                                </span>
                                 <span v-if="surtirErrors.kg_surtir" class="field-err">{{ surtirErrors.kg_surtir[0] }}</span>
                             </div>
                         </div>
 
                         <div class="modal-actions">
                             <button class="btn-ghost" @click="showSurtirModal = false">Cancelar</button>
-                            <button class="btn-brand" :disabled="savingSurtir || excedeLimite || !surtirForm.kg_surtir" @click="saveSurtir">
+                            <button
+                                class="btn-brand"
+                                :disabled="savingSurtir || excedeLimite || !surtirForm.kg_surtir"
+                                @click="saveSurtir"
+                            >
                                 {{ savingSurtir ? 'Surtiendo…' : 'Confirmar surtido' }}
                             </button>
                         </div>

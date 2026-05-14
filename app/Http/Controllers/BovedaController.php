@@ -34,19 +34,6 @@ class BovedaController extends Controller
             ->get()
             ->map(fn ($e) => $this->format($e));
 
-        $productosVitrina = Product::with('category')
-            ->where('business_id', $businessId)
-            ->where('active', true)
-            ->where('location', 'vitrina')
-            ->where('sale_mode', 'weight')
-            ->orderBy('name')
-            ->get()
-            ->map(fn ($p) => [
-                'id'            => $p->id,
-                'name'          => $p->name,
-                'category_name' => $p->category?->name ?? '—',
-            ]);
-
         $bovedaProducts = BovedaProduct::where('business_id', $businessId)
             ->orderBy('sort_order')
             ->orderBy('name')
@@ -64,18 +51,16 @@ class BovedaController extends Controller
         $costoActivoTotal = BovedaEntry::active()->where('business_id', $businessId)
             ->sum('costo_usd');
 
-        // F6: trazabilidad real por FK en lugar de LIKE en notes
-        $surtidoHoy = InventoryEntry::where('business_id', $businessId)
-            ->whereDate('entered_at', today())
-            ->whereNotNull('boveda_entry_id')
-            ->where('location', 'vitrina')
-            ->sum('quantity_kg');
+        $surtidoHoy = ActivityLog::where('business_id', $businessId)
+            ->where('action', 'boveda.surte')
+            ->whereDate('created_at', today())
+            ->get()
+            ->sum(fn ($log) => (float) (($log->new_values ?? [])['kg_surtir'] ?? 0));
 
         return Inertia::render('Boveda/Index', [
-            'activas'          => $activas,
-            'historial'        => $historial,
-            'productosVitrina' => $productosVitrina,
-            'bovedaProducts'   => $bovedaProducts,
+            'activas'        => $activas,
+            'historial'      => $historial,
+            'bovedaProducts' => $bovedaProducts,
             'kpis'             => [
                 'entradasActivas' => $activas->count(),
                 'kgDisponible'    => round((float) $kgDisponibleTotal, 3),
@@ -150,57 +135,26 @@ class BovedaController extends Controller
         abort_if($entry->closed_at !== null, 422, 'Entrada ya cerrada.');
 
         $data = $request->validate([
-            'product_id' => ['required', 'integer', 'exists:products,id'],
-            'kg_surtir'  => ['required', 'numeric', 'min:0.001'],
+            'kg_surtir' => ['required', 'numeric', 'min:0.001'],
         ]);
 
-        $disponible = (float) $entry->kg_disponible;
-        if ((float) $data['kg_surtir'] > $disponible) {
-            return back()->withErrors(['kg_surtir' => "No puede surtir más de {$disponible} kg disponibles."]);
+        $disponible = round(
+            (float) $entry->kg_entrada - (float) $entry->kg_surtido_vitrina - (float) $entry->waste_kg,
+            3
+        );
+
+        if (round((float) $data['kg_surtir'], 3) > $disponible) {
+            return response()->json(
+                ['errors' => ['kg_surtir' => ["No puede surtir más de {$disponible} kg disponibles."]]],
+                422
+            );
         }
 
         $businessId = Auth::user()->business_id;
         $userId     = Auth::id();
 
-        abort_unless(
-            Product::where('id', $data['product_id'])->where('business_id', $businessId)->exists(),
-            403
-        );
-
         DB::transaction(function () use ($entry, $data, $businessId, $userId): void {
             $entry->increment('kg_surtido_vitrina', (float) $data['kg_surtir']);
-
-            // Salida de bóveda — mantiene sincronizado el stock de DespieceController
-            $bovedaProduct = Product::where('business_id', $businessId)
-                ->where('location', 'boveda')
-                ->where('name', $entry->product_type)
-                ->first();
-
-            if ($bovedaProduct !== null) {
-                InventoryEntry::create([
-                    'business_id'     => $businessId,
-                    'product_id'      => $bovedaProduct->id,
-                    'boveda_entry_id' => $entry->id,
-                    'quantity_kg'     => -(float) $data['kg_surtir'],
-                    'waste_kg'        => 0,
-                    'location'        => 'boveda',
-                    'notes'           => 'Surtido desde bóveda (entrada #' . $entry->id . ')',
-                    'entered_at'      => now(),
-                    'created_by'      => $userId,
-                ]);
-            }
-
-            InventoryEntry::create([
-                'business_id'     => $businessId,
-                'product_id'      => $data['product_id'],
-                'boveda_entry_id' => $entry->id,
-                'quantity_kg'     => (float) $data['kg_surtir'],
-                'waste_kg'        => 0,
-                'location'        => 'vitrina',
-                'notes'           => 'Surtido desde bóveda (entrada #' . $entry->id . ')',
-                'entered_at'      => now(),
-                'created_by'      => $userId,
-            ]);
 
             ActivityLog::create([
                 'business_id' => $businessId,
@@ -208,7 +162,7 @@ class BovedaController extends Controller
                 'action'      => 'boveda.surte',
                 'model_type'  => 'BovedaEntry',
                 'model_id'    => $entry->id,
-                'description' => 'Surtido ' . $data['kg_surtir'] . ' kg a vitrina desde entrada #' . $entry->id,
+                'new_values'  => ['kg_surtir' => (float) $data['kg_surtir']],
             ]);
         });
 
