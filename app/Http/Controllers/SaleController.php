@@ -47,7 +47,9 @@ class SaleController extends Controller
             ->orderBy('sort_order')
             ->get();
 
+        // Caja del usuario actual — cada cajero tiene la suya
         $cashRegister = CashRegister::where('business_id', $businessId)
+            ->where('opened_by', $user->id)
             ->whereNull('closed_at')
             ->first();
 
@@ -279,8 +281,9 @@ class SaleController extends Controller
         abort_unless($sale->business_id === $businessId, 403);
         abort_unless($sale->status === 'open', 422, 'Venta no está abierta.');
 
-        // Verificar caja abierta (sin filtro de fecha — whereNull es suficiente)
+        // Caja abierta por este usuario específicamente
         $cashRegister = CashRegister::where('business_id', $businessId)
+            ->where('opened_by', $user->id)
             ->whereNull('closed_at')
             ->first();
 

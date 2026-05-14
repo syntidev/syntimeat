@@ -547,6 +547,16 @@ function productImageUrl(product) {
 <template>
     <div class="pos-root">
 
+        <!-- ── Banner: sin caja abierta ── -->
+        <div v-if="!cashRegister" class="no-caja-banner">
+            <div class="no-caja-banner__icon">🏧</div>
+            <div class="no-caja-banner__body">
+                <strong>No tienes una caja abierta</strong>
+                <span>Debes abrir tu caja antes de registrar ventas.</span>
+            </div>
+            <a :href="route('cash.index')" class="no-caja-banner__btn">Ir a Caja →</a>
+        </div>
+
         <!-- ── HEADER ── -->
         <header class="pos-header">
 
@@ -1256,6 +1266,26 @@ function productImageUrl(product) {
     font-family: inherit;
 }
 .h-ticket-add:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.no-caja-banner {
+    display: flex; align-items: center; gap: 0.75rem;
+    background: color-mix(in srgb, var(--red) 12%, var(--bg-base));
+    border-bottom: 2px solid var(--red);
+    padding: 0.65rem 1rem;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    flex-shrink: 0;
+}
+.no-caja-banner__icon { font-size: 1.25rem; flex-shrink: 0; }
+.no-caja-banner__body { display: flex; flex-direction: column; flex: 1; gap: 0.1rem; }
+.no-caja-banner__body strong { font-weight: 700; color: var(--red); }
+.no-caja-banner__body span   { font-size: 0.78rem; color: var(--text-muted); }
+.no-caja-banner__btn {
+    background: var(--red); color: #fff; border: none; border-radius: 0.4rem;
+    padding: 0.4rem 0.85rem; font-size: 0.8rem; font-weight: 700;
+    cursor: pointer; text-decoration: none; white-space: nowrap; flex-shrink: 0;
+}
+.no-caja-banner__btn:hover { opacity: 0.85; }
 
 .no-caja-pill {
     font-size: 0.75rem; font-weight: 700; color: var(--red);

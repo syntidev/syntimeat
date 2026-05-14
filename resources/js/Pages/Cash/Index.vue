@@ -5,10 +5,12 @@ import { useForm } from '@inertiajs/vue3';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 const props = defineProps({
-    cashRegister: { type: Object, default: null },
-    history:      { type: Array,  default: () => [] },
-    kpis:         { type: Object, default: null },
-    todayRate:    { type: Number, default: 1 },
+    cashRegister:     { type: Object,  default: null },
+    allOpenRegisters: { type: Array,   default: () => [] },
+    history:          { type: Array,   default: () => [] },
+    kpis:             { type: Object,  default: null },
+    todayRate:        { type: Number,  default: 1 },
+    isAdmin:          { type: Boolean, default: false },
 });
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
@@ -63,6 +65,21 @@ function submitCorte() {
 
 <template>
     <AppLayout title="Caja">
+
+        <!-- Admin: panel de todas las cajas abiertas ────────────────────────── -->
+        <div v-if="isAdmin && allOpenRegisters.length > 0" class="all-registers-wrap">
+            <h3 class="all-registers-title">Cajas abiertas ahora</h3>
+            <div class="all-registers-grid">
+                <div v-for="r in allOpenRegisters" :key="r.id" class="reg-card">
+                    <div class="reg-card__name">{{ r.name }}</div>
+                    <div class="reg-card__meta">
+                        <span class="reg-tag">{{ r.opener_name }}</span>
+                        <span class="reg-tag">Bs. {{ Number(r.opening_amount_bs).toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}</span>
+                        <span class="reg-tag">desde {{ r.opened_at ? new Date(r.opened_at).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : '—' }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Sin caja abierta ─────────────────────────────────────────────── -->
         <div v-if="!cashRegister" class="no-cash-wrap">
@@ -585,5 +602,50 @@ function submitCorte() {
 .cash-header { flex-direction: column; align-items: flex-start; }
 @media (min-width: 640px) {
     .cash-header { flex-direction: row; align-items: center; }
+}
+
+/* ── Panel admin: todas las cajas abiertas ── */
+.all-registers-wrap {
+    padding: 1rem 1.25rem 0;
+}
+.all-registers-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 0.6rem;
+}
+.all-registers-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+}
+.reg-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0.6rem;
+    padding: 0.65rem 0.9rem;
+    min-width: 180px;
+}
+.reg-card__name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.3rem;
+}
+.reg-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+}
+.reg-tag {
+    font-size: 0.72rem;
+    background: color-mix(in srgb, var(--brand) 10%, transparent);
+    color: var(--brand);
+    padding: 0.1rem 0.4rem;
+    border-radius: 999px;
+    font-weight: 600;
 }
 </style>

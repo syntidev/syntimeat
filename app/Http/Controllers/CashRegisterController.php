@@ -29,16 +29,37 @@ class CashRegisterController extends Controller
 
         $branchId = $user->branch_id;
 
-        // Bug fix: buscar cualquier caja sin cerrar, no solo la de hoy
-        $cashRegister = CashRegister::with(['movements.creator'])
+        $isAdmin = in_array($user->role, ['admin', 'super_admin', 'owner', 'supervisor'], true);
+
+        // Cajero ve su propia caja; admin/supervisor ve todas las abiertas
+        $cashRegister = CashRegister::with(['movements.creator', 'opener'])
             ->where('business_id', $businessId)
-            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->when(! $isAdmin, fn ($q) => $q->where('opened_by', $user->id))
+            ->when($branchId && ! $isAdmin, fn ($q) => $q->where('branch_id', $branchId))
             ->whereNull('closed_at')
             ->orderBy('opened_at')
             ->first();
 
-        $history = CashRegister::where('business_id', $businessId)
-            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+        // Admin ve todas las cajas abiertas (para supervisar y cerrar turnos)
+        $allOpenRegisters = $isAdmin
+            ? CashRegister::with(['opener'])
+                ->where('business_id', $businessId)
+                ->whereNull('closed_at')
+                ->orderBy('opened_at')
+                ->get()
+                ->map(fn ($r) => [
+                    'id'                => $r->id,
+                    'name'              => $r->name,
+                    'opened_at'         => $r->opened_at,
+                    'opening_amount_bs' => $r->opening_amount_bs,
+                    'opener_name'       => $r->opener?->name ?? '—',
+                    'branch_id'         => $r->branch_id,
+                ])
+            : [];
+
+        $history = CashRegister::with(['opener', 'closer'])
+            ->where('business_id', $businessId)
+            ->when($branchId && ! $isAdmin, fn ($q) => $q->where('branch_id', $branchId))
             ->whereNotNull('closed_at')
             ->orderByDesc('closed_at')
             ->limit(30)
@@ -68,10 +89,12 @@ class CashRegisterController extends Controller
         }
 
         return Inertia::render('Cash/Index', [
-            'cashRegister' => $cashRegister,
-            'history'      => $history,
-            'kpis'         => $kpis,
-            'todayRate'    => $todayRate,
+            'cashRegister'     => $cashRegister,
+            'allOpenRegisters' => $allOpenRegisters,
+            'history'          => $history,
+            'kpis'             => $kpis,
+            'todayRate'        => $todayRate,
+            'isAdmin'          => $isAdmin,
         ]);
     }
 
@@ -84,14 +107,14 @@ class CashRegisterController extends Controller
 
         $branchId = $user->branch_id;
 
-        // Bug fix: bloquear si existe CUALQUIER caja sin cerrar en esta sucursal
+        // Bloquear solo si ESTE USUARIO ya tiene una caja abierta
         $alreadyOpen = CashRegister::where('business_id', $businessId)
-            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->where('opened_by', $user->id)
             ->whereNull('closed_at')
             ->exists();
 
         if ($alreadyOpen) {
-            return back()->withErrors(['caja' => 'Hay una caja abierta sin cerrar. Haz el corte antes de abrir una nueva.']);
+            return back()->withErrors(['caja' => 'Ya tienes una caja abierta. Haz el corte de tu turno antes de abrir una nueva.']);
         }
 
         $data = $request->validate([
@@ -132,9 +155,12 @@ class CashRegisterController extends Controller
         $businessId = $user->business->id;
         $rate       = $this->rates->getTodayRate();
 
-        // Bug fix: buscar cualquier caja sin cerrar (puede ser de días anteriores)
+        $isAdmin = in_array(Auth::user()->role, ['admin', 'super_admin', 'owner', 'supervisor'], true);
+
+        // Admin ve todas las cajas abiertas; cajero solo la suya
         $cashRegister = CashRegister::with(['movements.creator', 'opener'])
             ->where('business_id', $businessId)
+            ->when(! $isAdmin, fn ($q) => $q->where('opened_by', Auth::id()))
             ->whereNull('closed_at')
             ->orderBy('opened_at')
             ->first();

@@ -186,11 +186,12 @@ class OrderController extends Controller
         abort_unless(in_array($order->status, ['open', 'pending'], true), 422, 'Pedido no está activo.');
 
         $cashRegister = CashRegister::where('business_id', $businessId)
+            ->where('opened_by', $user->id)
             ->whereNull('closed_at')
             ->first();
 
         if (! $cashRegister) {
-            return response()->json(['error' => 'Debe abrir la caja antes de procesar pagos.'], 422);
+            return response()->json(['error' => 'Debe abrir su caja antes de procesar pagos.'], 422);
         }
 
         $data = $request->validate([
@@ -401,11 +402,12 @@ class OrderController extends Controller
         abort_unless($sale->payment_status === 'pendiente_cobro', 422, 'Venta ya fue cobrada.');
 
         $cashRegister = CashRegister::where('business_id', $businessId)
+            ->where('opened_by', $user->id)
             ->whereNull('closed_at')
             ->first();
 
         if (! $cashRegister) {
-            return response()->json(['error' => 'Debe abrir la caja antes de registrar cobros.'], 422);
+            return response()->json(['error' => 'Debe abrir su caja antes de registrar cobros.'], 422);
         }
 
         $data = $request->validate([

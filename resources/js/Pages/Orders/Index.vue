@@ -420,7 +420,7 @@ function methodName(id) {
                         <div class="order-card-head">
                             <div class="order-meta">
                                 <span class="type-badge" :class="order.client_type === 'internal' ? 'badge-amber' : 'badge-blue'">
-                                    {{ order.client_type === 'internal' ? 'Interno' : 'Externo' }}
+                                    {{ order.client_type === 'internal' ? 'Consumo Interno' : 'Delivery' }}
                                 </span>
                                 <span class="order-client">{{ order.client_name }}</span>
                             </div>
@@ -503,7 +503,7 @@ function methodName(id) {
                                 <td>{{ o.client_name }}</td>
                                 <td>
                                     <span class="type-badge-sm" :class="o.client_type === 'internal' ? 'badge-amber' : 'badge-blue'">
-                                        {{ o.client_type === 'internal' ? 'Interno' : 'Externo' }}
+                                        {{ o.client_type === 'internal' ? 'Consumo Interno' : 'Delivery' }}
                                     </span>
                                 </td>
                                 <td class="center muted">{{ o.items_count }}</td>
@@ -547,7 +547,7 @@ function methodName(id) {
                             <!-- Tipo -->
                             <div class="type-toggle">
                                 <button class="toggle-btn" :class="{ 'toggle-active': newForm.client_type === 'external' }" @click="newForm.client_type = 'external'">
-                                    🛒 Externo
+                                    🚚 Delivery / Encargo
                                 </button>
                                 <button class="toggle-btn" :class="{ 'toggle-active': newForm.client_type === 'internal' }" @click="newForm.client_type = 'internal'">
                                     🏠 Consumo Interno
