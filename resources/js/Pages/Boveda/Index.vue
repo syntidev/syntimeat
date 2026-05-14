@@ -107,11 +107,19 @@ async function saveEntrada() {
 // ─── Modal Surtir ─────────────────────────────────────────────────────────────
 const showSurtirModal   = ref(false);
 const surtirEntry       = ref(null);
-const surtirForm        = ref({ kg_surtir: '' });
+const surtirForm        = ref({ peso_real: '' });
 const surtirErrors      = ref({});
 const savingSurtir      = ref(false);
 const DESPIECE_KEY      = 'boveda_despiece_pendiente';
-const despiecePendiente = ref(null); // { product_type, kg_surtir } cuando requires_despiece
+const despiecePendiente = ref(null);
+
+const mermaPreview = computed(() => {
+    if (!surtirEntry.value || !surtirForm.value.peso_real) return null;
+    const diff = round3(surtirEntry.value.kg_disponible - parseFloat(surtirForm.value.peso_real || 0));
+    return diff >= 0 ? diff : null;
+});
+
+function round3(v) { return Math.round(v * 1000) / 1000; }
 
 onMounted(() => {
     const saved = sessionStorage.getItem(DESPIECE_KEY);
@@ -124,7 +132,7 @@ onMounted(() => {
 function openSurtir(entry) {
     surtirEntry.value     = entry;
     surtirErrors.value    = {};
-    surtirForm.value      = { kg_surtir: '' };
+    surtirForm.value      = { peso_real: '' };
     showSurtirModal.value = true;
 }
 async function saveSurtir() {
@@ -160,6 +168,11 @@ async function saveSurtir() {
     }
 }
 
+const excedeLimite = computed(() => {
+    if (!surtirEntry.value) return false;
+    return parseFloat(surtirForm.value.peso_real || 0) > surtirEntry.value.kg_disponible;
+});
+
 // ─── Cerrar entrada ───────────────────────────────────────────────────────────
 const closing = ref(null);
 async function closeEntry(entry) {
@@ -180,11 +193,6 @@ async function closeEntry(entry) {
     }
 }
 
-// ─── Computed validación surtir ───────────────────────────────────────────────
-const excedeLimite = computed(() => {
-    if (!surtirEntry.value) return false;
-    return parseFloat(surtirForm.value.kg_surtir || 0) > surtirEntry.value.kg_disponible;
-});
 
 // ─── Modal Producto Bóveda ────────────────────────────────────────────────────
 const showProductModal = ref(false);
@@ -248,50 +256,6 @@ const helpFaqs = [
     },
 ];
 
-// ─── Merma ────────────────────────────────────────────────────────────────────
-const showMermaModal = ref(false);
-const mermaEntry     = ref(null);
-const mermaForm      = ref({ peso_actual: '' });
-const mermaErrors    = ref({});
-const savingMerma    = ref(false);
-
-const mermaCalculada = computed(() => {
-    if (!mermaEntry.value || !mermaForm.value.peso_actual) return null;
-    const diff = mermaEntry.value.kg_disponible - parseFloat(mermaForm.value.peso_actual || 0);
-    return diff > 0 ? diff.toFixed(3) : null;
-});
-
-function openMerma(entry) {
-    mermaEntry.value     = entry;
-    mermaForm.value      = { peso_actual: '' };
-    mermaErrors.value    = {};
-    showMermaModal.value = true;
-}
-async function saveMerma() {
-    if (savingMerma.value || !mermaEntry.value) return;
-    savingMerma.value = true;
-    mermaErrors.value = {};
-    try {
-        const res = await fetch(route('boveda.merma', { entry: mermaEntry.value.id }), {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json' },
-            body: JSON.stringify(mermaForm.value),
-        });
-        if (res.status === 422) {
-            const body = await res.json();
-            mermaErrors.value = body.errors ?? {};
-            return;
-        }
-        if (!res.ok) throw new Error('Error al registrar merma');
-        showMermaModal.value = false;
-        showFlash('Merma registrada.');
-        setTimeout(() => location.reload(), 600);
-    } catch (e) {
-        alert(e?.message ?? 'Error al registrar merma');
-    } finally {
-        savingMerma.value = false;
-    }
-}
 
 function openNewProduct() {
     editingProduct.value   = null;
@@ -479,16 +443,10 @@ async function deactivateProduct(product) {
                                 <td class="date-col">{{ e.entered_at }}</td>
                                 <td class="actions-col">
                                     <button
-                                        class="btn-sm btn-merma"
-                                        :disabled="e.kg_disponible <= 0"
-                                        @click="openMerma(e)"
-                                        title="Registrar merma (pérdida de peso)"
-                                    >Merma</button>
-                                    <button
                                         class="btn-sm btn-surtir"
                                         :disabled="e.kg_disponible <= 0"
                                         @click="openSurtir(e)"
-                                        title="Llevar kg a vitrina"
+                                        title="Registrar peso y surtir a vitrina"
                                     >Surtir</button>
                                     <a
                                         v-if="e.requires_despiece && e.kg_surtido_vitrina > 0"
@@ -664,20 +622,16 @@ async function deactivateProduct(product) {
                         </div>
 
                         <p class="surtir-info">
-                            Pieza: <strong>{{ surtirEntry?.product_type }}</strong>
+                            <strong>{{ surtirEntry?.product_type }}</strong>
                             <span v-if="surtirEntry?.description"> — {{ surtirEntry.description }}</span><br>
-                            Disponible: <strong>{{ fmtKg(surtirEntry?.kg_disponible) }}</strong>
-                        </p>
-                        <p class="merma-hint">
-                            Indica cuántos kg físicos estás moviendo a vitrina.
-                            Los cortes se registran desde vitrina después.
+                            Entró: <strong>{{ fmtKg(surtirEntry?.kg_entrada) }}</strong>
                         </p>
 
                         <div class="form-grid">
                             <div class="form-field full">
-                                <label>Kg a mover a vitrina</label>
+                                <label>Peso en balanza al sacar (kg)</label>
                                 <input
-                                    v-model="surtirForm.kg_surtir"
+                                    v-model="surtirForm.peso_real"
                                     type="number"
                                     class="form-input"
                                     :class="{ 'input-error': excedeLimite }"
@@ -687,20 +641,26 @@ async function deactivateProduct(product) {
                                     autofocus
                                 />
                                 <span v-if="excedeLimite" class="field-err">
-                                    Excede disponible ({{ fmtKg(surtirEntry?.kg_disponible) }})
+                                    Supera el disponible ({{ fmtKg(surtirEntry?.kg_disponible) }})
                                 </span>
-                                <span v-if="surtirErrors.kg_surtir" class="field-err">{{ surtirErrors.kg_surtir[0] }}</span>
+                                <span v-if="surtirErrors.peso_real" class="field-err">{{ surtirErrors.peso_real[0] }}</span>
                             </div>
+                        </div>
+
+                        <div v-if="mermaPreview !== null && mermaPreview > 0" class="merma-preview">
+                            <span class="merma-preview__label">Merma calculada:</span>
+                            <span class="merma-preview__val">{{ mermaPreview.toFixed(3) }} kg</span>
+                            <span class="merma-preview__eq">(el sistema la registra solo)</span>
                         </div>
 
                         <div class="modal-actions">
                             <button class="btn-ghost" @click="showSurtirModal = false">Cancelar</button>
                             <button
                                 class="btn-brand"
-                                :disabled="savingSurtir || excedeLimite || !surtirForm.kg_surtir"
+                                :disabled="savingSurtir || excedeLimite || !surtirForm.peso_real"
                                 @click="saveSurtir"
                             >
-                                {{ savingSurtir ? 'Surtiendo…' : 'Confirmar surtido' }}
+                                {{ savingSurtir ? 'Registrando…' : 'Registrar surtido' }}
                             </button>
                         </div>
                     </div>
@@ -708,68 +668,6 @@ async function deactivateProduct(product) {
             </Transition>
         </Teleport>
 
-        <!-- ── Modal Merma ───────────────────────────────────────────────── -->
-        <Teleport to="body">
-            <Transition name="mo">
-                <div v-if="showMermaModal" class="modal-bg" @click.self="showMermaModal = false">
-                    <div class="modal-box modal-sm">
-                        <div class="modal-header">
-                            <h3>Registrar merma</h3>
-                            <button class="close-btn" @click="showMermaModal = false">×</button>
-                        </div>
-
-                        <p class="surtir-info">
-                            Pieza: <strong>{{ mermaEntry?.product_type }}</strong>
-                            <span v-if="mermaEntry?.description"> — {{ mermaEntry.description }}</span><br>
-                            Disponible actual: <strong>{{ fmtKg(mermaEntry?.kg_disponible) }}</strong>
-                        </p>
-                        <p class="merma-hint">
-                            Pon la pieza en la balanza y anota el peso que ves ahora.
-                            El sistema calcula la merma automáticamente.
-                        </p>
-
-                        <div class="form-grid">
-                            <div class="form-field full">
-                                <label>Peso actual de la pieza (kg)</label>
-                                <input
-                                    v-model="mermaForm.peso_actual"
-                                    type="number"
-                                    class="form-input"
-                                    min="0"
-                                    step="0.001"
-                                    placeholder="Ej: 48.000"
-                                    autofocus
-                                />
-                                <span v-if="mermaErrors.peso_actual" class="field-err">{{ mermaErrors.peso_actual[0] }}</span>
-                            </div>
-                        </div>
-
-                        <!-- Preview merma calculada -->
-                        <div v-if="mermaCalculada" class="merma-preview">
-                            <span class="merma-preview__label">Merma calculada:</span>
-                            <span class="merma-preview__val">{{ mermaCalculada }} kg</span>
-                            <span class="merma-preview__eq">
-                                ({{ fmtKg(mermaEntry?.kg_disponible) }} disponible − {{ mermaForm.peso_actual }} kg actual)
-                            </span>
-                        </div>
-                        <div v-else-if="mermaForm.peso_actual && !mermaCalculada" class="merma-preview merma-preview--warn">
-                            El peso actual debe ser menor que el disponible ({{ fmtKg(mermaEntry?.kg_disponible) }})
-                        </div>
-
-                        <div class="modal-actions">
-                            <button class="btn-ghost" @click="showMermaModal = false">Cancelar</button>
-                            <button
-                                class="btn-brand btn-merma-confirm"
-                                :disabled="savingMerma || !mermaCalculada"
-                                @click="saveMerma"
-                            >
-                                {{ savingMerma ? 'Registrando…' : 'Confirmar merma' }}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </Transition>
-        </Teleport>
 
         <!-- ── Modal Producto Bóveda ─────────────────────────────────────── -->
         <Teleport to="body">

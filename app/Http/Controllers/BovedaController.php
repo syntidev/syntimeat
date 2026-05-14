@@ -147,7 +147,7 @@ class BovedaController extends Controller
         abort_if($entry->closed_at !== null, 422, 'Entrada ya cerrada.');
 
         $data = $request->validate([
-            'kg_surtir' => ['required', 'numeric', 'min:0.001'],
+            'peso_real' => ['required', 'numeric', 'min:0.001'],
         ]);
 
         $disponible = round(
@@ -155,27 +155,33 @@ class BovedaController extends Controller
             3
         );
 
-        if (round((float) $data['kg_surtir'], 3) > $disponible) {
+        $kg = round((float) $data['peso_real'], 3);
+
+        if ($kg > $disponible) {
             return response()->json(
-                ['errors' => ['kg_surtir' => ["No puede surtir más de {$disponible} kg disponibles."]]],
+                ['errors' => ['peso_real' => ["El peso ({$kg} kg) supera el disponible ({$disponible} kg)."]]],
                 422
             );
         }
 
+        // Merma = lo que había disponible menos lo que pesó al sacar
+        $merma = round($disponible - $kg, 3);
+
         $businessId = Auth::user()->business_id;
         $userId     = Auth::id();
-        $kg         = round((float) $data['kg_surtir'], 3);
 
-        // Determinar si el tipo de producto requiere despiece
         $bovedaProductType = BovedaProduct::where('business_id', $businessId)
             ->where('name', $entry->product_type)
             ->first();
 
-        $requiresDespiece  = $bovedaProductType?->requires_despiece ?? true;
-        $vitrinaProductId  = $bovedaProductType?->vitrina_product_id;
+        $requiresDespiece = $bovedaProductType?->requires_despiece ?? true;
+        $vitrinaProductId = $bovedaProductType?->vitrina_product_id;
 
-        DB::transaction(function () use ($entry, $kg, $businessId, $userId, $requiresDespiece, $vitrinaProductId): void {
+        DB::transaction(function () use ($entry, $kg, $merma, $businessId, $userId, $requiresDespiece, $vitrinaProductId): void {
             $entry->increment('kg_surtido_vitrina', $kg);
+            if ($merma > 0) {
+                $entry->increment('waste_kg', $merma);
+            }
 
             if ($requiresDespiece) {
                 // Registra salida de bóveda para que Despiece lo procese
@@ -220,6 +226,7 @@ class BovedaController extends Controller
                 'model_id'    => $entry->id,
                 'new_values'  => [
                     'kg_surtir'         => $kg,
+                    'merma'             => $merma,
                     'requires_despiece' => $requiresDespiece,
                 ],
             ]);
