@@ -378,7 +378,7 @@ class BovedaController extends Controller
         $business   = Business::find($businessId);
 
         // Productos vitrina activos agrupados por categoría (excluye utensilios/despensa)
-        $despieceCats = ['Res', 'Pollo', 'Cerdo', 'Charcutería', 'Embutidos', 'Trastes'];
+        $despieceCats = ['Res', 'Cerdo', 'Pollo'];
 
         $productosPorCategoria = Product::with('category')
             ->where('business_id', $businessId)
