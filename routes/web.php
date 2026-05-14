@@ -135,6 +135,7 @@ Route::middleware(['auth', 'verified', 'check.onboarding'])->group(function () {
         Route::patch('/boveda/{entry}/surtir', [BovedaController::class, 'surte'])->name('boveda.surte');
         Route::patch('/boveda/{entry}/cerrar', [BovedaController::class, 'close'])->name('boveda.close');
         Route::patch('/boveda/{entry}/merma', [BovedaController::class, 'registerMerma'])->name('boveda.merma');
+        Route::get('/boveda/{entry}/plantilla', [BovedaController::class, 'plantillaDespiece'])->name('boveda.plantilla');
         Route::post('/boveda/productos', [BovedaController::class, 'storeProduct'])->name('boveda.product.store');
         Route::put('/boveda/productos/{product}', [BovedaController::class, 'updateProduct'])->name('boveda.product.update');
         Route::delete('/boveda/productos/{product}', [BovedaController::class, 'destroyProduct'])->name('boveda.product.destroy');

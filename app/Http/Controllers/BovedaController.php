@@ -7,11 +7,13 @@ namespace App\Http\Controllers;
 use App\Models\ActivityLog;
 use App\Models\BovedaEntry;
 use App\Models\BovedaProduct;
+use App\Models\Business;
 use App\Models\InventoryEntry;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -368,6 +370,15 @@ class BovedaController extends Controller
         return response()->json(['product' => $this->formatBovedaProduct($product)]);
     }
 
+    public function plantillaDespiece(BovedaEntry $entry): View
+    {
+        abort_unless($entry->business_id === Auth::user()->business_id, 403);
+
+        $business = Business::find($entry->business_id);
+
+        return view('boveda.plantilla_despiece', compact('entry', 'business'));
+    }
+
     public function destroyProduct(BovedaProduct $product): \Illuminate\Http\JsonResponse
     {
         abort_unless($product->business_id === Auth::user()->business_id, 403);
@@ -403,6 +414,10 @@ class BovedaController extends Controller
     {
         $kgEntrada = (float) $e->kg_entrada;
 
+        $bovedaProduct = BovedaProduct::where('business_id', $e->business_id)
+            ->where('name', $e->product_type)
+            ->first();
+
         return [
             'id'                 => $e->id,
             'product_type'       => $e->product_type,
@@ -416,6 +431,7 @@ class BovedaController extends Controller
             'supplier'           => $e->supplier,
             'entered_at'         => $e->entered_at?->format('d/m/Y H:i'),
             'closed_at'          => $e->closed_at?->format('d/m/Y H:i'),
+            'requires_despiece'  => $bovedaProduct?->requires_despiece ?? true,
         ];
     }
 }

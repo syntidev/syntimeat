@@ -490,6 +490,13 @@ async function deactivateProduct(product) {
                                         @click="openSurtir(e)"
                                         title="Llevar kg a vitrina"
                                     >Surtir</button>
+                                    <a
+                                        v-if="e.requires_despiece && e.kg_surtido_vitrina > 0"
+                                        :href="route('boveda.plantilla', { entry: e.id })"
+                                        target="_blank"
+                                        class="btn-sm btn-plantilla"
+                                        title="Imprimir planilla de despiece"
+                                    >🖨 Planilla</a>
                                     <button
                                         class="btn-sm btn-close"
                                         :disabled="closing === e.id"
@@ -908,6 +915,8 @@ async function deactivateProduct(product) {
 .btn-surtir:not(:disabled):hover { background: rgba(37,99,235,0.22); }
 .btn-close  { background: rgba(239,68,68,0.1); color: #ef4444; }
 .btn-close:not(:disabled):hover { background: rgba(239,68,68,0.2); }
+.btn-plantilla { background: rgba(124,58,237,0.12); color: #7c3aed; text-decoration: none; display: inline-flex; align-items: center; }
+.btn-plantilla:hover { background: rgba(124,58,237,0.22); }
 .btn-merma-confirm { background: #d97706; color: #fff; }
 .btn-merma-confirm:not(:disabled):hover { background: #b45309; }
 .merma-hint { font-size: 0.82rem; color: var(--text-muted); margin: 0; line-height: 1.4; }
