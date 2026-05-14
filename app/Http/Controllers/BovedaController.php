@@ -9,7 +9,6 @@ use App\Models\BovedaEntry;
 use App\Models\BovedaProduct;
 use App\Models\InventoryEntry;
 use App\Models\Product;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -86,7 +85,7 @@ class BovedaController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): \Illuminate\Http\JsonResponse
     {
         $data = $request->validate([
             'product_type' => ['required', 'string', 'max:80'],
@@ -142,10 +141,10 @@ class BovedaController extends Controller
             ]);
         });
 
-        return back()->with('success', 'Entrada registrada.');
+        return response()->json(['message' => 'Entrada registrada.']);
     }
 
-    public function surte(Request $request, BovedaEntry $entry): RedirectResponse
+    public function surte(Request $request, BovedaEntry $entry): \Illuminate\Http\JsonResponse
     {
         abort_unless($entry->business_id === Auth::user()->business_id, 403);
         abort_if($entry->closed_at !== null, 422, 'Entrada ya cerrada.');
@@ -213,10 +212,10 @@ class BovedaController extends Controller
             ]);
         });
 
-        return back()->with('success', 'Surtido registrado.');
+        return response()->json(['message' => 'Surtido registrado.']);
     }
 
-    public function close(BovedaEntry $entry): RedirectResponse
+    public function close(BovedaEntry $entry): \Illuminate\Http\JsonResponse
     {
         abort_unless($entry->business_id === Auth::user()->business_id, 403);
         abort_if($entry->closed_at !== null, 422, 'Entrada ya cerrada.');
@@ -235,7 +234,7 @@ class BovedaController extends Controller
             'description' => 'Entrada bóveda #' . $entry->id . ' cerrada.',
         ]);
 
-        return back()->with('success', 'Entrada cerrada.');
+        return response()->json(['message' => 'Entrada cerrada.']);
     }
 
     public function storeProduct(Request $request): \Illuminate\Http\JsonResponse
