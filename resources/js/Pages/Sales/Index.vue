@@ -157,8 +157,8 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
                 <button type="button" class="btn-ghost" @click="resetFilters">Limpiar</button>
             </div>
 
-            <!-- ── Tabla ───────────────────────────────────────────────────── -->
-            <div class="table-wrapper">
+            <!-- ── Tabla (tablet+) ────────────────────────────────────────── -->
+            <div class="table-wrapper hide-sm">
                 <table class="sales-table">
                     <thead>
                         <tr>
@@ -202,6 +202,36 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
                         </tr>
                     </tbody>
                 </table>
+            </div>
+
+            <!-- ── Cards (móvil) ──────────────────────────────────────────── -->
+            <div class="sv-cards show-sm">
+                <div v-if="!sales.length" class="sv-empty">Sin ventas para los filtros seleccionados</div>
+                <div
+                    v-for="s in sales"
+                    :key="s.id"
+                    class="sv-card"
+                    :class="{ 'sv-card--void': s.status === 'cancelled' }"
+                >
+                    <div class="sv-top">
+                        <span class="sv-ticket">{{ s.ticket_number }}</span>
+                        <span class="sv-time">{{ s.sold_at }}</span>
+                    </div>
+                    <div class="sv-mid">
+                        <span class="sv-total">{{ fmtBs(s.total_bs) }}</span>
+                        <span class="sv-curr">Bs.</span>
+                    </div>
+                    <div class="sv-bot">
+                        <span class="sv-method">{{ getMethodLabel(s.payment_method) }}</span>
+                        <span :class="statusClass[s.status] ?? 'badge'">{{ statusLabel[s.status] ?? s.status }}</span>
+                        <button
+                            v-if="s.status === 'paid' && (userRole === 'admin' || userRole === 'supervisor')"
+                            type="button"
+                            class="btn-void"
+                            @click="openVoid(s)"
+                        >Anular</button>
+                    </div>
+                </div>
             </div>
 
         </div>
@@ -249,10 +279,13 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
 .sales-page {
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
-    padding: 1.5rem;
+    gap: 1rem;
+    padding: 1rem 0.85rem;
     max-width: 1200px;
     margin: 0 auto;
+}
+@media (min-width: 640px) {
+    .sales-page { padding: 1.5rem; gap: 1.25rem; }
 }
 
 /* ── Encabezado ─────────────────────────────────────────────────────────── */
@@ -316,10 +349,11 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
     border: 1px solid var(--border);
     color: var(--text-primary);
     border-radius: 8px;
-    padding: 0.45rem 0.75rem;
+    padding: 0.6rem 0.75rem;
     font-size: 0.8125rem;
     outline: none;
     transition: border-color 0.15s;
+    min-height: 44px;
 }
 .filter-input:focus { border-color: var(--brand); }
 
@@ -402,9 +436,10 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
     background: transparent;
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 0.45rem 0.875rem;
+    padding: 0.6rem 0.875rem;
     cursor: pointer;
     transition: border-color 0.15s;
+    min-height: 44px;
 }
 .btn-ghost:hover { border-color: var(--brand); color: var(--brand); }
 
@@ -497,5 +532,74 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
     gap: 0.75rem;
     padding: 1rem 1.25rem;
     border-top: 1px solid var(--border);
+}
+
+/* ── Mobile/desktop toggle ────────────────────────────────────────────────── */
+.hide-sm { display: block; }
+.show-sm { display: none; }
+@media (max-width: 639px) {
+    .hide-sm { display: none !important; }
+    .show-sm { display: flex; flex-direction: column; gap: 0.5rem; }
+}
+
+/* ── Mobile sale cards ────────────────────────────────────────────────────── */
+.sv-empty {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 2rem 1rem;
+    font-size: 0.875rem;
+}
+.sv-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.875rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.sv-card--void { opacity: 0.55; }
+.sv-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+.sv-ticket {
+    font-family: monospace;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.sv-time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+.sv-mid {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+}
+.sv-total {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+.sv-curr {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+.sv-bot {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.sv-method {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    flex: 1;
 }
 </style>

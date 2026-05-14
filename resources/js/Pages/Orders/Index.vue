@@ -836,16 +836,20 @@ function methodName(id) {
 
 <style scoped>
 .orders-wrap {
-    padding: 1.5rem;
+    padding: 1rem 0.85rem;
     max-width: 1280px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
+    gap: 1rem;
+}
+@media (min-width: 640px) {
+    .orders-wrap { padding: 1.5rem; gap: 1.25rem; }
 }
 
 /* ─── KPIs ─────────────────────────────────────────────────────────────────── */
-.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+.kpi-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+@media (min-width: 640px) { .kpi-row { grid-template-columns: repeat(4, 1fr); gap: 1rem; } }
 .kpi-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
@@ -868,7 +872,7 @@ function methodName(id) {
 .orders-header { display: flex; align-items: center; justify-content: space-between; }
 .tabs { display: flex; gap: 0.5rem; background: var(--bg-base); border-radius: 10px; padding: 0.25rem; }
 .tab {
-    padding: 0.45rem 1.1rem;
+    padding: 0.6rem 1.1rem;
     border-radius: 7px;
     font-size: 0.88rem;
     font-weight: 600;
@@ -880,6 +884,7 @@ function methodName(id) {
     align-items: center;
     gap: 0.4rem;
     transition: background 0.15s, color 0.15s;
+    min-height: 44px;
 }
 .tab.tab-active { background: var(--bg-card); color: var(--text-primary); }
 .tab-badge {
@@ -895,12 +900,13 @@ function methodName(id) {
     background: var(--brand);
     color: #fff;
     border: none;
-    padding: 0.55rem 1.25rem;
+    padding: 0.6rem 1.25rem;
     border-radius: 9px;
     font-weight: 700;
     font-size: 0.88rem;
     cursor: pointer;
     transition: opacity 0.15s;
+    min-height: 44px;
 }
 .btn-brand:hover { opacity: 0.88; }
 .btn-brand:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -963,33 +969,36 @@ function methodName(id) {
     background: rgba(22,163,74,0.15);
     color: #16a34a;
     border: 1px solid rgba(22,163,74,0.3);
-    padding: 0.4rem 0.9rem;
+    padding: 0.55rem 0.9rem;
     border-radius: 8px;
     font-size: 0.84rem;
     font-weight: 700;
     cursor: pointer;
+    min-height: 44px;
 }
 .btn-collect:hover { background: rgba(22,163,74,0.22); }
 .btn-cancel-order {
     background: rgba(239,68,68,0.1);
     color: #ef4444;
     border: 1px solid rgba(239,68,68,0.25);
-    padding: 0.4rem 0.9rem;
+    padding: 0.55rem 0.9rem;
     border-radius: 8px;
     font-size: 0.84rem;
     font-weight: 700;
     cursor: pointer;
+    min-height: 44px;
 }
 .btn-cancel-order:hover { background: rgba(239,68,68,0.17); }
 .btn-dispatch {
     background: rgba(99,102,241,0.12);
     color: var(--brand);
     border: 1px solid rgba(99,102,241,0.3);
-    padding: 0.4rem 0.9rem;
+    padding: 0.55rem 0.9rem;
     border-radius: 8px;
     font-size: 0.84rem;
     font-weight: 700;
     cursor: pointer;
+    min-height: 44px;
 }
 .btn-dispatch:hover { background: rgba(99,102,241,0.2); }
 .btn-dispatch:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -1080,7 +1089,7 @@ function methodName(id) {
 .field-input:focus { border-color: var(--brand); }
 
 /* ─── Nuevo Pedido — layout 2 col ────────────────────────────────────────── */
-.new-order-body { display: grid; grid-template-columns: 1fr 320px; gap: 1.5rem; }
+.new-order-body { display: grid; grid-template-columns: 1fr; gap: 1.5rem; }
 .new-order-left { display: flex; flex-direction: column; gap: 0.85rem; overflow: hidden; }
 .new-order-right { display: flex; flex-direction: column; gap: 0.75rem; }
 
@@ -1193,12 +1202,9 @@ function methodName(id) {
 .error-msg { font-size: 0.84rem; color: #ef4444; background: rgba(239,68,68,0.1); padding: 0.5rem 0.75rem; border-radius: 7px; }
 
 /* ─── Responsive ─────────────────────────────────────────────────────────── */
-@media (max-width: 900px) {
-    .kpi-row { grid-template-columns: repeat(2, 1fr); }
-    .new-order-body { grid-template-columns: 1fr; }
-}
-@media (max-width: 560px) {
-    .kpi-row { grid-template-columns: 1fr; }
-    .orders-grid { grid-template-columns: 1fr; }
+/* Base (mobile): new-order body stacks, orders-grid 1 col */
+.orders-header { flex-wrap: wrap; gap: 0.75rem; }
+@media (min-width: 900px) {
+    .new-order-body { grid-template-columns: 1fr 320px; }
 }
 </style>
