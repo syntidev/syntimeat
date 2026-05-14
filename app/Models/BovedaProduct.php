@@ -15,11 +15,15 @@ class BovedaProduct extends Model
         'unit',
         'active',
         'sort_order',
+        'requires_despiece',
+        'vitrina_product_id',
     ];
 
     protected $casts = [
-        'active'     => 'boolean',
-        'sort_order' => 'integer',
+        'active'             => 'boolean',
+        'sort_order'         => 'integer',
+        'requires_despiece'  => 'boolean',
+        'vitrina_product_id' => 'integer',
     ];
 
     public function business(): BelongsTo

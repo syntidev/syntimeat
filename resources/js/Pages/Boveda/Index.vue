@@ -4,10 +4,11 @@ import AppLayout  from '@/Layouts/AppLayout.vue';
 import HelpModal  from '@/Components/HelpModal.vue';
 
 const props = defineProps({
-    activas:        { type: Array,  default: () => [] },
-    historial:      { type: Array,  default: () => [] },
-    bovedaProducts: { type: Array,  default: () => [] },
-    kpis:           { type: Object, default: () => ({}) },
+    activas:          { type: Array,  default: () => [] },
+    historial:        { type: Array,  default: () => [] },
+    bovedaProducts:   { type: Array,  default: () => [] },
+    productosVitrina: { type: Array,  default: () => [] },
+    kpis:             { type: Object, default: () => ({}) },
 });
 
 // ─── Tab ──────────────────────────────────────────────────────────────────────
@@ -104,11 +105,12 @@ async function saveEntrada() {
 }
 
 // ─── Modal Surtir ─────────────────────────────────────────────────────────────
-const showSurtirModal = ref(false);
-const surtirEntry     = ref(null);
-const surtirForm      = ref({ kg_surtir: '' });
-const surtirErrors    = ref({});
-const savingSurtir    = ref(false);
+const showSurtirModal   = ref(false);
+const surtirEntry       = ref(null);
+const surtirForm        = ref({ kg_surtir: '' });
+const surtirErrors      = ref({});
+const savingSurtir      = ref(false);
+const despiecePendiente = ref(null); // { product_type, kg_surtir } cuando requires_despiece
 
 function openSurtir(entry) {
     surtirEntry.value     = entry;
@@ -132,7 +134,11 @@ async function saveSurtir() {
             return;
         }
         if (!res.ok) throw new Error('Error al surtir');
+        const body = await res.json();
         showSurtirModal.value = false;
+        if (body.requires_despiece) {
+            despiecePendiente.value = { product_type: body.product_type, kg_surtir: body.kg_surtir };
+        }
         showFlash('Surtido registrado.');
         setTimeout(() => location.reload(), 600);
     } catch (e) {
@@ -170,9 +176,9 @@ const excedeLimite = computed(() => {
 
 // ─── Modal Producto Bóveda ────────────────────────────────────────────────────
 const showProductModal = ref(false);
-const editingProduct   = ref(null); // null = crear, objeto = editar
+const editingProduct   = ref(null);
 const savingProduct    = ref(false);
-const productForm      = ref({ name: '', unit: 'kg' });
+const productForm      = ref({ name: '', unit: 'kg', requires_despiece: true, vitrina_product_id: null });
 const productErrors    = ref({});
 
 // Lista reactiva local (se actualiza optimistamente para no recargar página)
@@ -278,13 +284,18 @@ async function saveMerma() {
 function openNewProduct() {
     editingProduct.value   = null;
     productErrors.value    = {};
-    productForm.value      = { name: '', unit: 'kg' };
+    productForm.value      = { name: '', unit: 'kg', requires_despiece: true, vitrina_product_id: null };
     showProductModal.value = true;
 }
 function openEditProduct(product) {
     editingProduct.value   = product;
     productErrors.value    = {};
-    productForm.value      = { name: product.name, unit: product.unit };
+    productForm.value      = {
+        name:               product.name,
+        unit:               product.unit,
+        requires_despiece:  product.requires_despiece,
+        vitrina_product_id: product.vitrina_product_id ?? null,
+    };
     showProductModal.value = true;
 }
 async function saveProduct() {
@@ -298,11 +309,18 @@ async function saveProduct() {
         : route('boveda.product.store');
     const method = isEdit ? 'PUT' : 'POST';
 
+    const payload = {
+        name:               productForm.value.name,
+        unit:               productForm.value.unit,
+        requires_despiece:  productForm.value.requires_despiece,
+        vitrina_product_id: productForm.value.requires_despiece ? null : (productForm.value.vitrina_product_id || null),
+    };
+
     try {
         const res = await fetch(url, {
             method,
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json' },
-            body: JSON.stringify(productForm.value),
+            body: JSON.stringify(payload),
         });
         if (res.status === 422) {
             const body = await res.json();
@@ -386,6 +404,20 @@ async function deactivateProduct(product) {
                     <p class="kpi-val">{{ fmtKg(kpis.surtidoHoy) }}</p>
                 </div>
             </div>
+
+            <!-- Alerta despiece pendiente -->
+            <Transition name="fl">
+                <div v-if="despiecePendiente" class="despiece-alert">
+                    <span class="despiece-alert__icon">🔪</span>
+                    <div class="despiece-alert__body">
+                        <strong>Despiece pendiente:</strong>
+                        {{ despiecePendiente.product_type }} — {{ Number(despiecePendiente.kg_surtir).toFixed(3) }} kg enviados a vitrina.
+                        Registra los cortes resultantes desde el módulo de Despiece.
+                    </div>
+                    <a :href="route('despiece.index')" class="despiece-alert__btn">Ir a Despiece →</a>
+                    <button class="despiece-alert__close" @click="despiecePendiente = null">×</button>
+                </div>
+            </Transition>
 
             <!-- Tabs -->
             <div class="tabs-row">
@@ -510,6 +542,7 @@ async function deactivateProduct(product) {
                             <tr>
                                 <th>Nombre</th>
                                 <th>Unidad</th>
+                                <th>Flujo</th>
                                 <th>Estado</th>
                                 <th>Acciones</th>
                             </tr>
@@ -518,6 +551,10 @@ async function deactivateProduct(product) {
                             <tr v-for="p in localBovedaProducts" :key="p.id" :class="{ 'row-closed': !p.active }">
                                 <td>{{ p.name }}</td>
                                 <td><span class="unit-badge">{{ p.unit }}</span></td>
+                                <td>
+                                    <span v-if="p.requires_despiece" class="flujo-badge flujo-despiece">Despiece</span>
+                                    <span v-else class="flujo-badge flujo-directo">Directo</span>
+                                </td>
                                 <td>
                                     <span v-if="p.active" class="status-badge status-active">Activo</span>
                                     <span v-else class="status-badge status-inactive">Inactivo</span>
@@ -740,6 +777,30 @@ async function deactivateProduct(product) {
                                     <option value="caja">caja</option>
                                 </select>
                             </div>
+                            <div class="form-field full">
+                                <label class="toggle-label">
+                                    <span>Requiere despiece</span>
+                                    <span class="toggle-hint">Actívalo para canales/piezas enteras que hay que cortar antes de vender.</span>
+                                </label>
+                                <div
+                                    class="toggle-wrap"
+                                    @click="productForm.requires_despiece = !productForm.requires_despiece"
+                                >
+                                    <div class="toggle-track" :class="{ 'toggle-track--on': productForm.requires_despiece }">
+                                        <div class="toggle-thumb" :class="{ 'toggle-thumb--on': productForm.requires_despiece }"></div>
+                                    </div>
+                                    <span class="toggle-text">{{ productForm.requires_despiece ? 'Sí — pasa por Despiece' : 'No — va directo a vitrina' }}</span>
+                                </div>
+                            </div>
+                            <div v-if="!productForm.requires_despiece" class="form-field full">
+                                <label>Producto vitrina destino</label>
+                                <select v-model="productForm.vitrina_product_id" class="form-select">
+                                    <option :value="null">— Seleccionar —</option>
+                                    <option v-for="p in productosVitrina" :key="p.id" :value="p.id">{{ p.name }}</option>
+                                </select>
+                                <span class="toggle-hint">El stock de este producto en vitrina aumentará automáticamente al surtir.</span>
+                                <span v-if="productErrors.vitrina_product_id" class="field-err">{{ productErrors.vitrina_product_id[0] }}</span>
+                            </div>
                         </div>
 
                         <div class="modal-actions">
@@ -894,6 +955,34 @@ async function deactivateProduct(product) {
 
 /* ─── Acciones ───────────────────────────────────────────────────────────────*/
 .modal-actions { display: flex; gap: 0.6rem; justify-content: flex-end; }
+
+/* ─── Toggle ─────────────────────────────────────────────────────────────────*/
+.toggle-label     { display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
+.toggle-hint      { font-size: 0.73rem; color: var(--text-muted); font-weight: 400; line-height: 1.3; }
+.toggle-wrap      { display: flex; align-items: center; gap: 0.55rem; cursor: pointer; user-select: none; }
+.toggle-track     { width: 38px; height: 22px; border-radius: 999px; background: var(--border); position: relative; transition: background 0.2s; flex-shrink: 0; }
+.toggle-track--on { background: var(--brand); }
+.toggle-thumb     { width: 16px; height: 16px; border-radius: 50%; background: #fff; position: absolute; top: 3px; left: 3px; transition: left 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.toggle-thumb--on { left: 19px; }
+.toggle-text      { font-size: 0.85rem; color: var(--text-primary); }
+
+/* ─── Flujo badges ───────────────────────────────────────────────────────────*/
+.flujo-badge   { border-radius: 20px; padding: 0.15rem 0.55rem; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+.flujo-despiece { background: rgba(139,92,246,0.12); color: #8b5cf6; }
+.flujo-directo  { background: rgba(16,185,129,0.12); color: #10b981; }
+
+/* ─── Alerta despiece ────────────────────────────────────────────────────────*/
+.despiece-alert {
+    display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+    background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.35);
+    border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1rem;
+}
+.despiece-alert__icon  { font-size: 1.3rem; flex-shrink: 0; }
+.despiece-alert__body  { flex: 1; font-size: 0.85rem; color: var(--text-primary); line-height: 1.4; }
+.despiece-alert__body strong { color: #8b5cf6; }
+.despiece-alert__btn   { background: #8b5cf6; color: #fff; border: none; border-radius: 7px; padding: 0.35rem 0.85rem; font-size: 0.82rem; font-weight: 600; cursor: pointer; font-family: inherit; text-decoration: none; white-space: nowrap; }
+.despiece-alert__btn:hover { opacity: 0.85; }
+.despiece-alert__close { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted); line-height: 1; padding: 0; margin-left: auto; }
 
 /* ─── Transición modal ───────────────────────────────────────────────────────*/
 .mo-enter-active, .mo-leave-active { transition: opacity .18s; }

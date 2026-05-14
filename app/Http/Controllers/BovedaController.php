@@ -39,11 +39,20 @@ class BovedaController extends Controller
             ->orderBy('name')
             ->get()
             ->map(fn ($p) => [
-                'id'     => $p->id,
-                'name'   => $p->name,
-                'unit'   => $p->unit,
-                'active' => $p->active,
+                'id'                 => $p->id,
+                'name'               => $p->name,
+                'unit'               => $p->unit,
+                'active'             => $p->active,
+                'requires_despiece'  => $p->requires_despiece,
+                'vitrina_product_id' => $p->vitrina_product_id,
             ]);
+
+        $productosVitrina = Product::where('business_id', $businessId)
+            ->where('active', true)
+            ->where('location', 'vitrina')
+            ->where('sale_mode', 'weight')
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
         $kgDisponibleTotal = BovedaEntry::active()->where('business_id', $businessId)
             ->sum(DB::raw('kg_entrada - kg_surtido_vitrina - waste_kg'));
@@ -58,9 +67,10 @@ class BovedaController extends Controller
             ->sum(fn ($log) => (float) (($log->new_values ?? [])['kg_surtir'] ?? 0));
 
         return Inertia::render('Boveda/Index', [
-            'activas'        => $activas,
-            'historial'      => $historial,
-            'bovedaProducts' => $bovedaProducts,
+            'activas'          => $activas,
+            'historial'        => $historial,
+            'bovedaProducts'   => $bovedaProducts,
+            'productosVitrina' => $productosVitrina,
             'kpis'             => [
                 'entradasActivas' => $activas->count(),
                 'kgDisponible'    => round((float) $kgDisponibleTotal, 3),
@@ -152,9 +162,53 @@ class BovedaController extends Controller
 
         $businessId = Auth::user()->business_id;
         $userId     = Auth::id();
+        $kg         = round((float) $data['kg_surtir'], 3);
 
-        DB::transaction(function () use ($entry, $data, $businessId, $userId): void {
-            $entry->increment('kg_surtido_vitrina', (float) $data['kg_surtir']);
+        // Determinar si el tipo de producto requiere despiece
+        $bovedaProductType = BovedaProduct::where('business_id', $businessId)
+            ->where('name', $entry->product_type)
+            ->first();
+
+        $requiresDespiece  = $bovedaProductType?->requires_despiece ?? true;
+        $vitrinaProductId  = $bovedaProductType?->vitrina_product_id;
+
+        DB::transaction(function () use ($entry, $kg, $businessId, $userId, $requiresDespiece, $vitrinaProductId): void {
+            $entry->increment('kg_surtido_vitrina', $kg);
+
+            if ($requiresDespiece) {
+                // Registra salida de bóveda para que Despiece lo procese
+                $bovedaProduct = Product::where('business_id', $businessId)
+                    ->where('location', 'boveda')
+                    ->where('name', $entry->product_type)
+                    ->first();
+
+                if ($bovedaProduct !== null) {
+                    InventoryEntry::create([
+                        'business_id'     => $businessId,
+                        'product_id'      => $bovedaProduct->id,
+                        'boveda_entry_id' => $entry->id,
+                        'quantity_kg'     => -$kg,
+                        'waste_kg'        => 0,
+                        'location'        => 'boveda',
+                        'notes'           => 'Salida bóveda → vitrina para despiece (entrada #' . $entry->id . ')',
+                        'entered_at'      => now(),
+                        'created_by'      => $userId,
+                    ]);
+                }
+            } elseif ($vitrinaProductId !== null) {
+                // Producto terminado: suma directamente al stock de vitrina
+                InventoryEntry::create([
+                    'business_id'     => $businessId,
+                    'product_id'      => $vitrinaProductId,
+                    'boveda_entry_id' => $entry->id,
+                    'quantity_kg'     => $kg,
+                    'waste_kg'        => 0,
+                    'location'        => 'vitrina',
+                    'notes'           => 'Ingreso directo desde bóveda (entrada #' . $entry->id . ')',
+                    'entered_at'      => now(),
+                    'created_by'      => $userId,
+                ]);
+            }
 
             ActivityLog::create([
                 'business_id' => $businessId,
@@ -162,11 +216,19 @@ class BovedaController extends Controller
                 'action'      => 'boveda.surte',
                 'model_type'  => 'BovedaEntry',
                 'model_id'    => $entry->id,
-                'new_values'  => ['kg_surtir' => (float) $data['kg_surtir']],
+                'new_values'  => [
+                    'kg_surtir'         => $kg,
+                    'requires_despiece' => $requiresDespiece,
+                ],
             ]);
         });
 
-        return response()->json(['message' => 'Surtido registrado.']);
+        return response()->json([
+            'message'           => 'Surtido registrado.',
+            'requires_despiece' => $requiresDespiece,
+            'product_type'      => $entry->product_type,
+            'kg_surtir'         => $kg,
+        ]);
     }
 
     public function close(BovedaEntry $entry): \Illuminate\Http\JsonResponse
@@ -244,14 +306,18 @@ class BovedaController extends Controller
                     fn ($q) => $q->where('business_id', $businessId)
                 ),
             ],
-            'unit' => ['nullable', 'string', 'max:20'],
+            'unit'               => ['nullable', 'string', 'max:20'],
+            'requires_despiece'  => ['boolean'],
+            'vitrina_product_id' => ['nullable', 'integer', 'exists:products,id'],
         ]);
 
         $product = BovedaProduct::create([
-            'business_id' => $businessId,
-            'name'        => $data['name'],
-            'unit'        => $data['unit'] ?? 'kg',
-            'active'      => true,
+            'business_id'        => $businessId,
+            'name'               => $data['name'],
+            'unit'               => $data['unit'] ?? 'kg',
+            'active'             => true,
+            'requires_despiece'  => $data['requires_despiece'] ?? true,
+            'vitrina_product_id' => $data['vitrina_product_id'] ?? null,
         ]);
 
         ActivityLog::create([
@@ -260,12 +326,9 @@ class BovedaController extends Controller
             'action'      => 'boveda.product.create',
             'model_type'  => 'BovedaProduct',
             'model_id'    => $product->id,
-            'description' => 'Producto bóveda creado: ' . $product->name,
         ]);
 
-        return response()->json([
-            'product' => ['id' => $product->id, 'name' => $product->name, 'unit' => $product->unit, 'active' => $product->active],
-        ], 201);
+        return response()->json(['product' => $this->formatBovedaProduct($product)], 201);
     }
 
     public function updateProduct(Request $request, BovedaProduct $product): \Illuminate\Http\JsonResponse
@@ -280,12 +343,18 @@ class BovedaController extends Controller
                     fn ($q) => $q->where('business_id', $businessId)
                 )->ignore($product->id),
             ],
-            'unit' => ['nullable', 'string', 'max:20'],
+            'unit'               => ['nullable', 'string', 'max:20'],
+            'requires_despiece'  => ['boolean'],
+            'vitrina_product_id' => ['nullable', 'integer', 'exists:products,id'],
         ]);
 
         $product->update([
-            'name' => $data['name'],
-            'unit' => $data['unit'] ?? $product->unit,
+            'name'               => $data['name'],
+            'unit'               => $data['unit'] ?? $product->unit,
+            'requires_despiece'  => $data['requires_despiece'] ?? $product->requires_despiece,
+            'vitrina_product_id' => array_key_exists('vitrina_product_id', $data)
+                ? $data['vitrina_product_id']
+                : $product->vitrina_product_id,
         ]);
 
         ActivityLog::create([
@@ -294,12 +363,9 @@ class BovedaController extends Controller
             'action'      => 'boveda.product.update',
             'model_type'  => 'BovedaProduct',
             'model_id'    => $product->id,
-            'description' => 'Producto bóveda editado: ' . $product->name,
         ]);
 
-        return response()->json([
-            'product' => ['id' => $product->id, 'name' => $product->name, 'unit' => $product->unit, 'active' => $product->active],
-        ]);
+        return response()->json(['product' => $this->formatBovedaProduct($product)]);
     }
 
     public function destroyProduct(BovedaProduct $product): \Illuminate\Http\JsonResponse
@@ -318,6 +384,18 @@ class BovedaController extends Controller
         ]);
 
         return response()->json(['ok' => true]);
+    }
+
+    private function formatBovedaProduct(BovedaProduct $p): array
+    {
+        return [
+            'id'                 => $p->id,
+            'name'               => $p->name,
+            'unit'               => $p->unit,
+            'active'             => $p->active,
+            'requires_despiece'  => $p->requires_despiece,
+            'vitrina_product_id' => $p->vitrina_product_id,
+        ];
     }
 
     // F4: expone waste_kg y cost_per_kg_usd calculado
