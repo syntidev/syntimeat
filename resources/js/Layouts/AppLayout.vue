@@ -161,7 +161,8 @@ const nav = [
     {
         section: 'ANÁLISIS',
         items: [
-            { label: 'Resumen',      route: 'dashboard',        icon: 'chart',     perm: 'dashboard' },
+            { label: 'Resumen',           route: 'dashboard',            icon: 'chart',  perm: 'dashboard' },
+            { label: 'Panel Empresarial', route: 'reports.consolidated', icon: 'chart',  perm: 'dashboard', roles: ['super_admin', 'owner'] },
         ],
     },
     {
@@ -176,7 +177,10 @@ const visibleNav = computed(() =>
     nav
         .map(group => ({
             ...group,
-            items: group.items.filter(item => canAccess(item.perm)),
+            items: group.items.filter(item =>
+                canAccess(item.perm)
+                && (!item.roles || item.roles.includes(user.value?.role)),
+            ),
         }))
         .filter(group => group.items.length > 0)
 )

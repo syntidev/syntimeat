@@ -33,6 +33,7 @@ class Business extends Model
         'price_lock_policy',
         'onboarding_completed',
         'active',
+        'max_branches',
         'settings',
         'theme_color',
     ];
@@ -45,6 +46,7 @@ class Business extends Model
             'preticket_expiry_minutes' => 'integer',
             'onboarding_completed'     => 'boolean',
             'active'                   => 'boolean',
+            'max_branches'             => 'integer',
             'settings'                 => 'array',
         ];
     }
@@ -52,6 +54,11 @@ class Business extends Model
     public function users(): HasMany
     {
         return $this->hasMany(User::class);
+    }
+
+    public function branches(): HasMany
+    {
+        return $this->hasMany(Branch::class);
     }
 
     public function categories(): HasMany

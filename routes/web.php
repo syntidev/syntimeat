@@ -88,6 +88,12 @@ Route::middleware(['auth', 'verified', 'check.onboarding'])->group(function () {
         Route::patch('/ventas/{sale}/cobrar-pendiente', [OrderController::class, 'collectPending'])->name('sales.collect-pending');
     });
 
+    // ── Panel Empresarial — solo super_admin / owner (vista multi-sucursal) ───
+    Route::middleware('role:super_admin,owner')->group(function () {
+        Route::get('/reportes/consolidado', [ReportController::class, 'consolidated'])->name('reports.consolidated');
+        Route::get('/reportes/consolidado/data', [ReportController::class, 'consolidatedData'])->name('reports.consolidated-data');
+    });
+
     // ── super_admin y admin ───────────────────────────────────────────────────
     Route::middleware('role:super_admin,admin')->group(function () {
         // Tasa manual
