@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import AppLayout  from '@/Layouts/AppLayout.vue';
 import HelpModal  from '@/Components/HelpModal.vue';
 
@@ -110,7 +110,16 @@ const surtirEntry       = ref(null);
 const surtirForm        = ref({ kg_surtir: '' });
 const surtirErrors      = ref({});
 const savingSurtir      = ref(false);
+const DESPIECE_KEY      = 'boveda_despiece_pendiente';
 const despiecePendiente = ref(null); // { product_type, kg_surtir } cuando requires_despiece
+
+onMounted(() => {
+    const saved = sessionStorage.getItem(DESPIECE_KEY);
+    if (saved) {
+        despiecePendiente.value = JSON.parse(saved);
+        sessionStorage.removeItem(DESPIECE_KEY);
+    }
+});
 
 function openSurtir(entry) {
     surtirEntry.value     = entry;
@@ -137,7 +146,10 @@ async function saveSurtir() {
         const body = await res.json();
         showSurtirModal.value = false;
         if (body.requires_despiece) {
-            despiecePendiente.value = { product_type: body.product_type, kg_surtir: body.kg_surtir };
+            sessionStorage.setItem(DESPIECE_KEY, JSON.stringify({
+                product_type: body.product_type,
+                kg_surtir:    body.kg_surtir,
+            }));
         }
         showFlash('Surtido registrado.');
         setTimeout(() => location.reload(), 600);
