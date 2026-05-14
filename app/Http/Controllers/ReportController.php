@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Branch;
 use App\Models\CashRegister;
 use App\Models\Category;
 use App\Models\InventoryEntry;
@@ -13,6 +14,7 @@ use App\Models\Sale;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Concerns\FromCollection;
@@ -271,6 +273,246 @@ class ReportController extends Controller
         return \Barryvdh\DomPDF\Facade\Pdf::loadHtml($html)
             ->setPaper('a4', 'portrait')
             ->download("reporte_dia_{$fecha}.pdf");
+    }
+
+    // ─── Panel Empresarial: Vista Consolidada de Sucursales ──────────────────
+
+    public function consolidated(): Response
+    {
+        $business = Auth::user()->business;
+
+        $branches = Branch::where('business_id', $business->id)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'city']);
+
+        $maxBranches = (int) ($business->max_branches ?? 2);
+
+        // Selección inicial: hasta max_branches sucursales
+        $initialIds = $branches->take($maxBranches)->pluck('id')->all();
+
+        $desde = now()->startOfMonth()->toDateString();
+        $hasta = now()->toDateString();
+
+        return Inertia::render('Reports/Consolidado', [
+            'branches'     => $branches,
+            'max_branches' => $maxBranches,
+            'initial'      => $this->buildConsolidatedData($business->id, $initialIds, $desde, $hasta),
+            'rango'        => ['desde' => $desde, 'hasta' => $hasta],
+        ]);
+    }
+
+    public function consolidatedData(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'branch_ids'   => ['required', 'array', 'min:1'],
+            'branch_ids.*' => ['integer'],
+            'fecha_desde'  => ['nullable', 'date'],
+            'fecha_hasta'  => ['nullable', 'date'],
+        ]);
+
+        $business    = Auth::user()->business;
+        $maxBranches = (int) ($business->max_branches ?? 2);
+
+        // Sucursales válidas del negocio
+        $validIds = Branch::where('business_id', $business->id)
+            ->where('is_active', true)
+            ->pluck('id')
+            ->all();
+
+        $branchIds = array_values(array_intersect(
+            array_map('intval', $data['branch_ids']),
+            $validIds,
+        ));
+
+        // Gate del plan: nunca consolidar más de max_branches
+        $branchIds = array_slice($branchIds, 0, $maxBranches);
+
+        if (empty($branchIds)) {
+            return response()->json(['error' => 'Selecciona al menos una sucursal válida.'], 422);
+        }
+
+        $desde = $data['fecha_desde'] ?? now()->startOfMonth()->toDateString();
+        $hasta = $data['fecha_hasta'] ?? now()->toDateString();
+
+        return response()->json($this->buildConsolidatedData($business->id, $branchIds, $desde, $hasta));
+    }
+
+    // ─── Helper: agregación consolidada por sucursal ─────────────────────────
+
+    private function buildConsolidatedData(int $businessId, array $branchIds, string $desde, string $hasta): array
+    {
+        if (empty($branchIds)) {
+            return [
+                'branches'    => [],
+                'totals'      => $this->emptyConsolidatedTotals(),
+                'tendencia'   => [],
+                'categorias'  => [],
+                'rango'       => ['desde' => $desde, 'hasta' => $hasta],
+            ];
+        }
+
+        // ── Ventas agregadas por sucursal ────────────────────────────────────
+        $perBranch = Sale::without('items')
+            ->where('business_id', $businessId)
+            ->where('status', 'paid')
+            ->whereIn('branch_id', $branchIds)
+            ->whereDate('sold_at', '>=', $desde)
+            ->whereDate('sold_at', '<=', $hasta)
+            ->selectRaw('branch_id, COUNT(*) as ventas_count, COALESCE(SUM(total_bs), 0) as vendido_bs, COALESCE(SUM(total_usd), 0) as vendido_usd')
+            ->groupBy('branch_id')
+            ->get()
+            ->keyBy('branch_id');
+
+        // ── Costo promedio por producto (todo el negocio) ────────────────────
+        $avgCosts = InventoryEntry::where('business_id', $businessId)
+            ->whereNotNull('cost_per_kg_usd')
+            ->where('cost_per_kg_usd', '>', 0)
+            ->selectRaw('product_id, AVG(cost_per_kg_usd) as avg_cost')
+            ->groupBy('product_id')
+            ->pluck('avg_cost', 'product_id');
+
+        // ── Costo y kg vendidos por sucursal (vía sale_items) ────────────────
+        $itemRows = DB::table('sale_items')
+            ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
+            ->where('sales.business_id', $businessId)
+            ->where('sales.status', 'paid')
+            ->whereIn('sales.branch_id', $branchIds)
+            ->whereDate('sales.sold_at', '>=', $desde)
+            ->whereDate('sales.sold_at', '<=', $hasta)
+            ->groupBy('sales.branch_id', 'sale_items.product_id', 'sale_items.input_type')
+            ->selectRaw('sales.branch_id, sale_items.product_id, sale_items.input_type, SUM(sale_items.quantity_value) as qty')
+            ->get();
+
+        $costoPorSucursal = [];
+        $kgPorSucursal    = [];
+
+        foreach ($itemRows as $row) {
+            $bid = (int) $row->branch_id;
+            $qty = (float) $row->qty;
+            $costoPorSucursal[$bid] = ($costoPorSucursal[$bid] ?? 0.0)
+                + ((float) ($avgCosts[$row->product_id] ?? 0)) * $qty;
+
+            if ($row->input_type === 'weight') {
+                $kgPorSucursal[$bid] = ($kgPorSucursal[$bid] ?? 0.0) + $qty;
+            }
+        }
+
+        // ── Armar fila por sucursal ──────────────────────────────────────────
+        $branchModels = Branch::whereIn('id', $branchIds)->get(['id', 'name', 'city'])->keyBy('id');
+
+        $branches = [];
+        foreach ($branchIds as $bid) {
+            $s          = $perBranch->get($bid);
+            $vendidoBs  = (float) ($s->vendido_bs ?? 0);
+            $vendidoUsd = (float) ($s->vendido_usd ?? 0);
+            $ventas     = (int)   ($s->ventas_count ?? 0);
+            $costoUsd   = round((float) ($costoPorSucursal[$bid] ?? 0), 2);
+
+            $rateEf      = $vendidoUsd > 0 ? $vendidoBs / $vendidoUsd : 0.0;
+            $utilidadUsd = round($vendidoUsd - $costoUsd, 2);
+            $utilidadBs  = round($vendidoBs - ($costoUsd * $rateEf), 2);
+            $margen      = $vendidoUsd > 0 ? round(($utilidadUsd / $vendidoUsd) * 100, 1) : 0.0;
+            $ticketProm  = $ventas > 0 ? round($vendidoBs / $ventas, 2) : 0.0;
+
+            $branches[] = [
+                'id'             => $bid,
+                'name'           => $branchModels->get($bid)?->name ?? 'Sucursal',
+                'city'           => $branchModels->get($bid)?->city ?? '',
+                'ventas_count'   => $ventas,
+                'vendido_bs'     => round($vendidoBs, 2),
+                'vendido_usd'    => round($vendidoUsd, 2),
+                'costo_usd'      => $costoUsd,
+                'utilidad_usd'   => $utilidadUsd,
+                'utilidad_bs'    => $utilidadBs,
+                'margen_pct'     => $margen,
+                'ticket_prom_bs' => $ticketProm,
+                'kg_vendidos'    => round((float) ($kgPorSucursal[$bid] ?? 0), 3),
+            ];
+        }
+
+        // ── Totales consolidados (números brutos) ────────────────────────────
+        $totVentas      = array_sum(array_column($branches, 'ventas_count'));
+        $totVendidoBs   = array_sum(array_column($branches, 'vendido_bs'));
+        $totVendidoUsd  = array_sum(array_column($branches, 'vendido_usd'));
+        $totCostoUsd    = array_sum(array_column($branches, 'costo_usd'));
+        $totUtilidadUsd = array_sum(array_column($branches, 'utilidad_usd'));
+        $totUtilidadBs  = array_sum(array_column($branches, 'utilidad_bs'));
+        $totKg          = array_sum(array_column($branches, 'kg_vendidos'));
+
+        $totals = [
+            'ventas_count'   => $totVentas,
+            'vendido_bs'     => round($totVendidoBs, 2),
+            'vendido_usd'    => round($totVendidoUsd, 2),
+            'costo_usd'      => round($totCostoUsd, 2),
+            'utilidad_usd'   => round($totUtilidadUsd, 2),
+            'utilidad_bs'    => round($totUtilidadBs, 2),
+            'margen_pct'     => $totVendidoUsd > 0 ? round(($totUtilidadUsd / $totVendidoUsd) * 100, 1) : 0.0,
+            'ticket_prom_bs' => $totVentas > 0 ? round($totVendidoBs / $totVentas, 2) : 0.0,
+            'kg_vendidos'    => round($totKg, 3),
+        ];
+
+        // ── Tendencia diaria consolidada ─────────────────────────────────────
+        $tendencia = Sale::without('items')
+            ->where('business_id', $businessId)
+            ->where('status', 'paid')
+            ->whereIn('branch_id', $branchIds)
+            ->whereDate('sold_at', '>=', $desde)
+            ->whereDate('sold_at', '<=', $hasta)
+            ->selectRaw('DATE(sold_at) as dia, COALESCE(SUM(total_usd), 0) as total_usd')
+            ->groupBy('dia')
+            ->orderBy('dia')
+            ->get()
+            ->map(fn ($r) => [
+                'dia'       => $r->dia,
+                'total_usd' => round((float) $r->total_usd, 2),
+            ])
+            ->values()
+            ->all();
+
+        // ── Mezcla por categoría consolidada ─────────────────────────────────
+        $categorias = DB::table('sale_items')
+            ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
+            ->join('products', 'products.id', '=', 'sale_items.product_id')
+            ->join('categories', 'categories.id', '=', 'products.category_id')
+            ->where('sales.business_id', $businessId)
+            ->where('sales.status', 'paid')
+            ->whereIn('sales.branch_id', $branchIds)
+            ->whereDate('sales.sold_at', '>=', $desde)
+            ->whereDate('sales.sold_at', '<=', $hasta)
+            ->groupBy('categories.id', 'categories.name')
+            ->selectRaw('categories.name as categoria, SUM(sale_items.subtotal_usd * sales.rate_used) as vendido_bs')
+            ->orderByDesc('vendido_bs')
+            ->get()
+            ->map(fn ($r) => [
+                'categoria'  => $r->categoria,
+                'vendido_bs' => round((float) $r->vendido_bs, 2),
+            ])
+            ->values()
+            ->all();
+
+        return [
+            'branches'   => $branches,
+            'totals'     => $totals,
+            'tendencia'  => $tendencia,
+            'categorias' => $categorias,
+            'rango'      => ['desde' => $desde, 'hasta' => $hasta],
+        ];
+    }
+
+    private function emptyConsolidatedTotals(): array
+    {
+        return [
+            'ventas_count'   => 0,
+            'vendido_bs'     => 0.0,
+            'vendido_usd'    => 0.0,
+            'costo_usd'      => 0.0,
+            'utilidad_usd'   => 0.0,
+            'utilidad_bs'    => 0.0,
+            'margen_pct'     => 0.0,
+            'ticket_prom_bs' => 0.0,
+            'kg_vendidos'    => 0.0,
+        ];
     }
 
     // ─── Helper: construir datos del día ──────────────────────────────────────

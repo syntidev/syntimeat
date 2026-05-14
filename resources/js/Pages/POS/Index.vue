@@ -914,7 +914,7 @@ function productImageUrl(product) {
                                 </div>
                                 <div class="sc-item-right">
                                     <span class="sc-item-bs">{{ fmtBs(item.subtotal_bs) }} Bs.</span>
-                                    <span v-if="todayRate > 0" class="sc-item-usd">$ {{ (item.subtotal_usd ?? item.subtotal_bs / todayRate).toFixed(2) }}</span>
+                                    <span v-if="todayRate > 0 && ticketPrefs.show_usd" class="sc-item-usd">$ {{ (item.subtotal_usd ?? item.subtotal_bs / todayRate).toFixed(2) }}</span>
                                 </div>
                             </div>
                         </div>

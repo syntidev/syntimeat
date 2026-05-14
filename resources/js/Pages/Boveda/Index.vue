@@ -21,6 +21,13 @@ function csrfToken() {
     return document.head.querySelector('meta[name="csrf-token"]')?.content ?? '';
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function localDateTimeString() {
+    const d = new Date()
+    const pad = (n) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 // ─── Flash ────────────────────────────────────────────────────────────────────
 const flash = ref('');
 function showFlash(msg) {
@@ -43,7 +50,7 @@ const entradaForm = ref({
     kg_entrada:        '',
     costo_usd:         '',
     supplier:          '',
-    entered_at:        new Date().toISOString().slice(0, 16),
+    entered_at:        localDateTimeString(),
 });
 const entradaErrors = ref({});
 const OTRO_LABEL = 'Otro (libre)';
@@ -58,7 +65,7 @@ function openEntrada() {
         kg_entrada:        '',
         costo_usd:         '',
         supplier:          '',
-        entered_at:        new Date().toISOString().slice(0, 16),
+        entered_at:        localDateTimeString(),
     };
     showEntradaModal.value = true;
 }

@@ -30,7 +30,7 @@ class DollarRateService
 {
     private const CACHE_KEY      = 'syntimeat_dollar_rate_usd';
     private const CACHE_TTL      = 3600;   // 1 hora
-    private const MAX_CHANGE_PCT = 20.0;   // % máximo de variación aceptada
+    private const MAX_CHANGE_PCT = 60.0;   // % máximo de variación diaria aceptada (VES es volátil)
     private const FALLBACK       = 40.00;
 
     public function __construct(
@@ -131,18 +131,36 @@ class DollarRateService
             ->value('rate');
 
         if ($previousRecord !== null) {
-            $previous  = (float) $previousRecord;
-            $changePct = $previous > 0
-                ? abs(($newRate - $previous) / $previous) * 100
-                : 0;
+            $previous = (float) $previousRecord;
 
-            if ($changePct > self::MAX_CHANGE_PCT) {
-                Log::critical('DollarRateService: Variación sospechosa rechazada', [
+            // Saltar validación si el último registro tiene más de 48h (datos muy desactualizados)
+            $lastDate = DollarRate::query()
+                ->where('currency_type', 'USD')
+                ->where('source', $sourceName)
+                ->where('is_active', true)
+                ->orderByDesc('effective_from')
+                ->value('effective_from');
+
+            $isStale = $lastDate !== null && Carbon::parse($lastDate)->diffInHours(Carbon::now()) > 48;
+
+            if (! $isStale) {
+                $changePct = $previous > 0
+                    ? abs(($newRate - $previous) / $previous) * 100
+                    : 0;
+
+                if ($changePct > self::MAX_CHANGE_PCT) {
+                    Log::critical('DollarRateService: Variación sospechosa rechazada', [
+                        'anterior' => $previous,
+                        'nueva'    => $newRate,
+                        'pct'      => round($changePct, 2),
+                    ]);
+                    return ['success' => false, 'message' => 'Tasa rechazada por variación sospechosa (>' . self::MAX_CHANGE_PCT . '%). Usa tasa manual si es correcto.'];
+                }
+            } else {
+                Log::info('DollarRateService: Datos >48h desactualizados — omitiendo validación de variación', [
                     'anterior' => $previous,
                     'nueva'    => $newRate,
-                    'pct'      => round($changePct, 2),
                 ]);
-                return ['success' => false, 'message' => 'Tasa rechazada por variación sospechosa (>' . self::MAX_CHANGE_PCT . '%)'];
             }
         }
 

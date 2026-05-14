@@ -88,6 +88,12 @@ Route::middleware(['auth', 'verified', 'check.onboarding'])->group(function () {
         Route::patch('/ventas/{sale}/cobrar-pendiente', [OrderController::class, 'collectPending'])->name('sales.collect-pending');
     });
 
+    // ── Panel Empresarial — solo super_admin / owner (vista multi-sucursal) ───
+    Route::middleware('role:super_admin,owner')->group(function () {
+        Route::get('/reportes/consolidado', [ReportController::class, 'consolidated'])->name('reports.consolidated');
+        Route::get('/reportes/consolidado/data', [ReportController::class, 'consolidatedData'])->name('reports.consolidated-data');
+    });
+
     // ── super_admin y admin ───────────────────────────────────────────────────
     Route::middleware('role:super_admin,admin')->group(function () {
         // Tasa manual
@@ -165,6 +171,9 @@ Route::middleware(['auth', 'verified', 'check.onboarding'])->group(function () {
             Route::delete('/terminales/{terminal}',[SettingsController::class, 'destroyTerminal'])->name('terminals.destroy');
             Route::get('/ticket',  [SettingsController::class, 'ticket'])->name('ticket');
             Route::post('/ticket', [SettingsController::class, 'updateTicket'])->name('ticket.update');
+            Route::get('/sucursales',             [SettingsController::class, 'branches'])->name('branches');
+            Route::post('/sucursales',            [SettingsController::class, 'storeBranch'])->name('branches.store');
+            Route::put('/sucursales/{branch}',    [SettingsController::class, 'updateBranch'])->name('branches.update');
         });
 
         // Contingencia

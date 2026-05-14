@@ -41,6 +41,8 @@ const kpis = computed(() => ({
 const showModal   = ref(false)
 const editProduct = ref(null)
 
+const submitting = ref(false)
+
 const form = useForm({
     name:               '',
     category_id:        props.categories[0]?.id ?? '',
@@ -138,6 +140,7 @@ function removeImage() {
 }
 
 function submitForm() {
+    if (submitting.value) return
     if (!hasSubcategories.value) {
         form.subcategory_id = null
     }
@@ -164,6 +167,8 @@ function submitForm() {
         data.image = form.image
     }
 
+    submitting.value = true
+
     if (editProduct.value) {
         // _method: 'PUT' in the body makes Laravel route it to update().
         // Apache strips PUT body but never strips POST body.
@@ -171,13 +176,13 @@ function submitForm() {
             ...data,
             _method: 'PUT',
         }, {
-            onSuccess: () => closeModal(),
-            onError:   (errors) => { form.errors = errors; console.error('[update errors]', errors) },
+            onSuccess: () => { submitting.value = false; closeModal() },
+            onError:   (errors) => { submitting.value = false; form.errors = errors; console.error('[update errors]', errors) },
         })
     } else {
         router.post(route('catalog.store'), data, {
-            onSuccess: () => closeModal(),
-            onError:   (errors) => { form.errors = errors; console.error('[store errors]', errors) },
+            onSuccess: () => { submitting.value = false; closeModal() },
+            onError:   (errors) => { submitting.value = false; form.errors = errors; console.error('[store errors]', errors) },
         })
     }
 }
@@ -722,7 +727,7 @@ function subProductCount(subId) {
 
                             <div class="modal-footer">
                                 <button type="button" class="btn-secondary" @click="tryCloseModal">Cancelar</button>
-                                <button type="submit" class="btn-primary" :disabled="form.processing">
+                                <button type="submit" class="btn-primary" :disabled="submitting">
                                     {{ editProduct ? 'Guardar cambios' : 'Crear producto' }}
                                 </button>
                             </div>

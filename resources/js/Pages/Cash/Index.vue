@@ -381,10 +381,13 @@ function submitCorte() {
 .cash-wrap {
     max-width: 960px;
     margin: 0 auto;
-    padding: 1.5rem 1rem;
+    padding: 1rem 0.85rem;
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
+}
+@media (min-width: 640px) {
+    .cash-wrap { padding: 1.5rem 1rem; }
 }
 
 /* ─── Header ─────────────────────────────────────────────────────────────────── */
@@ -434,8 +437,11 @@ function submitCorte() {
 /* ─── KPI grid ───────────────────────────────────────────────────────────────── */
 .kpi-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 0.75rem;
+}
+@media (min-width: 640px) {
+    .kpi-grid { grid-template-columns: repeat(4, 1fr); }
 }
 .kpi-card {
     background: var(--bg-card);
@@ -498,13 +504,14 @@ function submitCorte() {
 
 /* ─── Buttons ────────────────────────────────────────────────────────────────── */
 .btn {
-    padding: 0.55rem 1.1rem;
+    padding: 0.6rem 1.1rem;
     border-radius: 8px;
     font-weight: 600;
     font-size: 0.85rem;
     cursor: pointer;
     border: none;
     transition: opacity 0.15s;
+    min-height: 44px;
 }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn-brand  { background: var(--brand); color: #fff; }
@@ -575,8 +582,8 @@ function submitCorte() {
 .type-btn.active { border-color: var(--brand); background: var(--brand); color: #fff; }
 
 /* ─── Responsive ─────────────────────────────────────────────────────────────── */
-@media (max-width: 640px) {
-    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-    .cash-header { flex-direction: column; align-items: flex-start; }
+.cash-header { flex-direction: column; align-items: flex-start; }
+@media (min-width: 640px) {
+    .cash-header { flex-direction: row; align-items: center; }
 }
 </style>
