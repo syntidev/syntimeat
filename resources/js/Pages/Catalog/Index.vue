@@ -1,19 +1,33 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue'
-import { ref, computed } from 'vue'
+import { ref, computed, markRaw } from 'vue'
 import { useForm, router } from '@inertiajs/vue3'
 
 const props = defineProps({
-    categories: { type: Array, default: () => [] },
-    products:   { type: Array, default: () => [] },
+    categories:  { type: Array,   default: () => [] },
+    products:    { type: Array,   default: () => [] },
+    canSeeCost:  { type: Boolean, default: false },
 })
 
-// ─── Tabs ─────────────────────────────────────────────────────────────────────
-const activeTab = ref(props.categories[0]?.id ?? null)
+// ─── Tabs + búsqueda ──────────────────────────────────────────────────────────
+const activeTab   = ref(props.categories[0]?.id ?? null)
+const searchQuery = ref('')
 
-const tabProducts = computed(() =>
-    props.products.filter(p => p.category_id === activeTab.value)
-)
+const tabProducts = computed(() => {
+    const q = searchQuery.value.trim().toLowerCase()
+    if (q) {
+        // search mode: cross all categories
+        return props.products.filter(p =>
+            p.name.toLowerCase().includes(q) ||
+            (p.category?.name ?? '').toLowerCase().includes(q) ||
+            (p.subcategory?.name ?? '').toLowerCase().includes(q)
+        )
+    }
+    return props.products.filter(p => p.category_id === activeTab.value)
+})
+
+function onCatalogSearch() { /* reactivity handles it */ }
+function clearCatalogSearch() { searchQuery.value = '' }
 
 // ─── KPIs ─────────────────────────────────────────────────────────────────────
 const kpis = computed(() => ({
@@ -34,9 +48,17 @@ const form = useForm({
     sale_mode:          'weight',
     price_per_kg_usd:   '',
     price_per_unit_usd: '',
+    cost_per_kg_usd:    '',
+    cost_per_unit_usd:  '',
     min_stock:          0,
     active:             true,
+    fabricable:         false,
+    image:              null,
+    remove_image:       false,
 })
+
+const selectedImagePreview = ref(null)
+const fileInputRef         = ref(null)
 
 const activeCategory = computed(() =>
     props.categories.find(c => c.id === Number(form.category_id))
@@ -46,44 +68,116 @@ const hasSubcategories = computed(() =>
     (activeCategory.value?.subcategories?.length ?? 0) > 0
 )
 
+const currentImageUrl = computed(() => {
+    if (!editProduct.value?.image_path) return null
+    return `/storage/${editProduct.value.image_path}`
+})
+
+const displayImage = computed(() => {
+    if (selectedImagePreview.value) return selectedImagePreview.value
+    if (!form.remove_image && currentImageUrl.value) return currentImageUrl.value
+    return null
+})
+
 function openNew() {
-    editProduct.value = null
+    editProduct.value          = null
+    selectedImagePreview.value = null
     form.reset()
-    form.category_id = props.categories[0]?.id ?? ''
-    form.sale_mode   = 'weight'
-    showModal.value  = true
+    form.category_id   = props.categories[0]?.id ?? ''
+    form.sale_mode     = 'weight'
+    formTouched.value  = false
+    showModal.value    = true
 }
 
 function openEdit(product) {
-    editProduct.value = product
+    editProduct.value          = product
+    selectedImagePreview.value = null
     form.name               = product.name
     form.category_id        = product.category_id
     form.subcategory_id     = product.subcategory_id ?? ''
     form.sale_mode          = product.sale_mode
     form.price_per_kg_usd   = product.price_per_kg_usd ?? ''
     form.price_per_unit_usd = product.price_per_unit_usd ?? ''
+    form.cost_per_kg_usd    = product.cost_per_kg_usd ?? ''
+    form.cost_per_unit_usd  = product.cost_per_unit_usd ?? ''
     form.min_stock          = product.min_stock ?? 0
     form.active             = product.active
+    form.fabricable         = product.fabricable ?? false
+    form.image              = null
+    form.remove_image       = false
+    formTouched.value       = false
     showModal.value         = true
 }
 
 function closeModal() {
-    showModal.value = false
-    editProduct.value = null
+    showModal.value            = false
+    editProduct.value          = null
+    selectedImagePreview.value = null
+    formTouched.value          = false
+    if (fileInputRef.value) fileInputRef.value.value = ''
     form.reset()
 }
 
+function onImageSelect(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    // markRaw prevents Vue 3 from wrapping File in a Proxy.
+    // FormData.append() requires a real File, not a Proxy.
+    form.image        = markRaw(file)
+    form.remove_image = false
+    const reader      = new FileReader()
+    reader.onload     = (e) => { selectedImagePreview.value = e.target.result }
+    reader.readAsDataURL(file)
+}
+
+function removeImage() {
+    form.image              = null
+    form.remove_image       = true
+    selectedImagePreview.value = null
+    if (fileInputRef.value) fileInputRef.value.value = ''
+}
+
 function submitForm() {
-    const payload = { ...form.data() }
-    if (!hasSubcategories.value) payload.subcategory_id = null
+    if (!hasSubcategories.value) {
+        form.subcategory_id = null
+    }
+
+    // Pass a plain object — Inertia v2 detects File instances automatically
+    // and switches to multipart/form-data transport. A native FormData object
+    // passed to router.post() does NOT trigger that detection in v2.
+    const data = {
+        name:               form.name,
+        category_id:        form.category_id,
+        subcategory_id:     form.subcategory_id || null,
+        sale_mode:          form.sale_mode,
+        price_per_kg_usd:   form.price_per_kg_usd || null,
+        price_per_unit_usd: form.price_per_unit_usd || null,
+        cost_per_kg_usd:    form.cost_per_kg_usd || null,
+        cost_per_unit_usd:  form.cost_per_unit_usd || null,
+        min_stock:          form.min_stock ?? 0,
+        active:             form.active,
+        fabricable:         form.fabricable ? 1 : 0,
+        remove_image:       form.remove_image,
+    }
+
+    if (form.image instanceof File) {
+        data.image = form.image
+    }
 
     if (editProduct.value) {
-        form.transform(() => payload).put(route('catalog.update', editProduct.value.id), {
+        // _method: 'PUT' in the body makes Laravel route it to update().
+        // Apache strips PUT body but never strips POST body.
+        router.post(route('catalog.update', editProduct.value.id), {
+            ...data,
+            _method: 'PUT',
+        }, {
             onSuccess: () => closeModal(),
+            onError:   (errors) => { form.errors = errors; console.error('[update errors]', errors) },
         })
     } else {
-        form.transform(() => payload).post(route('catalog.store'), {
+        router.post(route('catalog.store'), data, {
             onSuccess: () => closeModal(),
+            onError:   (errors) => { form.errors = errors; console.error('[store errors]', errors) },
         })
     }
 }
@@ -127,30 +221,62 @@ function categoryColor(id) {
     return props.categories.find(c => c.id === id)?.color ?? '#6B7280'
 }
 
+// ─── Unsaved change guards ─────────────────────────────────────────────────────
+const formTouched    = ref(false)
+const catFormTouched = ref(false)
+const subFormTouched = ref(false)
+
+function tryCloseModal() {
+    if (formTouched.value && !confirm('Hay cambios sin guardar. ¿Salir de todas formas?')) return
+    closeModal()
+}
+function tryCloseCatModal() {
+    if (catFormTouched.value && !confirm('Hay cambios sin guardar. ¿Salir de todas formas?')) return
+    closeCatModal()
+}
+function tryCloseSubModal() {
+    if (subFormTouched.value && !confirm('Hay cambios sin guardar. ¿Salir de todas formas?')) return
+    closeSubModal()
+}
+
 // ─── Sección categorías ───────────────────────────────────────────────────────
 const mainTab = ref('products') // 'products' | 'categories'
 
 // Modal categoría
 const showCatModal   = ref(false)
 const editCategory   = ref(null)
-const catForm = useForm({ name: '', color: '#6B7280', icon: '' })
+const catForm = useForm({ name: '', color: '#6B7280', icon: '', macro_category: null })
+
+const macroOptions = [
+    { value: null,       label: 'Sin macro-categoría' },
+    { value: 'RES',      label: 'RES' },
+    { value: 'POLLO',    label: 'POLLO' },
+    { value: 'CERDO',    label: 'CERDO' },
+    { value: 'TRASTES',  label: 'TRASTES' },
+    { value: 'MISC',     label: 'MISC' },
+]
 
 function openNewCat() {
-    editCategory.value = null
+    editCategory.value     = null
     catForm.reset()
-    catForm.color = '#6B7280'
-    showCatModal.value = true
+    catForm.color          = '#6B7280'
+    catForm.macro_category = null
+    catFormTouched.value   = false
+    showCatModal.value     = true
 }
 function openEditCat(cat) {
-    editCategory.value = cat
-    catForm.name  = cat.name
-    catForm.color = cat.color ?? '#6B7280'
-    catForm.icon  = cat.icon ?? ''
-    showCatModal.value = true
+    editCategory.value     = cat
+    catForm.name           = cat.name
+    catForm.color          = cat.color ?? '#6B7280'
+    catForm.icon           = cat.icon ?? ''
+    catForm.macro_category = cat.macro_category ?? null
+    catFormTouched.value   = false
+    showCatModal.value     = true
 }
 function closeCatModal() {
-    showCatModal.value = false
-    editCategory.value = null
+    showCatModal.value   = false
+    editCategory.value   = null
+    catFormTouched.value = false
     catForm.reset()
 }
 function submitCatForm() {
@@ -179,22 +305,25 @@ const subParentId    = ref(null)
 const subForm = useForm({ name: '', category_id: null })
 
 function openNewSub(cat) {
-    editSubcat.value   = null
-    subParentId.value  = cat.id
-    subForm.name       = ''
-    subForm.category_id = cat.id
-    showSubModal.value = true
+    editSubcat.value     = null
+    subParentId.value    = cat.id
+    subForm.name         = ''
+    subForm.category_id  = cat.id
+    subFormTouched.value = false
+    showSubModal.value   = true
 }
 function openEditSub(sub) {
-    editSubcat.value    = sub
-    subForm.name        = sub.name
-    subForm.category_id = sub.category_id
-    showSubModal.value  = true
+    editSubcat.value     = sub
+    subForm.name         = sub.name
+    subForm.category_id  = sub.category_id
+    subFormTouched.value = false
+    showSubModal.value   = true
 }
 function closeSubModal() {
     showSubModal.value = false
     editSubcat.value   = null
     subForm.reset()
+    subFormTouched.value = false
 }
 function submitSubForm() {
     if (editSubcat.value) {
@@ -273,31 +402,50 @@ function subProductCount(subId) {
                 </button>
             </div>
 
+            <!-- ─── Barra búsqueda catálogo ───────────────────────────────── -->
+            <div v-if="mainTab === 'products'" class="cat-search-bar">
+                <div class="cat-search-wrap">
+                    <svg class="cat-search-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 3a6 6 0 1 0 0 12A6 6 0 0 0 9 3Zm-8 6a8 8 0 1 1 14.32 4.906l4.387 4.387a1 1 0 0 1-1.414 1.414l-4.387-4.387A8 8 0 0 1 1 9Z" clip-rule="evenodd"/></svg>
+                    <input
+                        v-model="searchQuery"
+                        class="cat-search-input"
+                        type="search"
+                        placeholder="Buscar producto en todas las categorías…"
+                        autocomplete="off"
+                    />
+                    <button v-if="searchQuery" class="cat-search-clear" @click="clearCatalogSearch">×</button>
+                </div>
+                <span v-if="searchQuery" class="cat-search-count">
+                    {{ tabProducts.length }} resultado{{ tabProducts.length !== 1 ? 's' : '' }}
+                </span>
+            </div>
+
             <!-- ─── Tabla de productos ────────────────────────────────────── -->
-            <div class="table-wrap" v-if="activeTab && mainTab === 'products'">
+            <div class="table-wrap" v-if="(activeTab || searchQuery) && mainTab === 'products'">
                 <table class="prod-table">
                     <thead>
                         <tr>
                             <th>Nombre</th>
-                            <th>Subcategoría</th>
+                            <th v-if="searchQuery">Categoría</th>
                             <th>Tipo</th>
                             <th>Precio</th>
-                            <th>Stock</th>
+                            <th>Existencia</th>
                             <th>Estado</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="tabProducts.length === 0">
-                            <td colspan="7" class="empty-row">Sin productos en esta categoría</td>
+                            <td :colspan="searchQuery ? 7 : 6" class="empty-row">
+                                {{ searchQuery ? 'Sin resultados para "' + searchQuery + '"' : 'Sin productos en esta categoría' }}
+                            </td>
                         </tr>
                         <tr v-for="p in tabProducts" :key="p.id">
                             <td class="prod-name">{{ p.name }}</td>
-                            <td>
-                                <span v-if="p.subcategory" class="badge badge-sub">
-                                    {{ p.subcategory.name }}
+                            <td v-if="searchQuery">
+                                <span class="cat-pill" :style="{ borderColor: categoryColor(p.category_id) }">
+                                    {{ p.category?.name ?? '—' }}
                                 </span>
-                                <span v-else class="text-muted">—</span>
                             </td>
                             <td>
                                 <span class="badge" :class="p.sale_mode === 'weight' ? 'badge-weight' : 'badge-unit'">
@@ -383,130 +531,197 @@ function subProductCount(subId) {
 
             <!-- ─── Modal nuevo / editar producto ─────────────────────────── -->
             <Teleport to="body">
-                <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-                    <div class="modal-box">
+                <div v-if="showModal" class="modal-overlay" @click.self="tryCloseModal">
+                    <div class="modal-box prod-modal-box">
                         <div class="modal-header">
                             <h2 class="modal-title">{{ editProduct ? 'Editar Producto' : 'Nuevo Producto' }}</h2>
-                            <button class="btn-close" @click="closeModal">✕</button>
+                            <button class="btn-close" @click="tryCloseModal">✕</button>
                         </div>
 
-                        <form class="modal-form" @submit.prevent="submitForm">
-
-                            <!-- Nombre -->
-                            <label class="field-label">Nombre</label>
-                            <input
-                                v-model="form.name"
-                                class="field-input"
-                                type="text"
-                                placeholder="Ej: Lomito"
-                                required
-                            />
-                            <p v-if="form.errors.name" class="field-error">{{ form.errors.name }}</p>
-
-                            <!-- Categoría -->
-                            <label class="field-label">Categoría</label>
-                            <select v-model="form.category_id" class="field-input" required>
-                                <option value="" disabled>Selecciona categoría</option>
-                                <option v-for="cat in categories" :key="cat.id" :value="cat.id">
-                                    {{ cat.icon }} {{ cat.name }}
-                                </option>
-                            </select>
-
-                            <!-- Subcategoría (condicional) -->
-                            <template v-if="hasSubcategories">
-                                <label class="field-label">Subcategoría</label>
-                                <select v-model="form.subcategory_id" class="field-input">
-                                    <option value="">Sin subcategoría</option>
-                                    <option
-                                        v-for="sub in activeCategory.subcategories"
-                                        :key="sub.id"
-                                        :value="sub.id"
-                                    >
-                                        {{ sub.name }}
-                                    </option>
-                                </select>
-                            </template>
-
-                            <!-- Tipo de medida -->
-                            <label class="field-label">Tipo de medida</label>
-                            <div class="mode-radios">
-                                <label
-                                    class="mode-option"
-                                    :class="{ selected: form.sale_mode === 'weight' }"
-                                >
-                                    <input
-                                        type="radio"
-                                        value="weight"
-                                        v-model="form.sale_mode"
-                                        class="sr-only"
-                                    />
-                                    <span class="mode-icon">⚖️</span>
-                                    <span class="mode-text">
-                                        <strong>Por Kilo (kg)</strong>
-                                        <small>Para carnes y productos pesados</small>
-                                    </span>
-                                </label>
-                                <label
-                                    class="mode-option"
-                                    :class="{ selected: form.sale_mode === 'unit' }"
-                                >
-                                    <input
-                                        type="radio"
-                                        value="unit"
-                                        v-model="form.sale_mode"
-                                        class="sr-only"
-                                    />
-                                    <span class="mode-icon">📦</span>
-                                    <span class="mode-text">
-                                        <strong>Por Unidad (und)</strong>
-                                        <small>Para productos individuales</small>
-                                    </span>
-                                </label>
+                        <form
+                            class="prod-form-wrap"
+                            @submit.prevent="submitForm"
+                            @input="formTouched = true"
+                            @change="formTouched = true"
+                        >
+                            <!-- Error general visible -->
+                            <div v-if="Object.keys(form.errors).length" class="form-errors-box">
+                                <p v-for="(msg, field) in form.errors" :key="field" class="form-error-line">
+                                    <strong>{{ field }}</strong>: {{ msg }}
+                                </p>
                             </div>
 
-                            <!-- Precio por kg -->
-                            <template v-if="form.sale_mode === 'weight'">
-                                <label class="field-label">Precio por kg (USD)</label>
-                                <input
-                                    v-model="form.price_per_kg_usd"
-                                    class="field-input"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    placeholder="0.00"
-                                    required
-                                />
-                                <p v-if="form.errors.price_per_kg_usd" class="field-error">{{ form.errors.price_per_kg_usd }}</p>
-                            </template>
+                            <div class="prod-modal-body">
+                                <!-- ── Columna izquierda: imagen + nombre ── -->
+                                <div class="prod-col-left">
+                                    <!-- Imagen del producto -->
+                                    <div class="img-upload-area">
+                                        <div v-if="displayImage" class="img-preview-box">
+                                            <img :src="displayImage" alt="Vista previa" class="img-preview-img" />
+                                            <button type="button" class="img-remove-btn" @click="removeImage" title="Quitar imagen">✕</button>
+                                        </div>
+                                        <label v-else class="img-dropzone">
+                                            <input
+                                                ref="fileInputRef"
+                                                type="file"
+                                                accept=".jpg,.jpeg,.png"
+                                                class="sr-only"
+                                                @change="onImageSelect"
+                                            />
+                                            <svg class="img-zone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                                <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                            <span class="img-zone-label">Click para seleccionar</span>
+                                            <span class="img-zone-hint">JPG · PNG · máx 2 MB</span>
+                                        </label>
+                                    </div>
+                                    <p v-if="form.errors.image" class="field-error">{{ form.errors.image }}</p>
 
-                            <!-- Precio por unidad -->
-                            <template v-if="form.sale_mode === 'unit'">
-                                <label class="field-label">Precio por unidad (USD)</label>
-                                <input
-                                    v-model="form.price_per_unit_usd"
-                                    class="field-input"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    placeholder="0.00"
-                                    required
-                                />
-                                <p v-if="form.errors.price_per_unit_usd" class="field-error">{{ form.errors.price_per_unit_usd }}</p>
-                            </template>
+                                    <!-- Nombre -->
+                                    <label class="field-label">Nombre</label>
+                                    <input
+                                        v-model="form.name"
+                                        class="field-input"
+                                        type="text"
+                                        placeholder="Ej: Lomito"
+                                        required
+                                    />
+                                    <p v-if="form.errors.name" class="field-error">{{ form.errors.name }}</p>
 
-                            <!-- Stock mínimo -->
-                            <label class="field-label">Stock mínimo</label>
-                            <input
-                                v-model="form.min_stock"
-                                class="field-input"
-                                type="number"
-                                step="0.001"
-                                min="0"
-                                placeholder="0"
-                            />
+                                    <!-- Categoría -->
+                                    <label class="field-label">Categoría</label>
+                                    <select v-model="form.category_id" class="field-input" required>
+                                        <option value="" disabled>Selecciona categoría</option>
+                                        <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                                            {{ cat.icon }} {{ cat.name }}
+                                        </option>
+                                    </select>
+
+                                    <!-- Subcategoría (condicional) -->
+                                    <template v-if="hasSubcategories">
+                                        <label class="field-label">Subcategoría</label>
+                                        <select v-model="form.subcategory_id" class="field-input">
+                                            <option value="">Sin subcategoría</option>
+                                            <option
+                                                v-for="sub in activeCategory.subcategories"
+                                                :key="sub.id"
+                                                :value="sub.id"
+                                            >
+                                                {{ sub.name }}
+                                            </option>
+                                        </select>
+                                    </template>
+                                </div>
+
+                                <!-- ── Columna derecha: tipo + precio + opciones ── -->
+                                <div class="prod-col-right">
+                                    <!-- Tipo de medida -->
+                                    <label class="field-label">Tipo de medida</label>
+                                    <div class="mode-radios">
+                                        <label
+                                            class="mode-option"
+                                            :class="{ selected: form.sale_mode === 'weight' }"
+                                        >
+                                            <input type="radio" value="weight" v-model="form.sale_mode" class="sr-only" />
+                                            <span class="mode-icon">⚖️</span>
+                                            <span class="mode-text">
+                                                <strong>Por Kilo (kg)</strong>
+                                                <small>Carnes y pesados</small>
+                                            </span>
+                                        </label>
+                                        <label
+                                            class="mode-option"
+                                            :class="{ selected: form.sale_mode === 'unit' }"
+                                        >
+                                            <input type="radio" value="unit" v-model="form.sale_mode" class="sr-only" />
+                                            <span class="mode-icon">📦</span>
+                                            <span class="mode-text">
+                                                <strong>Por Unidad (und)</strong>
+                                                <small>Productos individuales</small>
+                                            </span>
+                                        </label>
+                                    </div>
+
+                                    <!-- Precio por kg -->
+                                    <template v-if="form.sale_mode === 'weight'">
+                                        <label class="field-label">Precio de venta / kg (USD)</label>
+                                        <input
+                                            v-model="form.price_per_kg_usd"
+                                            class="field-input"
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            placeholder="0.00"
+                                            required
+                                        />
+                                        <p v-if="form.errors.price_per_kg_usd" class="field-error">{{ form.errors.price_per_kg_usd }}</p>
+
+                                        <template v-if="canSeeCost">
+                                            <label class="field-label field-label--cost">Precio de costo / kg (USD)</label>
+                                            <input
+                                                v-model="form.cost_per_kg_usd"
+                                                class="field-input field-input--cost"
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                placeholder="0.00"
+                                            />
+                                        </template>
+                                    </template>
+
+                                    <!-- Precio por unidad -->
+                                    <template v-if="form.sale_mode === 'unit'">
+                                        <label class="field-label">Precio de venta / und (USD)</label>
+                                        <input
+                                            v-model="form.price_per_unit_usd"
+                                            class="field-input"
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            placeholder="0.00"
+                                            required
+                                        />
+                                        <p v-if="form.errors.price_per_unit_usd" class="field-error">{{ form.errors.price_per_unit_usd }}</p>
+
+                                        <template v-if="canSeeCost">
+                                            <label class="field-label field-label--cost">Precio de costo / und (USD)</label>
+                                            <input
+                                                v-model="form.cost_per_unit_usd"
+                                                class="field-input field-input--cost"
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                placeholder="0.00"
+                                            />
+                                        </template>
+                                    </template>
+
+                                    <!-- Existencia mínima -->
+                                    <label class="field-label">Existencia mínima {{ form.sale_mode === 'weight' ? '(kg)' : '(und)' }}</label>
+                                    <input
+                                        v-model="form.min_stock"
+                                        class="field-input"
+                                        type="number"
+                                        step="0.001"
+                                        min="0"
+                                        placeholder="0"
+                                    />
+
+                                    <!-- Opciones -->
+                                    <div class="field-checks">
+                                        <label class="field-check-row">
+                                            <input type="checkbox" v-model="form.fabricable" class="field-chk" />
+                                            <span>
+                                                <strong>Habilitar en Fábrica</strong>
+                                                <small> — chorizo, cesta, combo…</small>
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
 
                             <div class="modal-footer">
-                                <button type="button" class="btn-secondary" @click="closeModal">Cancelar</button>
+                                <button type="button" class="btn-secondary" @click="tryCloseModal">Cancelar</button>
                                 <button type="submit" class="btn-primary" :disabled="form.processing">
                                     {{ editProduct ? 'Guardar cambios' : 'Crear producto' }}
                                 </button>
@@ -518,13 +733,18 @@ function subProductCount(subId) {
 
             <!-- ─── Modal categoría ───────────────────────────────────────── -->
             <Teleport to="body">
-                <div v-if="showCatModal" class="modal-overlay" @click.self="closeCatModal">
+                <div v-if="showCatModal" class="modal-overlay" @click.self="tryCloseCatModal">
                     <div class="modal-box">
                         <div class="modal-header">
                             <h2 class="modal-title">{{ editCategory ? 'Editar Categoría' : 'Nueva Categoría' }}</h2>
-                            <button class="btn-close" @click="closeCatModal">✕</button>
+                            <button class="btn-close" @click="tryCloseCatModal">✕</button>
                         </div>
-                        <form class="modal-form" @submit.prevent="submitCatForm">
+                        <form
+                            class="modal-form"
+                            @submit.prevent="submitCatForm"
+                            @input="catFormTouched = true"
+                            @change="catFormTouched = true"
+                        >
                             <label class="field-label">Nombre</label>
                             <input v-model="catForm.name" class="field-input" type="text" placeholder="Ej: Res" required />
                             <p v-if="catForm.errors.name" class="field-error">{{ catForm.errors.name }}</p>
@@ -538,8 +758,15 @@ function subProductCount(subId) {
                                 <input v-model="catForm.color" class="field-input" type="text" placeholder="#EF4444" maxlength="20" />
                             </div>
 
+                            <label class="field-label">Macro-categoría (reportes)</label>
+                            <select v-model="catForm.macro_category" class="field-input">
+                                <option v-for="opt in macroOptions" :key="opt.value ?? 'none'" :value="opt.value">
+                                    {{ opt.label }}
+                                </option>
+                            </select>
+
                             <div class="modal-footer">
-                                <button type="button" class="btn-secondary" @click="closeCatModal">Cancelar</button>
+                                <button type="button" class="btn-secondary" @click="tryCloseCatModal">Cancelar</button>
                                 <button type="submit" class="btn-primary" :disabled="catForm.processing">
                                     {{ editCategory ? 'Guardar cambios' : 'Crear categoría' }}
                                 </button>
@@ -551,19 +778,24 @@ function subProductCount(subId) {
 
             <!-- ─── Modal subcategoría ────────────────────────────────────── -->
             <Teleport to="body">
-                <div v-if="showSubModal" class="modal-overlay" @click.self="closeSubModal">
+                <div v-if="showSubModal" class="modal-overlay" @click.self="tryCloseSubModal">
                     <div class="modal-box">
                         <div class="modal-header">
                             <h2 class="modal-title">{{ editSubcat ? 'Editar Subcategoría' : 'Nueva Subcategoría' }}</h2>
-                            <button class="btn-close" @click="closeSubModal">✕</button>
+                            <button class="btn-close" @click="tryCloseSubModal">✕</button>
                         </div>
-                        <form class="modal-form" @submit.prevent="submitSubForm">
+                        <form
+                            class="modal-form"
+                            @submit.prevent="submitSubForm"
+                            @input="subFormTouched = true"
+                            @change="subFormTouched = true"
+                        >
                             <label class="field-label">Nombre</label>
                             <input v-model="subForm.name" class="field-input" type="text" placeholder="Ej: Premium" required />
                             <p v-if="subForm.errors.name" class="field-error">{{ subForm.errors.name }}</p>
 
                             <div class="modal-footer">
-                                <button type="button" class="btn-secondary" @click="closeSubModal">Cancelar</button>
+                                <button type="button" class="btn-secondary" @click="tryCloseSubModal">Cancelar</button>
                                 <button type="submit" class="btn-primary" :disabled="subForm.processing">
                                     {{ editSubcat ? 'Guardar cambios' : 'Crear subcategoría' }}
                                 </button>
@@ -627,6 +859,65 @@ function subProductCount(subId) {
     font-size: 1.25rem;
     font-weight: 700;
     color: var(--text-primary);
+}
+
+/* ─── Catalog search bar ─────────────────────────────────────────────────── */
+.cat-search-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+.cat-search-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1;
+    max-width: 480px;
+}
+.cat-search-icon {
+    position: absolute;
+    left: 0.65rem;
+    width: 1rem;
+    height: 1rem;
+    color: var(--text-muted);
+    pointer-events: none;
+}
+.cat-search-input {
+    width: 100%;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    padding: 0.5rem 2rem 0.5rem 2.1rem;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+}
+.cat-search-input:focus { border-color: var(--brand); }
+.cat-search-input::-webkit-search-cancel-button { display: none; }
+.cat-search-clear {
+    position: absolute;
+    right: 0.5rem;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+.cat-search-clear:hover { color: var(--text-primary); }
+.cat-search-count { font-size: 0.8rem; color: var(--text-muted); white-space: nowrap; }
+.cat-pill {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    border: 1.5px solid var(--border);
+    color: var(--text-primary);
+    white-space: nowrap;
 }
 
 /* ─── Tabs ───────────────────────────────────────────────────────────────── */
@@ -780,12 +1071,56 @@ function subProductCount(subId) {
     max-width: 480px;
     max-height: 90vh;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
 }
+
+/* ─── Product modal: 2-column, no external scroll ─────────────────────── */
+.prod-modal-box {
+    max-width: 780px;
+    height: min(560px, 92vh);
+    overflow: hidden;
+}
+.prod-form-wrap {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+.prod-modal-body {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+.prod-col-left {
+    overflow-y: auto;
+    padding: 1rem 1.25rem;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+.prod-col-right {
+    overflow-y: auto;
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+@media (max-width: 640px) {
+    .prod-modal-box { height: 92vh; }
+    .prod-modal-body { grid-template-columns: 1fr; }
+    .prod-col-left { border-right: none; border-bottom: 1px solid var(--border); }
+}
+
 .modal-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1.25rem 1.5rem 0;
+    padding: 1.25rem 1.5rem 1rem;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
 }
 .modal-title {
     font-size: 1.1rem;
@@ -807,6 +1142,9 @@ function subProductCount(subId) {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
 }
 .field-label {
     font-size: 0.8rem;
@@ -814,6 +1152,9 @@ function subProductCount(subId) {
     color: var(--text-muted);
     margin-top: 0.5rem;
 }
+.field-checks { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.25rem; }
+.field-check-row { display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; font-size: 0.875rem; color: var(--text-primary); }
+.field-chk { margin-top: 0.2rem; accent-color: var(--brand); }
 .field-input {
     width: 100%;
     background: var(--bg-base);
@@ -830,6 +1171,25 @@ function subProductCount(subId) {
     font-size: 0.75rem;
     color: #EF4444;
     margin-top: -0.25rem;
+}
+
+/* ─── Cost fields (restricted visibility) ───────────────────────────────── */
+.field-label--cost {
+    color: #B45309;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+.field-label--cost::before {
+    content: '🔒';
+    font-size: 0.65rem;
+}
+.field-input--cost {
+    border-color: color-mix(in srgb, #B45309 40%, var(--border));
+    background: color-mix(in srgb, #B45309 6%, var(--bg-base));
+}
+.field-input--cost:focus {
+    border-color: #B45309;
 }
 
 /* ─── Mode radios ────────────────────────────────────────────────────────── */
@@ -869,9 +1229,9 @@ function subProductCount(subId) {
     display: flex;
     justify-content: flex-end;
     gap: 0.75rem;
-    margin-top: 0.75rem;
-    padding-top: 0.75rem;
+    padding: 0.875rem 1.25rem;
     border-top: 1px solid var(--border);
+    flex-shrink: 0;
 }
 
 /* ─── Main tabs (Productos / Categorías) ─────────────────────────────────── */
@@ -979,5 +1339,92 @@ function subProductCount(subId) {
     padding: 0.15rem;
     background: var(--bg-base);
     flex-shrink: 0;
+}
+
+/* ─── Image upload ───────────────────────────────────────────────────────── */
+.field-hint {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-weight: 400;
+    margin-left: 0.25rem;
+}
+.form-errors-box {
+    background: color-mix(in srgb, #EF4444 10%, transparent);
+    border: 1px solid color-mix(in srgb, #EF4444 30%, transparent);
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    margin: 0 1.25rem;
+}
+.form-error-line {
+    font-size: 0.78rem;
+    color: #EF4444;
+    margin: 0;
+}
+.img-upload-area { margin-top: 0.25rem; }
+.img-preview-box {
+    position: relative;
+    display: block;
+    width: 100%;
+}
+.img-preview-img {
+    width: 100%;
+    max-height: 130px;
+    object-fit: contain;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border);
+    background: var(--bg-base);
+    display: block;
+}
+.img-remove-btn {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.35rem;
+    background: rgba(0,0,0,0.65);
+    border: none;
+    color: #fff;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    cursor: pointer;
+    font-size: 0.7rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.img-remove-btn:hover { background: rgba(239,68,68,0.85); }
+.img-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border: 2px dashed var(--border);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    min-height: 110px;
+}
+.img-dropzone:hover {
+    border-color: var(--brand);
+    background: color-mix(in srgb, var(--brand) 5%, transparent);
+}
+.img-zone-icon {
+    width: 2rem;
+    height: 2rem;
+    color: var(--text-muted);
+}
+.img-zone-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.img-zone-hint {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-align: center;
 }
 </style>

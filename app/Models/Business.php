@@ -6,6 +6,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\PaymentMethod;
+use App\Models\PaymentTerminal;
 
 class Business extends Model
 {
@@ -32,6 +34,7 @@ class Business extends Model
         'onboarding_completed',
         'active',
         'settings',
+        'theme_color',
     ];
 
     protected function casts(): array
@@ -84,5 +87,15 @@ class Business extends Model
     public function activityLogs(): HasMany
     {
         return $this->hasMany(ActivityLog::class);
+    }
+
+    public function paymentMethods(): HasMany
+    {
+        return $this->hasMany(PaymentMethod::class);
+    }
+
+    public function paymentTerminals(): HasMany
+    {
+        return $this->hasMany(PaymentTerminal::class);
     }
 }

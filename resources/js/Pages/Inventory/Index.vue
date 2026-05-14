@@ -12,25 +12,76 @@ const props = defineProps({
     kpis:         Object,
 })
 
-// ─── Búsqueda + paginación ────────────────────────────────────────────────────
-const PAGE_SIZE   = 20
-const search      = ref('')
-const currentPage = ref(1)
+// ─── Búsqueda + filtros + ordenamiento ───────────────────────────────────────
+const PAGE_SIZE    = 20
+const search       = ref('')
+const filterCat    = ref('')          // '' = todas
+const filterStatus = ref('')          // '' | 'ok' | 'low' | 'empty'
+const sortKey      = ref('name')      // 'name' | 'stock' | 'status' | 'last'
+const sortDir      = ref('asc')       // 'asc' | 'desc'
+const currentPage  = ref(1)
 
-const searchedProducts = computed(() => {
+function toggleSort(key) {
+    if (sortKey.value === key) {
+        sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+    } else {
+        sortKey.value = key
+        sortDir.value = 'asc'
+    }
+    currentPage.value = 1
+}
+
+function sortIcon(key) {
+    if (sortKey.value !== key) return '↕'
+    return sortDir.value === 'asc' ? '↑' : '↓'
+}
+
+const filteredAndSorted = computed(() => {
     const q = search.value.trim().toLowerCase()
-    if (! q) return props.products
-    return props.products.filter(p => p.name.toLowerCase().includes(q))
+
+    let list = props.products.filter(p => {
+        if (q && !p.name.toLowerCase().includes(q) && !(p.category?.name ?? '').toLowerCase().includes(q)) return false
+        if (filterCat.value && p.category_id !== Number(filterCat.value)) return false
+        if (filterStatus.value && stockStatus(p) !== filterStatus.value) return false
+        return true
+    })
+
+    list = [...list].sort((a, b) => {
+        let va, vb
+        if (sortKey.value === 'stock') {
+            va = stockValue(a.id); vb = stockValue(b.id)
+        } else if (sortKey.value === 'status') {
+            const order = { empty: 0, low: 1, ok: 2 }
+            va = order[stockStatus(a)]; vb = order[stockStatus(b)]
+        } else if (sortKey.value === 'last') {
+            va = props.lastEntryMap[a.id] ?? ''; vb = props.lastEntryMap[b.id] ?? ''
+        } else {
+            va = a.name.toLowerCase(); vb = b.name.toLowerCase()
+        }
+        if (va < vb) return sortDir.value === 'asc' ? -1 : 1
+        if (va > vb) return sortDir.value === 'asc' ? 1  : -1
+        return 0
+    })
+
+    return list
 })
 
-const totalPages = computed(() => Math.max(1, Math.ceil(searchedProducts.value.length / PAGE_SIZE)))
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredAndSorted.value.length / PAGE_SIZE)))
 
 const pagedProducts = computed(() => {
     const start = (currentPage.value - 1) * PAGE_SIZE
-    return searchedProducts.value.slice(start, start + PAGE_SIZE)
+    return filteredAndSorted.value.slice(start, start + PAGE_SIZE)
 })
 
 function onSearch() { currentPage.value = 1 }
+function clearFilters() {
+    search.value = ''; filterCat.value = ''; filterStatus.value = ''
+    sortKey.value = 'name'; sortDir.value = 'asc'; currentPage.value = 1
+}
+
+const hasActiveFilters = computed(() =>
+    search.value || filterCat.value || filterStatus.value
+)
 
 // ─── Drawer ───────────────────────────────────────────────────────────────────
 const drawerProduct = ref(null)
@@ -161,16 +212,42 @@ function fmtUsd(val) {
                 </div>
             </div>
 
-            <!-- ── Cabecera tabla ─────────────────────────────────────────────── -->
-            <div class="table-header">
-                <input
-                    v-model="search"
-                    class="search-input"
-                    type="search"
-                    placeholder="Buscar producto…"
-                    @input="onSearch"
-                />
-                <button class="btn btn-primary" @click="openModal()">+ Nueva Entrada</button>
+            <!-- ── Barra de filtros ───────────────────────────────────────────── -->
+            <div class="filter-bar">
+                <div class="filter-search-wrap">
+                    <svg class="filter-search-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 3a6 6 0 1 0 0 12A6 6 0 0 0 9 3Zm-8 6a8 8 0 1 1 14.32 4.906l4.387 4.387a1 1 0 0 1-1.414 1.414l-4.387-4.387A8 8 0 0 1 1 9Z" clip-rule="evenodd"/></svg>
+                    <input
+                        v-model="search"
+                        class="filter-search"
+                        type="search"
+                        placeholder="Buscar por nombre o categoría…"
+                        @input="onSearch"
+                        autocomplete="off"
+                    />
+                    <button v-if="search" class="filter-clear-x" @click="search = ''; onSearch()">×</button>
+                </div>
+
+                <select v-model="filterCat" class="filter-select" @change="currentPage = 1">
+                    <option value="">Todas las categorías</option>
+                    <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                        {{ cat.name }}
+                    </option>
+                </select>
+
+                <select v-model="filterStatus" class="filter-select" @change="currentPage = 1">
+                    <option value="">Todos los estados</option>
+                    <option value="ok">OK</option>
+                    <option value="low">Bajo mínimo</option>
+                    <option value="empty">Agotado</option>
+                </select>
+
+                <button v-if="hasActiveFilters" class="filter-reset" @click="clearFilters">
+                    ✕ Limpiar
+                </button>
+
+                <span class="filter-count">{{ filteredAndSorted.length }} producto{{ filteredAndSorted.length !== 1 ? 's' : '' }}</span>
+
+                <button class="btn btn-primary filter-cta" @click="openModal()">+ Nueva Entrada</button>
             </div>
 
             <!-- ── Tabla stock actual ─────────────────────────────────────────── -->
@@ -179,11 +256,11 @@ function fmtUsd(val) {
                     <table class="data-table">
                         <thead>
                             <tr>
-                                <th>Producto</th>
+                                <th class="th-sort" @click="toggleSort('name')">Producto <span class="sort-icon">{{ sortIcon('name') }}</span></th>
                                 <th>Categoría</th>
-                                <th class="txt-right">Stock</th>
-                                <th>Estado</th>
-                                <th>Última entrada</th>
+                                <th class="txt-right th-sort" @click="toggleSort('stock')">Stock <span class="sort-icon">{{ sortIcon('stock') }}</span></th>
+                                <th class="th-sort" @click="toggleSort('status')">Estado <span class="sort-icon">{{ sortIcon('status') }}</span></th>
+                                <th class="th-sort" @click="toggleSort('last')">Última entrada <span class="sort-icon">{{ sortIcon('last') }}</span></th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -216,6 +293,31 @@ function fmtUsd(val) {
                             </tr>
                         </tbody>
                     </table>
+                </div>
+
+                <!-- Mobile cards (< 640 px) -->
+                <div class="mobile-cards">
+                    <div
+                        v-for="p in pagedProducts"
+                        :key="'mc-' + p.id"
+                        class="mc-row"
+                        @click="openDrawer(p)"
+                    >
+                        <span class="cat-dot" :style="{ background: p.category?.color ?? 'var(--brand)' }"></span>
+                        <div class="mc-body">
+                            <div class="mc-name">{{ p.name }}</div>
+                            <div class="mc-cat">{{ p.category?.name ?? '—' }}</div>
+                        </div>
+                        <div class="mc-right">
+                            <div class="mc-stock">
+                                {{ fmtKg(stockValue(p.id)) }}
+                                <small>{{ p.sale_mode === 'weight' ? 'kg' : 'und' }}</small>
+                            </div>
+                            <span class="status-badge" :class="'status-' + stockStatus(p)">{{ stockLabel(p) }}</span>
+                        </div>
+                        <span class="mc-arrow">›</span>
+                    </div>
+                    <p v-if="pagedProducts.length === 0" class="empty-cell">Sin productos que coincidan.</p>
                 </div>
 
                 <!-- Paginación -->
@@ -440,25 +542,93 @@ function fmtUsd(val) {
 .kpi-value small { font-size: 0.8rem; font-weight: 400; color: var(--text-muted); }
 .badge-alert { background: #ef4444; color: #fff; font-size: 0.65rem; font-weight: 700; padding: 0.15rem 0.4rem; border-radius: 999px; text-transform: uppercase; }
 
-/* ─── Table header ───────────────────────────────────────────────────────── */
-.table-header {
+/* ─── Filter bar ─────────────────────────────────────────────────────────── */
+.filter-bar {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.6rem;
+    flex-wrap: wrap;
 }
-.search-input {
+.filter-search-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
     flex: 1;
+    min-width: 200px;
+}
+.filter-search-icon {
+    position: absolute;
+    left: 0.65rem;
+    width: 1rem;
+    height: 1rem;
+    color: var(--text-muted);
+    pointer-events: none;
+    flex-shrink: 0;
+}
+.filter-search {
+    width: 100%;
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 0.5rem;
-    padding: 0.55rem 0.875rem;
+    padding: 0.55rem 2rem 0.55rem 2.1rem;
     color: var(--text-primary);
     font-size: 0.9rem;
     font-family: inherit;
     outline: none;
     transition: border-color 0.15s;
 }
-.search-input:focus { border-color: var(--brand); }
+.filter-search:focus { border-color: var(--brand); }
+.filter-search::-webkit-search-cancel-button { display: none; }
+.filter-clear-x {
+    position: absolute;
+    right: 0.5rem;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0 0.2rem;
+    line-height: 1;
+}
+.filter-clear-x:hover { color: var(--text-primary); }
+.filter-select {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    padding: 0.55rem 0.75rem;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    font-family: inherit;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+.filter-select:focus { border-color: var(--brand); }
+.filter-reset {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s;
+}
+.filter-reset:hover { color: var(--text-primary); border-color: var(--text-muted); }
+.filter-count {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    margin-left: auto;
+}
+.filter-cta { flex-shrink: 0; }
+
+/* sortable column headers */
+.th-sort { cursor: pointer; user-select: none; }
+.th-sort:hover { color: var(--text-primary); }
+.sort-icon { font-style: normal; margin-left: 0.2rem; opacity: 0.6; font-size: 0.8em; }
 
 /* ─── Table card ─────────────────────────────────────────────────────────── */
 .table-card {
@@ -744,4 +914,39 @@ function fmtUsd(val) {
 
 /* ─── Empty msg ──────────────────────────────────────────────────────────── */
 .empty-msg { text-align: center; color: var(--text-muted); padding: 1rem 0; font-size: 0.85rem; }
+
+/* ─── Mobile: card view ──────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+    .inv-wrap { padding: 1rem 0.75rem; gap: 1rem; }
+    .filter-bar { gap: 0.5rem; }
+    .filter-count { display: none; }
+    .filter-select { font-size: 0.8rem; padding: 0.45rem 0.5rem; }
+
+    /* Hide table, show cards */
+    .table-wrap { display: none; }
+    .mobile-cards { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem; }
+
+    .mc-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        background: var(--bg-base);
+        border: 1px solid var(--border);
+        border-radius: 0.6rem;
+        padding: 0.75rem;
+        cursor: pointer;
+        transition: background 0.1s;
+    }
+    .mc-row:hover { background: color-mix(in srgb, var(--brand) 6%, transparent); }
+    .mc-body { flex: 1; min-width: 0; }
+    .mc-name { font-size: 0.9rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mc-cat  { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.1rem; display: flex; align-items: center; gap: 0.25rem; }
+    .mc-right { text-align: right; flex-shrink: 0; }
+    .mc-stock { font-size: 1rem; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+    .mc-stock small { font-size: 0.7rem; font-weight: 400; color: var(--text-muted); }
+    .mc-arrow { font-size: 1rem; color: var(--text-muted); margin-left: 0.25rem; }
+}
+@media (min-width: 641px) {
+    .mobile-cards { display: none; }
+}
 </style>

@@ -1,12 +1,14 @@
-@import 'tailwindcss';
-
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+@import 'tailwindcss';
 
 :root {
   --bg-base:        #0D1B2E;
   --bg-surface:     #132035;
   --bg-elevated:    #1A2D47;
   --bg-card:        #152030;
+  --bg-input:       #0D1B2E;
+  --hover:          rgba(255,255,255,0.06);
   --border:         #1E3350;
   --text-primary:   #EEF2FF;
   --text-secondary: #94A3B8;
@@ -18,21 +20,38 @@
   --red:            #EF4444;
   --purple:         #8B5CF6;
   --sidebar-w:      220px;
+  color-scheme:     dark;
 }
 
 .light {
-  --bg-base:        #F0F4FF;
-  --bg-surface:     #FFFFFF;
-  --bg-elevated:    #F8FAFC;
-  --bg-card:        #FFFFFF;
-  --border:         #E2E8F0;
-  --text-primary:   #0F172A;
-  --text-secondary: #475569;
-  --text-muted:     #94A3B8;
+  --bg-base:        #E2E8F4;   /* fondo principal: azul-gris suave, no blanco */
+  --bg-surface:     #EEF3FF;   /* sidebar: leve tinte azul */
+  --bg-elevated:    #D8E4F5;   /* hover en sidebar: visible */
+  --bg-card:        #FFFFFF;   /* cards blancas sobre fondo coloreado */
+  --bg-input:       #EBF1FA;   /* inputs */
+  --hover:          rgba(30,64,175,0.07);
+  --border:         #BAC8E0;   /* bordes más definidos */
+  --text-primary:   #0A1628;   /* texto principal: azul-negro */
+  --text-secondary: #2C4A6E;   /* texto secundario: azul oscuro legible */
+  --text-muted:     #5F7FA0;   /* muted: visible */
+  color-scheme:     light;
 }
 
 body {
   font-family: 'Plus Jakarta Sans', sans-serif;
   background-color: var(--bg-base);
+  color: var(--text-primary);
+}
+
+/* ── Selects nativos: forzar tema CSS vars ────────────────────────────────── */
+select {
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  border-color: var(--border);
+  color-scheme: inherit;
+}
+
+select option {
+  background-color: var(--bg-input);
   color: var(--text-primary);
 }

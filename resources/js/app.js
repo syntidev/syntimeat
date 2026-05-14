@@ -6,10 +6,23 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const appName = import.meta.env.VITE_APP_NAME || 'SYNTImeat';
+
+// Directiva global: cierra dropdowns al hacer clic fuera
+const vClickOutside = {
+    mounted(el, binding) {
+        el._clickOutsideHandler = (e) => {
+            if (!el.contains(e.target)) binding.value(e)
+        }
+        document.addEventListener('mousedown', el._clickOutsideHandler)
+    },
+    unmounted(el) {
+        document.removeEventListener('mousedown', el._clickOutsideHandler)
+    },
+}
 
 createInertiaApp({
-    title: (title) => `${title} - ${appName}`,
+    title: (title) => `${title} · SYNTImeat`,
     resolve: (name) =>
         resolvePageComponent(
             `./Pages/${name}.vue`,
@@ -19,9 +32,10 @@ createInertiaApp({
         return createApp({ render: () => h(App, props) })
             .use(plugin)
             .use(ZiggyVue)
+            .directive('click-outside', vClickOutside)
             .mount(el);
     },
     progress: {
-        color: '#4B5563',
+        color: '#B91C1C',
     },
 });

@@ -13,12 +13,49 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'email', 'password', 'business_id', 'branch_id', 'role', 'theme'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    const ROLES = ['super_admin', 'owner', 'branch_admin', 'analyst', 'supervisor', 'cashier', 'admin'];
+
+    // ── Helpers de rol ──────────────────────────────────────────────────────────
+
+    public function isSuperAdmin(): bool  { return $this->role === 'super_admin'; }
+    public function isOwner(): bool       { return $this->role === 'owner'; }
+    public function isBranchAdmin(): bool { return $this->role === 'branch_admin'; }
+    public function isAnalyst(): bool     { return $this->role === 'analyst'; }
+    public function isAdmin(): bool       { return $this->role === 'admin'; }
+    public function isCashier(): bool     { return $this->role === 'cashier'; }
+
+    public function hasRole(string|array $roles): bool
+    {
+        return in_array($this->role, (array) $roles, true);
+    }
+
+    public function canManageBusiness(): bool
+    {
+        return $this->hasRole(['super_admin', 'owner', 'admin']);
+    }
+
+    public function canManageUsers(): bool
+    {
+        return $this->hasRole(['super_admin', 'owner', 'branch_admin', 'admin']);
+    }
+
+    public function canVoidSales(): bool
+    {
+        return $this->hasRole(['super_admin', 'owner', 'branch_admin', 'admin']);
+    }
+
+    // Ver datos de todas las sucursales o solo la asignada
+    public function seesTodasLasSucursales(): bool
+    {
+        return $this->hasRole(['super_admin', 'owner', 'analyst', 'admin']) || $this->branch_id === null;
+    }
 
     protected function casts(): array
     {
@@ -31,6 +68,11 @@ class User extends Authenticatable
     public function business(): BelongsTo
     {
         return $this->belongsTo(Business::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     public function sales(): HasMany

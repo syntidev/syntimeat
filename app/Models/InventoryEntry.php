@@ -12,11 +12,13 @@ class InventoryEntry extends Model
     protected $fillable = [
         'business_id',
         'product_id',
+        'boveda_entry_id',
         'quantity_kg',
         'waste_kg',
         'cost_per_kg_usd',
         'supplier',
         'notes',
+        'location',
         'entered_at',
         'created_by',
     ];
@@ -40,6 +42,11 @@ class InventoryEntry extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function bovedaEntry(): BelongsTo
+    {
+        return $this->belongsTo(BovedaEntry::class);
     }
 
     public function creator(): BelongsTo

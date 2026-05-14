@@ -1,5 +1,8 @@
 *.log
 .DS_Store
+/.claude/
+/.doc/
+/Referencias/
 .env
 .env.backup
 .env.production

@@ -178,6 +178,37 @@ class DollarRateService
         }
     }
 
+    /**
+     * Sobreescribe la tasa con un valor manual ingresado por el admin.
+     * Desactiva cualquier tasa manual previa y crea un registro nuevo.
+     */
+    public function storeManualRate(float $rate): bool
+    {
+        try {
+            DollarRate::query()
+                ->where('currency_type', 'USD')
+                ->where('source', 'manual')
+                ->where('is_active', true)
+                ->update(['is_active' => false, 'effective_until' => Carbon::now()]);
+
+            DollarRate::create([
+                'rate'            => $rate,
+                'source'          => 'manual',
+                'currency_type'   => 'USD',
+                'effective_from'  => Carbon::now(),
+                'effective_until' => null,
+                'is_active'       => true,
+            ]);
+
+            Cache::forget(self::CACHE_KEY);
+
+            return true;
+        } catch (Throwable $e) {
+            Log::error('DollarRateService::storeManualRate falló', ['error' => $e->getMessage()]);
+            return false;
+        }
+    }
+
     // ─── Utilidades ───────────────────────────────────────────────────────────
 
     /**

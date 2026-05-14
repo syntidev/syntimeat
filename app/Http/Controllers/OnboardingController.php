@@ -95,7 +95,7 @@ class OnboardingController extends Controller
             'ticket_prefix'     => 'required|string|max:10',
             'ticket_footer'     => 'nullable|string|max:500',
             'payment_methods'   => 'required|array|min:1',
-            'payment_methods.*' => 'string|in:cash,mobile_payment,transfer,usd_cash,zelle',
+            'payment_methods.*' => 'string|in:cash,usd_cash,mobile_payment,transfer,pos_debit,zelle,biopago,paypal,binance,cashea',
         ]);
 
         $business = $this->resolveBusiness();
@@ -115,20 +115,40 @@ class OnboardingController extends Controller
 
     private function step4(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
+        $request->validate([
             'name'     => 'required|string|max:255',
-            'email'    => 'required|email|max:255|unique:users,email',
-            'password' => 'required|string|min:8|confirmed',
+            'email'    => 'required|email|max:255',
+            'password' => 'required|string|min:8',
         ]);
 
-        $business = $this->resolveBusiness();
+        $business     = $this->resolveBusiness();
+        $existingUser = User::where('email', $request->email)->first();
 
-        $user              = new User();
-        $user->name        = $validated['name'];
-        $user->email       = $validated['email'];
-        $user->password    = Hash::make($validated['password']);
-        $user->business_id = $business->id;
-        $user->save();
+        if ($existingUser) {
+            if (! Hash::check($request->password, $existingUser->password)) {
+                return back()->withErrors([
+                    'password' => 'La contraseña no coincide con la cuenta existente.',
+                ])->withInput();
+            }
+
+            $existingUser->update([
+                'business_id' => $business->id,
+                'role'        => 'admin',
+                'name'        => $request->name ?: $existingUser->name,
+            ]);
+
+            $user = $existingUser;
+        } else {
+            $request->validate(['password' => 'confirmed']);
+
+            $user = User::create([
+                'name'        => $request->name,
+                'email'       => $request->email,
+                'password'    => Hash::make($request->password),
+                'business_id' => $business->id,
+                'role'        => 'admin',
+            ]);
+        }
 
         $business->update(['onboarding_completed' => true]);
 

@@ -9,7 +9,9 @@ use App\Models\Product;
 use App\Models\Subcategory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -21,19 +23,24 @@ class CatalogController extends Controller
 
         $categories = Category::with(['subcategories' => fn ($q) => $q->orderBy('sort_order')])
             ->where('business_id', $businessId)
+            ->where('name', '!=', 'Bóveda')
             ->orderBy('sort_order')
             ->get();
 
         $products = Product::with(['category', 'subcategory'])
             ->where('business_id', $businessId)
+            ->where('location', '!=', 'boveda')
             ->orderBy('category_id')
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
 
+        $user = Auth::user();
+
         return Inertia::render('Catalog/Index', [
-            'categories' => $categories,
-            'products'   => $products,
+            'categories'  => $categories,
+            'products'    => $products,
+            'canSeeCost'  => $user->hasRole(['super_admin', 'owner', 'branch_admin', 'analyst', 'admin']),
         ]);
     }
 
@@ -46,12 +53,16 @@ class CatalogController extends Controller
             'sale_mode'          => ['required', 'in:weight,unit'],
             'price_per_kg_usd'   => ['nullable', 'numeric', 'min:0', 'required_if:sale_mode,weight'],
             'price_per_unit_usd' => ['nullable', 'numeric', 'min:0', 'required_if:sale_mode,unit'],
+            'cost_per_kg_usd'    => ['nullable', 'numeric', 'min:0'],
+            'cost_per_unit_usd'  => ['nullable', 'numeric', 'min:0'],
             'min_stock'          => ['nullable', 'numeric', 'min:0'],
+            'fabricable'         => ['boolean'],
+            'image'              => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
 
         $businessId = Auth::user()->business_id;
 
-        Product::create([
+        $product = Product::create([
             'business_id'        => $businessId,
             'category_id'        => $validated['category_id'],
             'subcategory_id'     => $validated['subcategory_id'] ?? null,
@@ -60,9 +71,24 @@ class CatalogController extends Controller
             'base_unit_label'    => $validated['sale_mode'] === 'weight' ? 'kg' : 'und',
             'price_per_kg_usd'   => $validated['price_per_kg_usd'] ?? null,
             'price_per_unit_usd' => $validated['price_per_unit_usd'] ?? null,
+            'cost_per_kg_usd'    => $validated['cost_per_kg_usd'] ?? null,
+            'cost_per_unit_usd'  => $validated['cost_per_unit_usd'] ?? null,
             'min_stock'          => $validated['min_stock'] ?? 0,
+            'fabricable'         => $validated['fabricable'] ?? false,
             'active'             => true,
         ]);
+
+        if ($request->hasFile('image')) {
+            $imagePath = $this->processProductImage(
+                $request->file('image'),
+                $product->id,
+                $product->name,
+                $businessId,
+            );
+            if ($imagePath !== '') {
+                $product->update(['image_path' => $imagePath]);
+            }
+        }
 
         return redirect()->route('catalog.index')->with('success', 'Producto creado.');
     }
@@ -76,11 +102,16 @@ class CatalogController extends Controller
             'sale_mode'          => ['required', 'in:weight,unit'],
             'price_per_kg_usd'   => ['nullable', 'numeric', 'min:0', 'required_if:sale_mode,weight'],
             'price_per_unit_usd' => ['nullable', 'numeric', 'min:0', 'required_if:sale_mode,unit'],
+            'cost_per_kg_usd'    => ['nullable', 'numeric', 'min:0'],
+            'cost_per_unit_usd'  => ['nullable', 'numeric', 'min:0'],
             'min_stock'          => ['nullable', 'numeric', 'min:0'],
+            'fabricable'         => ['boolean'],
             'active'             => ['boolean'],
+            'image'              => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'remove_image'       => ['nullable', 'boolean'],
         ]);
 
-        $product->update([
+        $updates = [
             'category_id'        => $validated['category_id'],
             'subcategory_id'     => $validated['subcategory_id'] ?? null,
             'name'               => $validated['name'],
@@ -88,9 +119,34 @@ class CatalogController extends Controller
             'base_unit_label'    => $validated['sale_mode'] === 'weight' ? 'kg' : 'und',
             'price_per_kg_usd'   => $validated['price_per_kg_usd'] ?? null,
             'price_per_unit_usd' => $validated['price_per_unit_usd'] ?? null,
+            'cost_per_kg_usd'    => $validated['cost_per_kg_usd'] ?? null,
+            'cost_per_unit_usd'  => $validated['cost_per_unit_usd'] ?? null,
             'min_stock'          => $validated['min_stock'] ?? 0,
+            'fabricable'         => $validated['fabricable'] ?? $product->fabricable,
             'active'             => $validated['active'] ?? $product->active,
-        ]);
+        ];
+
+        if ($request->boolean('remove_image') && $product->image_path) {
+            $this->deleteProductImage($product->image_path);
+            $updates['image_path'] = null;
+        }
+
+        if ($request->hasFile('image')) {
+            if ($product->image_path) {
+                $this->deleteProductImage($product->image_path);
+            }
+            $imagePath = $this->processProductImage(
+                $request->file('image'),
+                $product->id,
+                $validated['name'],
+                $product->business_id,
+            );
+            if ($imagePath !== '') {
+                $updates['image_path'] = $imagePath;
+            }
+        }
+
+        $product->update($updates);
 
         return redirect()->route('catalog.index')->with('success', 'Producto actualizado.');
     }
@@ -114,9 +170,10 @@ class CatalogController extends Controller
     public function storeCategory(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'name'  => ['required', 'string', 'max:80'],
-            'color' => ['nullable', 'string', 'max:20'],
-            'icon'  => ['nullable', 'string', 'max:80'],
+            'name'           => ['required', 'string', 'max:80'],
+            'color'          => ['nullable', 'string', 'max:20'],
+            'icon'           => ['nullable', 'string', 'max:80'],
+            'macro_category' => ['nullable', 'string', 'in:RES,POLLO,CERDO,TRASTES,MISC'],
         ]);
 
         $businessId = Auth::user()->business_id;
@@ -124,12 +181,13 @@ class CatalogController extends Controller
         $maxSort = Category::where('business_id', $businessId)->max('sort_order') ?? 0;
 
         Category::create([
-            'business_id' => $businessId,
-            'name'        => $validated['name'],
-            'color'       => $validated['color'] ?? null,
-            'icon'        => $validated['icon'] ?? null,
-            'sort_order'  => $maxSort + 1,
-            'active'      => true,
+            'business_id'    => $businessId,
+            'name'           => $validated['name'],
+            'color'          => $validated['color'] ?? null,
+            'icon'           => $validated['icon'] ?? null,
+            'macro_category' => $validated['macro_category'] ?? null,
+            'sort_order'     => $maxSort + 1,
+            'active'         => true,
         ]);
 
         return redirect()->route('catalog.index')->with('success', 'Categoría creada.');
@@ -157,9 +215,10 @@ class CatalogController extends Controller
     public function updateCategory(Request $request, Category $category): RedirectResponse
     {
         $validated = $request->validate([
-            'name'  => ['required', 'string', 'max:80'],
-            'color' => ['nullable', 'string', 'max:20'],
-            'icon'  => ['nullable', 'string', 'max:80'],
+            'name'           => ['required', 'string', 'max:80'],
+            'color'          => ['nullable', 'string', 'max:20'],
+            'icon'           => ['nullable', 'string', 'max:80'],
+            'macro_category' => ['nullable', 'string', 'in:RES,POLLO,CERDO,TRASTES,MISC'],
         ]);
 
         $category->update($validated);
@@ -208,5 +267,64 @@ class CatalogController extends Controller
         $subcategory->delete();
 
         return redirect()->route('catalog.index')->with('success', 'Subcategoría eliminada.');
+    }
+
+    private function processProductImage(UploadedFile $file, int $productId, string $name, int $businessId): string
+    {
+        $slug     = Str::slug($name) ?: (string) $productId;
+        $filename = "{$productId}_{$slug}.webp";
+        $dir      = storage_path("app/public/business/{$businessId}/products");
+
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        $destPath = "{$dir}/{$filename}";
+        $mime     = $file->getMimeType() ?? '';
+        $tmpPath  = $file->getPathname();
+
+        $source = match (true) {
+            str_contains($mime, 'png')  => imagecreatefrompng($tmpPath),
+            str_contains($mime, 'webp') => imagecreatefromwebp($tmpPath),
+            default                     => imagecreatefromjpeg($tmpPath),
+        };
+
+        if ($source === false) {
+            return '';
+        }
+
+        $origW = imagesx($source);
+        $origH = imagesy($source);
+
+        if ($origW > 800 || $origH > 800) {
+            $ratio = min(800 / $origW, 800 / $origH);
+            $newW  = (int) round($origW * $ratio);
+            $newH  = (int) round($origH * $ratio);
+            $dest  = imagecreatetruecolor($newW, $newH);
+            imagealphablending($dest, false);
+            imagesavealpha($dest, true);
+            $transparent = imagecolorallocatealpha($dest, 0, 0, 0, 127);
+            imagefilledrectangle($dest, 0, 0, $newW, $newH, $transparent);
+            imagecopyresampled($dest, $source, 0, 0, 0, 0, $newW, $newH, $origW, $origH);
+            imagedestroy($source);
+            $source = $dest;
+        }
+
+        $ok = imagewebp($source, $destPath, 82);
+        imagedestroy($source);
+
+        if (!$ok) {
+            return '';
+        }
+
+        return "business/{$businessId}/products/{$filename}";
+    }
+
+    private function deleteProductImage(string $imagePath): void
+    {
+        $fullPath = storage_path("app/public/{$imagePath}");
+        if (file_exists($fullPath)) {
+            unlink($fullPath);
+        }
     }
 }

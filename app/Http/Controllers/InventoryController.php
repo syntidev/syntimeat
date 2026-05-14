@@ -26,6 +26,7 @@ class InventoryController extends Controller
         $products = Product::with('category')
             ->where('business_id', $businessId)
             ->where('active', true)
+            ->where('location', '!=', 'boveda')
             ->orderBy('sort_order')
             ->get();
 

@@ -7,6 +7,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\Order;
 
 class Sale extends Model
 {
@@ -30,6 +31,15 @@ class Sale extends Model
         'cancelled_at',
         'cancelled_by',
         'cancellation_reason',
+        'client_name',
+        'client_phone',
+        'client_id',
+        'origin',
+        'channel',
+        'delivery_status',
+        'delivery_confirmed_at',
+        'payment_status',
+        'order_id',
     ];
 
     protected function casts(): array
@@ -40,8 +50,9 @@ class Sale extends Model
             'change_usd'         => 'decimal:2',
             'rate_used'          => 'decimal:4',
             'total_bs'           => 'decimal:2',
-            'sold_at'            => 'datetime',
-            'cancelled_at'       => 'datetime',
+            'sold_at'                  => 'datetime',
+            'cancelled_at'             => 'datetime',
+            'delivery_confirmed_at'    => 'datetime',
         ];
     }
 
@@ -68,5 +79,20 @@ class Sale extends Model
     public function items(): HasMany
     {
         return $this->hasMany(SaleItem::class);
+    }
+
+    public function salePayments(): HasMany
+    {
+        return $this->hasMany(SalePayment::class);
+    }
+
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
+
+    public function isPendingCollection(): bool
+    {
+        return $this->payment_status === 'pendiente_cobro';
     }
 }

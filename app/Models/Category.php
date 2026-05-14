@@ -15,6 +15,7 @@ class Category extends Model
         'name',
         'icon',
         'color',
+        'macro_category',
         'sort_order',
         'active',
     ];

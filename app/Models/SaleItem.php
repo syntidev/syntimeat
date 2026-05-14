@@ -19,6 +19,8 @@ class SaleItem extends Model
         'price_per_kg_usd',
         'price_per_unit_usd',
         'subtotal_usd',
+        'subtotal_bs',
+        'rate_used',
         'discount_usd',
     ];
 
@@ -29,6 +31,8 @@ class SaleItem extends Model
             'price_per_kg_usd'   => 'decimal:2',
             'price_per_unit_usd' => 'decimal:2',
             'subtotal_usd'       => 'decimal:2',
+            'subtotal_bs'        => 'decimal:2',
+            'rate_used'          => 'decimal:4',
             'discount_usd'       => 'decimal:2',
         ];
     }

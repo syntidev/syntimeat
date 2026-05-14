@@ -70,11 +70,16 @@ const weightOptions = [
 ]
 
 const paymentOptions = [
-    { value: 'cash',           label: 'Efectivo' },
+    { value: 'cash',           label: 'Efectivo (Bs.)' },
+    { value: 'usd_cash',       label: 'Efectivo (USD)' },
     { value: 'mobile_payment', label: 'Pago Móvil' },
-    { value: 'transfer',       label: 'Transferencia' },
-    { value: 'usd_cash',       label: 'Dólares en efectivo' },
+    { value: 'transfer',       label: 'Transferencia Bancaria' },
+    { value: 'pos_debit',      label: 'Débito/Crédito (POS)' },
     { value: 'zelle',          label: 'Zelle' },
+    { value: 'biopago',        label: 'BioPago' },
+    { value: 'paypal',         label: 'PayPal' },
+    { value: 'binance',        label: 'Binance (Cripto)' },
+    { value: 'cashea',         label: 'Cashea' },
 ]
 
 // ─── Acciones ─────────────────────────────────────────────────────────────────
@@ -422,6 +427,9 @@ const errorClass = 'mt-1 text-xs text-red-400'
                                     placeholder="admin@tunegocio.com"
                                     autocomplete="username"
                                 />
+                                <p class="mt-1 text-[11px] text-[#4a6585]">
+                                    Si ya tienes una cuenta registrada, usa ese mismo correo y tu contraseña actual.
+                                </p>
                                 <p v-if="form4.errors.email" :class="errorClass">{{ form4.errors.email }}</p>
                             </div>
 
@@ -438,7 +446,7 @@ const errorClass = 'mt-1 text-xs text-red-400'
                             </div>
 
                             <div>
-                                <label :class="labelClass">Confirmar contraseña <span class="text-[#2563EB]">*</span></label>
+                                <label :class="labelClass">Confirmar contraseña <span class="text-[#4a6585] font-normal">(solo si es cuenta nueva)</span></label>
                                 <input
                                     v-model="form4.password_confirmation"
                                     type="password"
@@ -454,7 +462,7 @@ const errorClass = 'mt-1 text-xs text-red-400'
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                                 <p class="text-xs text-[#93aed4] leading-relaxed">
-                                    Al finalizar, serás redirigido al panel de control e ingresarás automáticamente con este usuario.
+                                    Al finalizar, serás redirigido al panel de control e ingresarás automáticamente. Si ya tenías una cuenta, quedará vinculada como administrador de este negocio.
                                 </p>
                             </div>
                         </div>

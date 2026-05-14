@@ -1,5 +1,5 @@
 <script setup>
-import AppLayout from '@/Layouts/AppLayout.vue'
+import SettingsLayout from '@/Layouts/SettingsLayout.vue'
 import { ref, computed } from 'vue'
 import { useForm, router } from '@inertiajs/vue3'
 
@@ -22,6 +22,37 @@ const TYPE_COLORS = {
     biometric:  'badge-orange',
     other:      'badge-gray',
 }
+
+// ─── Bancos venezolanos ──────────────────────────────────────────────────────
+const BANKS = [
+    { code: '0102', name: 'Banco de Venezuela' },
+    { code: '0163', name: 'Banco del Tesoro' },
+    { code: '0175', name: 'Banco Digital de los Trabajadores' },
+    { code: '0177', name: 'BANFANB' },
+    { code: '0166', name: 'Banco Agrícola de Venezuela' },
+    { code: '0134', name: 'Banesco' },
+    { code: '0105', name: 'Mercantil' },
+    { code: '0108', name: 'BBVA Provincial' },
+    { code: '0172', name: 'Bancamiga' },
+    { code: '0191', name: 'BNC' },
+    { code: '0114', name: 'Bancaribe' },
+    { code: '0174', name: 'Banplus' },
+    { code: '0138', name: 'Banco Plaza' },
+    { code: '0115', name: 'Banco Exterior' },
+    { code: '0151', name: 'BFC' },
+    { code: '0104', name: 'Venezolano de Crédito' },
+    { code: '0156', name: '100% Banco' },
+    { code: '0171', name: 'Banco Activo' },
+    { code: '0128', name: 'Banco Caroní' },
+    { code: '0157', name: 'Delsur' },
+    { code: '0137', name: 'Sofitasa' },
+    { code: '0173', name: 'Banco Int. de Desarrollo' },
+    { code: '0178', name: 'N58 Banco Digital' },
+    { code: '0168', name: 'Bancrecer' },
+    { code: '0169', name: 'R4, Banco Microfinanciero' },
+    { code: '0146', name: 'Bangente' },
+    { code: '0601', name: 'IMCP' },
+]
 
 // ─── Local list (optimistic drag) ────────────────────────────────────────────
 const list = ref([...props.methods])
@@ -122,7 +153,7 @@ function onDragEnd() {
 </script>
 
 <template>
-    <AppLayout title="Métodos de Pago">
+    <SettingsLayout>
         <div class="pm-wrap">
 
             <!-- Header -->
@@ -214,13 +245,10 @@ function onDragEnd() {
 
                         <template v-if="needsBank">
                             <label class="field-label">Banco</label>
-                            <input
-                                v-model="form.bank_name"
-                                class="field-input"
-                                :class="{ 'field-error': form.errors.bank_name }"
-                                maxlength="80"
-                                placeholder="Ej. Banesco"
-                            />
+                            <select v-model="form.bank_name" class="field-input" :class="{ 'field-error': form.errors.bank_name }">
+                                <option value="" disabled>Selecciona un banco</option>
+                                <option v-for="b in BANKS" :key="b.code" :value="b.name">{{ b.name }} ({{ b.code }})</option>
+                            </select>
                             <span v-if="form.errors.bank_name" class="error-msg">{{ form.errors.bank_name }}</span>
                         </template>
 
@@ -234,7 +262,7 @@ function onDragEnd() {
                 </div>
             </div>
         </Teleport>
-    </AppLayout>
+    </SettingsLayout>
 </template>
 
 <style scoped>

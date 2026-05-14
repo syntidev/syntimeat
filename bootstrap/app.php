@@ -18,8 +18,16 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'check.onboarding' => \App\Http\Middleware\CheckOnboarding::class,
+            'role'             => \App\Http\Middleware\EnsureRole::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->respond(function (\Symfony\Component\HttpFoundation\Response $response) {
+            if (in_array($response->getStatusCode(), [403, 404, 500, 503]) && request()->header('X-Inertia')) {
+                return \Inertia\Inertia::render('Error', ['status' => $response->getStatusCode()])
+                    ->toResponse(request())
+                    ->setStatusCode($response->getStatusCode());
+            }
+            return $response;
+        });
     })->create();

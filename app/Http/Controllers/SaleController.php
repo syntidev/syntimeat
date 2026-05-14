@@ -11,6 +11,7 @@ use App\Models\InventoryEntry;
 use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\Sale;
+use App\Models\SalePayment;
 use App\Services\DollarRateService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -34,6 +35,7 @@ class SaleController extends Controller
         $products = Product::with(['category', 'subcategory'])
             ->where('business_id', $businessId)
             ->where('active', true)
+            ->where('location', '!=', 'boveda')
             ->orderBy('sort_order')
             ->get();
 
@@ -44,13 +46,35 @@ class SaleController extends Controller
 
         $cashRegister = CashRegister::where('business_id', $businessId)
             ->whereNull('closed_at')
-            ->whereDate('opened_at', today())
             ->first();
+
+        // ─── Stock map para badges de inventario ──────────────────────────────
+        $stockIn = InventoryEntry::where('business_id', $businessId)
+            ->selectRaw('product_id, SUM(net_kg) as total_net')
+            ->groupBy('product_id')
+            ->pluck('total_net', 'product_id');
+
+        $stockOut = DB::table('sale_items')
+            ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
+            ->where('sales.business_id', $businessId)
+            ->where('sales.status', 'paid')
+            ->selectRaw('sale_items.product_id, SUM(sale_items.quantity_value) as total_sold')
+            ->groupBy('sale_items.product_id')
+            ->pluck('total_sold', 'product_id');
+
+        $stockMap = [];
+        foreach ($products as $product) {
+            $net  = (float) ($stockIn[$product->id]  ?? 0);
+            $sold = (float) ($stockOut[$product->id] ?? 0);
+            $stockMap[$product->id] = round($net - $sold, 3);
+        }
 
         $paymentMethods = PaymentMethod::where('business_id', $businessId)
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->get();
+
+        $posShowKg = (bool) ($business->settings['pos']['show_kg_visual'] ?? false);
 
         return Inertia::render('POS/Index', [
             'products'       => $products,
@@ -59,6 +83,21 @@ class SaleController extends Controller
             'todayRate'      => $this->rates->getTodayRate(),
             'paymentMethods' => $paymentMethods,
             'ticketPrefix'   => $business->ticket_prefix ?? 'VEN',
+            'stockMap'       => $stockMap,
+            'posShowKg'      => $posShowKg,
+            'businessInfo'   => [
+                'name'          => $business->name,
+                'address'       => $business->address,
+                'city'          => $business->city,
+                'state'         => $business->state,
+                'phone'         => $business->phone,
+                'ticket_footer' => $business->ticket_footer,
+            ],
+            'ticketPrefs'    => [
+                'show_address' => (bool) ($business->settings['ticket']['show_address'] ?? true),
+                'show_phone'   => (bool) ($business->settings['ticket']['show_phone']   ?? false),
+                'show_client'  => (bool) ($business->settings['ticket']['show_client']  ?? true),
+            ],
         ]);
     }
 
@@ -69,13 +108,20 @@ class SaleController extends Controller
         $data = $request->validate([
             'items'                  => ['required', 'array', 'min:1'],
             'items.*.product_id'     => ['required', 'integer', 'exists:products,id'],
-            'items.*.quantity_value' => ['required', 'numeric', 'min:0.001'],
             'items.*.input_type'     => ['required', 'string', 'in:weight,unit'],
+            // weight items: send amount_bs (new) OR quantity_value (legacy)
+            'items.*.amount_bs'      => ['sometimes', 'numeric', 'min:0.01'],
+            'items.*.quantity_value' => ['sometimes', 'numeric', 'min:0.001'],
+            'origin'                 => ['sometimes', 'string', 'in:onsite,delivery'],
+            'channel'                => ['sometimes', 'string', 'in:physical,online'],
         ]);
 
         $user       = Auth::user();
         $business   = $user->business;
         $businessId = $business->id;
+
+        // Rate needed to convert amount_bs → quantity_kg for weight items
+        $rate = $this->rates->getTodayRate();
 
         $productIds = collect($data['items'])->pluck('product_id')->unique()->values()->all();
         $products   = Product::whereIn('id', $productIds)
@@ -92,37 +138,57 @@ class SaleController extends Controller
 
         foreach ($data['items'] as $item) {
             $product   = $products[$item['product_id']];
-            $qty       = (float) $item['quantity_value'];
+            $inputType = $item['input_type'];
             $priceKg   = (float) ($product->price_per_kg_usd ?? 0);
             $priceUnit = (float) ($product->price_per_unit_usd ?? 0);
-            $subtotal  = $item['input_type'] === 'weight'
-                ? $qty * $priceKg
-                : $qty * $priceUnit;
+
+            if ($inputType === 'weight') {
+                // Support both: amount_bs (new paradigm) and quantity_value (legacy)
+                if (!empty($item['amount_bs'])) {
+                    $amountBs = (float) $item['amount_bs'];
+                    $qty      = ($priceKg > 0 && $rate > 0) ? round($amountBs / ($priceKg * $rate), 3) : 0.0;
+                    $subtotal = $rate > 0 ? $amountBs / $rate : 0.0;
+                } else {
+                    $qty      = (float) ($item['quantity_value'] ?? 0);
+                    $subtotal = $qty * $priceKg;
+                }
+            } else {
+                $qty      = (float) ($item['quantity_value'] ?? 0);
+                $subtotal = $qty * $priceUnit;
+            }
 
             $totalUsd += $subtotal;
 
             $itemsToCreate[] = [
-                'product_id'       => $product->id,
-                'product_name'     => $product->name,
-                'input_type'       => $item['input_type'],
-                'quantity_value'   => $qty,
-                'unit_label'       => $product->base_unit_label ?? ($item['input_type'] === 'weight' ? 'kg' : 'und'),
-                'price_per_kg_usd' => $priceKg,
+                'product_id'         => $product->id,
+                'product_name'       => $product->name,
+                'input_type'         => $inputType,
+                'quantity_value'     => $qty,
+                'unit_label'         => $product->base_unit_label ?? ($inputType === 'weight' ? 'kg' : 'und'),
+                'price_per_kg_usd'   => $priceKg,
                 'price_per_unit_usd' => $priceUnit,
-                'subtotal_usd'     => round($subtotal, 2),
-                'discount_usd'     => 0,
+                'subtotal_usd'       => round($subtotal, 2),
+                'subtotal_bs'        => round($subtotal * $rate, 2),
+                'rate_used'          => $rate,
+                'discount_usd'       => 0,
             ];
         }
 
         $ticketNumber = $this->generateTicketNumber($businessId, $business->ticket_prefix ?? 'VEN');
 
-        $sale = DB::transaction(function () use ($businessId, $user, $ticketNumber, $totalUsd, $itemsToCreate) {
+        $origin  = $data['origin']  ?? 'onsite';
+        $channel = $data['channel'] ?? 'physical';
+        $status  = $origin === 'delivery' ? 'pending' : 'open';
+
+        $sale = DB::transaction(function () use ($businessId, $user, $ticketNumber, $totalUsd, $itemsToCreate, $origin, $channel, $status) {
             $sale = Sale::create([
                 'business_id'   => $businessId,
                 'ticket_number' => $ticketNumber,
-                'status'        => 'open',
+                'status'        => $status,
                 'total_usd'     => round($totalUsd, 2),
                 'cashier_id'    => $user->id,
+                'origin'        => $origin,
+                'channel'       => $channel,
             ]);
 
             foreach ($itemsToCreate as $item) {
@@ -135,7 +201,7 @@ class SaleController extends Controller
         return response()->json(['sale' => $sale]);
     }
 
-    // ─── Confirmar pago ───────────────────────────────────────────────────────
+    // ─── Confirmar pago (multi-método) ───────────────────────────────────────
 
     public function pay(Request $request, Sale $sale): JsonResponse
     {
@@ -145,36 +211,94 @@ class SaleController extends Controller
         abort_unless($sale->business_id === $businessId, 403);
         abort_unless($sale->status === 'open', 422, 'Venta no está abierta.');
 
+        // Verificar caja abierta (sin filtro de fecha — whereNull es suficiente)
+        $cashRegister = CashRegister::where('business_id', $businessId)
+            ->whereNull('closed_at')
+            ->first();
+
+        if (! $cashRegister) {
+            return response()->json(
+                ['error' => 'Debe abrir la caja antes de procesar pagos'],
+                422
+            );
+        }
+
         $data = $request->validate([
-            'payment_method_id'  => ['required', 'integer', 'exists:payment_methods,id'],
-            'amount_received_bs' => ['required', 'numeric', 'min:0'],
+            'payments'                          => ['required', 'array', 'min:1'],
+            'payments.*.payment_method_id'      => ['required', 'integer', 'exists:payment_methods,id'],
+            'payments.*.amount_bs'              => ['required', 'numeric', 'min:0.01'],
+            'payments.*.reference'              => ['nullable', 'string', 'max:50'],            'client_id'                          => ['nullable', 'integer'],            'client_name'                       => ['nullable', 'string', 'max:100'],
+            'client_phone'                      => ['nullable', 'string', 'max:30'],
         ]);
 
-        $paymentMethod = PaymentMethod::where('id', $data['payment_method_id'])
-            ->where('business_id', $businessId)
-            ->firstOrFail();
+        $rate     = $this->rates->getTodayRate();
+        $totalUsd = (float) $sale->total_usd;
+        $totalBs  = round($totalUsd * $rate, 2);
 
-        $rate            = $this->rates->getTodayRate();
-        $totalUsd        = (float) $sale->total_usd;
-        $totalBs         = round($totalUsd * $rate, 2);
-        $amountReceivedBs  = (float) $data['amount_received_bs'];
-        $changeBs        = max(0.0, $amountReceivedBs - $totalBs);
-        $amountReceivedUsd = $rate > 0 ? round($amountReceivedBs / $rate, 2) : 0.0;
-        $changeUsd       = $rate > 0 ? round($changeBs / $rate, 2) : 0.0;
+        // Validar métodos de pago del negocio y calcular suma
+        $methodIds = array_column($data['payments'], 'payment_method_id');
+        $methods   = PaymentMethod::whereIn('id', $methodIds)
+            ->where('business_id', $businessId)
+            ->get()
+            ->keyBy('id');
+
+        foreach ($methodIds as $mid) {
+            abort_unless($methods->has($mid), 403, 'Método de pago no pertenece al negocio.');
+        }
+
+        $sumPaidBs = array_sum(array_column($data['payments'], 'amount_bs'));
+
+        if (round($sumPaidBs, 2) < $totalBs) {
+            return response()->json(
+                ['error' => "Monto insuficiente. Total: {$totalBs} Bs., Pagado: " . round($sumPaidBs, 2) . ' Bs.'],
+                422
+            );
+        }
+
+        // Verificar client_id si viene
+        $clientId = null;
+        if (! empty($data['client_id'])) {
+            $exists = \App\Models\Client::where('id', $data['client_id'])
+                ->where('business_id', $businessId)
+                ->exists();
+            abort_unless($exists, 403, 'Cliente no pertenece al negocio.');
+            $clientId = (int) $data['client_id'];
+        }
+
+        $changeBs  = round($sumPaidBs - $totalBs, 2);
+        $changeUsd = $rate > 0 ? round($changeBs / $rate, 2) : 0.0;
+
+        // Para compatibilidad con campos legacy de Sale, tomar el primer método
+        $firstMethod = $methods[$data['payments'][0]['payment_method_id']];
 
         DB::transaction(function () use (
-            $sale, $rate, $totalBs, $amountReceivedUsd, $changeUsd,
-            $paymentMethod, $businessId, $user
+            $sale, $rate, $totalBs, $totalUsd, $changeBs, $changeUsd,
+            $firstMethod, $data, $methods, $businessId, $user, $cashRegister, $clientId
         ) {
             $sale->update([
-                'status'             => 'paid',
-                'rate_used'          => $rate,
-                'total_bs'           => $totalBs,
-                'payment_method'     => substr($paymentMethod->name, 0, 30),
-                'amount_received_usd' => $amountReceivedUsd,
-                'change_usd'         => $changeUsd,
-                'sold_at'            => now(),
+                'status'              => 'paid',
+                'rate_used'           => $rate,
+                'total_bs'            => $totalBs,
+                'payment_method'      => substr($firstMethod->name, 0, 30),
+                'amount_received_usd' => $rate > 0 ? round(array_sum(array_column($data['payments'], 'amount_bs')) / $rate, 2) : 0.0,
+                'change_usd'          => $changeUsd,
+                'sold_at'             => now(),
+                'cash_register_id'    => $cashRegister->id,
+                'client_name'         => $data['client_name'] ?? null,
+                'client_phone'        => $data['client_phone'] ?? null,
+                'client_id'           => $clientId,
             ]);
+
+            // Registrar cada pago en sale_payments
+            foreach ($data['payments'] as $pmt) {
+                SalePayment::create([
+                    'sale_id'           => $sale->id,
+                    'payment_method_id' => $pmt['payment_method_id'],
+                    'amount_bs'         => round((float) $pmt['amount_bs'], 2),
+                    'amount_usd'        => $rate > 0 ? round((float) $pmt['amount_bs'] / $rate, 2) : 0.0,
+                    'reference'         => $pmt['reference'] ?? null,
+                ]);
+            }
 
             // Descontar inventario solo para items tipo weight
             foreach ($sale->items as $item) {
@@ -183,13 +307,14 @@ class SaleController extends Controller
                 }
 
                 InventoryEntry::create([
-                    'business_id'    => $businessId,
-                    'product_id'     => $item->product_id,
-                    'quantity_kg'    => -abs((float) $item->quantity_value),
-                    'waste_kg'       => 0,
-                    'entered_at'     => now(),
-                    'created_by'     => $user->id,
-                    'notes'          => "Venta {$sale->ticket_number}",
+                    'business_id' => $businessId,
+                    'product_id'  => $item->product_id,
+                    'quantity_kg' => -abs((float) $item->quantity_value),
+                    'waste_kg'    => 0,
+                    'location'    => 'vitrina',
+                    'entered_at'  => now(),
+                    'created_by'  => $user->id,
+                    'notes'       => "Venta {$sale->ticket_number}",
                 ]);
             }
 
@@ -200,11 +325,11 @@ class SaleController extends Controller
                 'model_type'  => Sale::class,
                 'model_id'    => $sale->id,
                 'new_values'  => [
-                    'ticket_number' => $sale->ticket_number,
-                    'total_usd'     => $sale->total_usd,
-                    'total_bs'      => $totalBs,
-                    'rate_used'     => $rate,
-                    'method'        => $paymentMethod->name,
+                    'ticket_number'  => $sale->ticket_number,
+                    'total_usd'      => $totalUsd,
+                    'total_bs'       => $totalBs,
+                    'rate_used'      => $rate,
+                    'payments_count' => count($data['payments']),
                 ],
             ]);
         });
@@ -238,6 +363,26 @@ class SaleController extends Controller
                 'cancelled_by'        => $user->id,
                 'cancellation_reason' => $data['reason'],
             ]);
+
+            // Revertir descuento de inventario solo si la venta estaba pagada
+            if ($sale->getOriginal('status') === 'paid') {
+                foreach ($sale->items as $item) {
+                    if ($item->input_type !== 'weight') {
+                        continue;
+                    }
+
+                    InventoryEntry::create([
+                        'business_id' => $businessId,
+                        'product_id'  => $item->product_id,
+                        'quantity_kg' => abs((float) $item->quantity_value),
+                        'waste_kg'    => 0,
+                        'location'    => 'vitrina',
+                        'entered_at'  => now(),
+                        'created_by'  => $user->id,
+                        'notes'       => "Reverso anulación {$sale->ticket_number}",
+                    ]);
+                }
+            }
 
             ActivityLog::create([
                 'business_id' => $businessId,
