@@ -171,6 +171,9 @@ Route::middleware(['auth', 'verified', 'check.onboarding'])->group(function () {
             Route::delete('/terminales/{terminal}',[SettingsController::class, 'destroyTerminal'])->name('terminals.destroy');
             Route::get('/ticket',  [SettingsController::class, 'ticket'])->name('ticket');
             Route::post('/ticket', [SettingsController::class, 'updateTicket'])->name('ticket.update');
+            Route::get('/sucursales',             [SettingsController::class, 'branches'])->name('branches');
+            Route::post('/sucursales',            [SettingsController::class, 'storeBranch'])->name('branches.store');
+            Route::put('/sucursales/{branch}',    [SettingsController::class, 'updateBranch'])->name('branches.update');
         });
 
         // Contingencia

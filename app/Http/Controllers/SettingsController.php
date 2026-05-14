@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Branch;
 use App\Models\CashRegister;
 use App\Models\PaymentMethod;
 use App\Models\PaymentTerminal;
@@ -371,5 +372,55 @@ class SettingsController extends Controller
         ]);
 
         return back()->with('success', 'Preferencias del ticket actualizadas.');
+    }
+
+    // ─── Sucursales ──────────────────────────────────────────────────────────
+
+    public function branches(): Response
+    {
+        $businessId = Auth::user()->business_id;
+
+        $branches = Branch::where('business_id', $businessId)
+            ->orderBy('name')
+            ->get(['id', 'name', 'address', 'city', 'phone', 'is_active']);
+
+        return Inertia::render('Settings/Branches', [
+            'branches' => $branches,
+        ]);
+    }
+
+    public function storeBranch(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'name'    => ['required', 'string', 'max:100'],
+            'address' => ['nullable', 'string', 'max:200'],
+            'city'    => ['nullable', 'string', 'max:100'],
+            'phone'   => ['nullable', 'string', 'max:30'],
+        ]);
+
+        Branch::create([
+            'business_id' => Auth::user()->business_id,
+            'is_active'   => true,
+            ...$data,
+        ]);
+
+        return back()->with('success', 'Sucursal creada.');
+    }
+
+    public function updateBranch(Request $request, Branch $branch): RedirectResponse
+    {
+        abort_unless($branch->business_id === Auth::user()->business_id, 403);
+
+        $data = $request->validate([
+            'name'      => ['required', 'string', 'max:100'],
+            'address'   => ['nullable', 'string', 'max:200'],
+            'city'      => ['nullable', 'string', 'max:100'],
+            'phone'     => ['nullable', 'string', 'max:30'],
+            'is_active' => ['boolean'],
+        ]);
+
+        $branch->update($data);
+
+        return back()->with('success', 'Sucursal actualizada.');
     }
 }
