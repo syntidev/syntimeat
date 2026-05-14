@@ -8,269 +8,225 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: 'Arial', sans-serif;
+            font-family: Arial, sans-serif;
             font-size: 11px;
             color: #1a1a1a;
             background: #fff;
-            padding: 12mm 14mm;
+            padding: 10mm 12mm;
         }
 
-        /* ── Header ── */
+        /* ── Header ─────────────────────────────────────────────────── */
         .header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            border-bottom: 2.5px solid #b91c1c;
+            border-bottom: 3px solid #b91c1c;
             padding-bottom: 8px;
             margin-bottom: 10px;
         }
         .header-logo {
-            height: 64px;
+            height: 60px;
             width: auto;
             object-fit: contain;
+        }
+        .logo-placeholder {
+            width: 60px; height: 60px;
+            background: #fef2f2;
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 26px;
         }
         .header-center {
             flex: 1;
             text-align: center;
-            padding: 0 10px;
+            padding: 0 12px;
         }
         .header-center h1 {
-            font-size: 18px;
+            font-size: 17px;
             font-weight: 900;
             letter-spacing: 1px;
             color: #b91c1c;
             text-transform: uppercase;
         }
-        .header-center p {
-            font-size: 10px;
-            color: #555;
-            margin-top: 2px;
-        }
+        .header-center p { font-size: 9.5px; color: #555; margin-top: 2px; }
         .header-right {
             text-align: right;
             font-size: 9.5px;
             color: #444;
-            line-height: 1.5;
-            min-width: 130px;
+            line-height: 1.6;
+            min-width: 140px;
         }
-        .header-right strong { font-size: 11px; color: #1a1a1a; }
+        .header-right strong { font-size: 11px; color: #1a1a1a; display: block; }
+        .planilla-num {
+            margin-top: 4px;
+            font-weight: 700;
+            color: #b91c1c;
+            font-size: 10px;
+        }
 
-        /* ── Entry info box ── */
+        /* ── Info de la pieza ───────────────────────────────────────── */
         .entry-box {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 6px;
+            gap: 5px;
             background: #fef2f2;
             border: 1px solid #fca5a5;
             border-radius: 4px;
-            padding: 8px 10px;
+            padding: 7px 10px;
             margin-bottom: 10px;
         }
-        .entry-field label {
-            font-size: 8.5px;
+        .ef label {
+            font-size: 8px;
             font-weight: 700;
             color: #b91c1c;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.4px;
             display: block;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
         }
-        .entry-field .val {
+        .ef .val {
             border-bottom: 1px solid #d1d5db;
-            min-height: 16px;
+            min-height: 15px;
             font-size: 11px;
             padding-bottom: 1px;
-        }
-        .entry-field .val.prefilled {
             font-weight: 700;
-            color: #1a1a1a;
         }
+        .ef .val.blank { font-weight: 400; }
 
-        /* ── Section title ── */
-        .section-title {
+        /* ── Sección por categoría ──────────────────────────────────── */
+        .section { margin-bottom: 8px; }
+        .section-head {
             display: flex;
             align-items: center;
-            gap: 8px;
-            margin: 10px 0 5px;
+            gap: 6px;
+            margin-bottom: 4px;
         }
-        .section-title .icon {
-            font-size: 15px;
-        }
-        .section-title h2 {
-            font-size: 12px;
+        .section-head h2 {
+            font-size: 11px;
             font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.8px;
+            letter-spacing: 0.7px;
+            white-space: nowrap;
         }
-        .section-title.res h2   { color: #dc2626; }
-        .section-title.cerdo h2 { color: #ea580c; }
-        .section-title.pollo h2 { color: #ca8a04; }
-
-        .section-title .stripe {
+        .section-head .line {
             flex: 1;
             height: 2px;
             border-radius: 1px;
         }
-        .section-title.res .stripe   { background: #dc2626; }
-        .section-title.cerdo .stripe { background: #ea580c; }
-        .section-title.pollo .stripe { background: #ca8a04; }
 
-        /* ── Cut table ── */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 4px;
-            font-size: 10.5px;
-        }
+        /* colores por categoría */
+        .cat-res       h2, .cat-res       .subtotal td { color: #dc2626; }
+        .cat-res       .line { background: #dc2626; }
+        .cat-cerdo     h2, .cat-cerdo     .subtotal td { color: #ea580c; }
+        .cat-cerdo     .line { background: #ea580c; }
+        .cat-pollo     h2, .cat-pollo     .subtotal td { color: #ca8a04; }
+        .cat-pollo     .line { background: #ca8a04; }
+        .cat-charcutería h2, .cat-charcutería .subtotal td { color: #7c3aed; }
+        .cat-charcutería .line { background: #7c3aed; }
+        .cat-embutidos h2, .cat-embutidos .subtotal td { color: #0369a1; }
+        .cat-embutidos .line { background: #0369a1; }
+        .cat-trastes   h2, .cat-trastes   .subtotal td { color: #4b5563; }
+        .cat-trastes   .line { background: #4b5563; }
+
+        /* ── Tabla de cortes ────────────────────────────────────────── */
+        table { width: 100%; border-collapse: collapse; font-size: 10px; }
         thead th {
-            padding: 4px 6px;
+            padding: 3px 5px;
             text-align: left;
-            font-size: 8.5px;
+            font-size: 8px;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.4px;
-            border-bottom: 1.5px solid #374151;
+            letter-spacing: 0.3px;
             color: #374151;
             background: #f9fafb;
+            border-bottom: 1.5px solid #374151;
         }
-        thead th.num { text-align: right; }
-
+        thead th.r { text-align: right; }
         tbody td {
-            padding: 5px 6px;
+            padding: 4px 5px;
             border-bottom: 1px solid #e5e7eb;
             vertical-align: bottom;
+            height: 20px;
         }
-        tbody td.num { text-align: right; }
-        tbody tr.input-row td { height: 22px; }
-        tbody tr.input-row td.write { border-bottom: 1px solid #9ca3af; }
-
-        .subtotal-row td {
-            background: #f3f4f6;
+        tbody td.r { text-align: right; }
+        .product-name { font-weight: 600; }
+        .write { border-bottom: 1px solid #9ca3af !important; background: #fafafa; }
+        .subtotal td {
+            padding: 3px 5px;
+            font-size: 9.5px;
             font-weight: 700;
-            font-size: 10px;
-            padding: 4px 6px;
-            border-top: 1.5px solid #374151;
+            border-top: 1.5px solid currentColor;
+            background: #f9fafb;
         }
-        .merma-row td {
-            color: #dc2626;
-            font-weight: 700;
-            font-size: 10px;
-            padding: 4px 6px;
-            border-bottom: 1.5px solid #dc2626;
-        }
+        .subtotal td.r { text-align: right; }
 
-        .col-corte   { width: 38%; }
-        .col-kgent   { width: 16%; }
-        .col-kgreal  { width: 16%; }
-        .col-merma   { width: 16%; }
-        .col-obs     { width: 14%; }
+        .col-prod  { width: 35%; }
+        .col-est   { width: 16%; }
+        .col-real  { width: 16%; }
+        .col-merma { width: 16%; }
+        .col-obs   { width: 17%; }
 
-        /* ── Totals box ── */
-        .totals-box {
+        /* ── Totales ────────────────────────────────────────────────── */
+        .totals {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 0;
             border: 1.5px solid #374151;
             border-radius: 4px;
             overflow: hidden;
-            margin: 8px 0 10px;
-        }
-        .total-cell {
-            padding: 6px 8px;
-            border-right: 1px solid #e5e7eb;
-            text-align: center;
-        }
-        .total-cell:last-child { border-right: none; }
-        .total-cell label {
-            font-size: 8px;
-            font-weight: 700;
-            text-transform: uppercase;
-            color: #6b7280;
-            display: block;
-            margin-bottom: 2px;
-        }
-        .total-cell .tval {
-            font-size: 13px;
-            font-weight: 900;
-            color: #1a1a1a;
-            border-bottom: 1.5px solid #374151;
-            min-height: 18px;
-        }
-        .total-cell.merma .tval { color: #dc2626; }
-        .total-cell.ok .tval    { color: #16a34a; }
-
-        /* ── Signatures ── */
-        .signatures {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 16px;
-            margin-top: 12px;
-        }
-        .sig-box {
-            border-top: 1px solid #374151;
-            padding-top: 4px;
-            text-align: center;
-        }
-        .sig-box label {
-            font-size: 8.5px;
-            font-weight: 700;
-            color: #6b7280;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
-        }
-        .sig-space { height: 32px; }
-
-        /* ── Notes ── */
-        .notes-box {
-            border: 1px solid #e5e7eb;
-            border-radius: 4px;
-            padding: 6px 8px;
             margin: 8px 0;
         }
-        .notes-box label {
-            font-size: 8.5px;
-            font-weight: 700;
-            text-transform: uppercase;
-            color: #6b7280;
-            display: block;
-            margin-bottom: 18px;
+        .tc {
+            padding: 5px 7px;
+            text-align: center;
+            border-right: 1px solid #e5e7eb;
         }
+        .tc:last-child { border-right: none; }
+        .tc label { font-size: 7.5px; font-weight: 700; text-transform: uppercase; color: #6b7280; display: block; margin-bottom: 2px; }
+        .tc .v { font-size: 12px; font-weight: 900; border-bottom: 1.5px solid #374151; min-height: 17px; }
+        .tc.red   .v { color: #dc2626; }
+        .tc.green .v { color: #16a34a; }
 
-        /* ── Footer ── */
+        /* ── Observaciones ──────────────────────────────────────────── */
+        .obs-box {
+            border: 1px solid #e5e7eb;
+            border-radius: 3px;
+            padding: 5px 7px;
+            margin-bottom: 8px;
+        }
+        .obs-box label { font-size: 8px; font-weight: 700; text-transform: uppercase; color: #6b7280; display: block; margin-bottom: 20px; }
+
+        /* ── Firmas ─────────────────────────────────────────────────── */
+        .sigs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 8px; }
+        .sig { border-top: 1px solid #374151; padding-top: 3px; text-align: center; }
+        .sig label { font-size: 8px; font-weight: 700; text-transform: uppercase; color: #6b7280; }
+        .sig-space { height: 28px; }
+
+        /* ── Footer ─────────────────────────────────────────────────── */
         .footer {
-            margin-top: 10px;
             border-top: 1px solid #e5e7eb;
-            padding-top: 5px;
+            padding-top: 4px;
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            font-size: 8px;
+            font-size: 7.5px;
             color: #9ca3af;
         }
-        .footer a { color: #b91c1c; text-decoration: none; font-weight: 700; }
+        .footer a { color: #b91c1c; font-weight: 700; text-decoration: none; }
 
-        /* ── Print btn (no imprime) ── */
+        /* ── Botón imprimir ─────────────────────────────────────────── */
         .print-btn {
-            position: fixed;
-            top: 16px;
-            right: 16px;
-            background: #b91c1c;
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            padding: 8px 18px;
-            font-size: 13px;
-            font-weight: 700;
-            cursor: pointer;
-            font-family: inherit;
+            position: fixed; top: 14px; right: 14px;
+            background: #b91c1c; color: #fff;
+            border: none; border-radius: 7px;
+            padding: 7px 16px; font-size: 12px; font-weight: 700;
+            cursor: pointer; font-family: inherit;
             box-shadow: 0 2px 8px rgba(0,0,0,.2);
         }
         .print-btn:hover { background: #991b1b; }
 
         @media print {
-            body { padding: 8mm 10mm; }
+            body { padding: 6mm 8mm; }
             .print-btn { display: none; }
-            @page { margin: 6mm; size: A4 portrait; }
+            @page { margin: 5mm; size: A4 portrait; }
         }
     </style>
 </head>
@@ -278,16 +234,12 @@
 
 <button class="print-btn" onclick="window.print()">🖨 Imprimir</button>
 
-<!-- ── Header ─────────────────────────────────────────────────────── -->
+{{-- ── Header ──────────────────────────────────────────────────────── --}}
 <div class="header">
     @if($business->logo_path)
-        <img
-            src="{{ Storage::url($business->logo_path) }}"
-            alt="{{ $business->name }}"
-            class="header-logo"
-        >
+        <img src="{{ Storage::url($business->logo_path) }}" alt="{{ $business->name }}" class="header-logo">
     @else
-        <div style="width:64px;height:64px;background:#fef2f2;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:28px;">🥩</div>
+        <div class="logo-placeholder">🥩</div>
     @endif
 
     <div class="header-center">
@@ -296,236 +248,150 @@
     </div>
 
     <div class="header-right">
-        <strong>{{ $business->name }}</strong><br>
+        <strong>{{ $business->name }}</strong>
         @if($business->address && $business->address !== 'DIRECCIÓN')
             {{ $business->address }}<br>
         @endif
         @if($business->phone)
-            {{ $business->phone }}<br>
+            {{ $business->phone }}
         @endif
-        <span style="color:#b91c1c;font-weight:700;">N° PLANILLA: ________</span>
+        <div class="planilla-num">N° PLANILLA: _________</div>
     </div>
 </div>
 
-<!-- ── Datos de la pieza ───────────────────────────────────────────── -->
+{{-- ── Datos de la pieza ───────────────────────────────────────────── --}}
 <div class="entry-box">
-    <div class="entry-field">
-        <label>Fecha</label>
-        <div class="val prefilled">{{ $entry ? $entry->entered_at?->format('d/m/Y') : '' }}</div>
+    <div class="ef">
+        <label>Fecha entrada bóveda</label>
+        <div class="val">{{ $entry->entered_at?->format('d/m/Y') }}</div>
     </div>
-    <div class="entry-field">
+    <div class="ef">
         <label>Tipo de pieza</label>
-        <div class="val prefilled">{{ $entry ? $entry->product_type : '' }}</div>
+        <div class="val">{{ $entry->product_type }}</div>
     </div>
-    <div class="entry-field">
+    <div class="ef">
         <label>Descripción / ID pieza</label>
-        <div class="val prefilled">{{ $entry ? ($entry->description ?: '—') : '' }}</div>
+        <div class="val">{{ $entry->description ?: '—' }}</div>
     </div>
-    <div class="entry-field">
+    <div class="ef">
         <label>Proveedor</label>
-        <div class="val prefilled">{{ $entry ? ($entry->supplier ?: '—') : '' }}</div>
+        <div class="val">{{ $entry->supplier ?: '—' }}</div>
     </div>
-    <div class="entry-field">
+    <div class="ef">
         <label>Kg entrada bóveda</label>
-        <div class="val prefilled">{{ $entry ? number_format($entry->kg_entrada, 3) . ' kg' : '' }}</div>
+        <div class="val">{{ number_format((float)$entry->kg_entrada, 3) }} kg</div>
     </div>
-    <div class="entry-field">
-        <label>Kg surtidos a fábrica</label>
-        <div class="val prefilled">{{ $entry ? number_format($entry->kg_surtido_vitrina, 3) . ' kg' : '' }}</div>
+    <div class="ef">
+        <label>Kg surtidos a despiece</label>
+        <div class="val">{{ number_format((float)$entry->kg_surtido_vitrina, 3) }} kg</div>
     </div>
-    <div class="entry-field">
+    <div class="ef">
         <label>Fecha de despiece</label>
-        <div class="val"></div>
+        <div class="val blank">&nbsp;</div>
     </div>
-    <div class="entry-field">
+    <div class="ef">
         <label>Carnicero responsable</label>
-        <div class="val"></div>
+        <div class="val blank">&nbsp;</div>
     </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════════════════ -->
-<!-- RES                                                               -->
-<!-- ══════════════════════════════════════════════════════════════════ -->
-<div class="section-title res">
-    <span class="icon">🐄</span>
-    <h2>Res (Bovino)</h2>
-    <div class="stripe"></div>
+{{-- ── Secciones por categoría ─────────────────────────────────────── --}}
+@foreach($productosPorCategoria as $categoria => $productos)
+@php
+    $slug = strtolower(str_replace(['é','ú','ó','á','í'], ['e','u','o','a','i'], $categoria));
+    $icons = [
+        'res'        => '🐄',
+        'cerdo'      => '🐷',
+        'pollo'      => '🐔',
+        'charcuteria'=> '🧀',
+        'embutidos'  => '🌭',
+        'trastes'    => '🫀',
+    ];
+    $icon = $icons[$slug] ?? '📦';
+@endphp
+<div class="section cat-{{ $slug }}">
+    <div class="section-head">
+        <span>{{ $icon }}</span>
+        <h2>{{ $categoria }}</h2>
+        <div class="line"></div>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th class="col-prod">Producto del catálogo</th>
+                <th class="col-est r">Kg estimado</th>
+                <th class="col-real r">Kg real pesado</th>
+                <th class="col-merma r">Merma corte</th>
+                <th class="col-obs">Observación</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($productos as $producto)
+            <tr>
+                <td class="product-name">{{ $producto->name }}</td>
+                <td class="r write"></td>
+                <td class="r write"></td>
+                <td class="r write"></td>
+                <td class="write"></td>
+            </tr>
+            @endforeach
+            <tr class="subtotal">
+                <td>SUBTOTAL {{ strtoupper($categoria) }}</td>
+                <td class="r">________ kg</td>
+                <td class="r">________ kg</td>
+                <td class="r">________ kg</td>
+                <td></td>
+            </tr>
+        </tbody>
+    </table>
 </div>
+@endforeach
 
-<table>
-    <thead>
-        <tr>
-            <th class="col-corte">Corte / Pieza</th>
-            <th class="col-kgent num">Kg estimado</th>
-            <th class="col-kgreal num">Kg real pesado</th>
-            <th class="col-merma num">Merma corte</th>
-            <th class="col-obs">Observación</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach(['Solomo abierto','Solomo cerrado','Punta trasera','Pulpa negra','Paleta','Costilla','Lagarto / Osobuco','Cogote / Pescuezo','Hueso (sin carne)','Descarte / Merma'] as $corte)
-        <tr class="input-row">
-            <td>{{ $corte }}</td>
-            <td class="num write"></td>
-            <td class="num write"></td>
-            <td class="num write"></td>
-            <td class="write"></td>
-        </tr>
-        @endforeach
-        <tr class="input-row" style="border-bottom:1px dashed #d1d5db;">
-            <td style="color:#9ca3af;font-style:italic;">Otro: _______________</td>
-            <td class="num write"></td>
-            <td class="num write"></td>
-            <td class="num write"></td>
-            <td class="write"></td>
-        </tr>
-        <tr class="subtotal-row">
-            <td>SUBTOTAL RES</td>
-            <td class="num">_______ kg</td>
-            <td class="num">_______ kg</td>
-            <td class="num merma-row" style="color:#dc2626;">_______ kg</td>
-            <td></td>
-        </tr>
-    </tbody>
-</table>
-
-<!-- ══════════════════════════════════════════════════════════════════ -->
-<!-- CERDO                                                             -->
-<!-- ══════════════════════════════════════════════════════════════════ -->
-<div class="section-title cerdo">
-    <span class="icon">🐷</span>
-    <h2>Cerdo (Porcino)</h2>
-    <div class="stripe"></div>
-</div>
-
-<table>
-    <thead>
-        <tr>
-            <th class="col-corte">Corte / Pieza</th>
-            <th class="col-kgent num">Kg estimado</th>
-            <th class="col-kgreal num">Kg real pesado</th>
-            <th class="col-merma num">Merma corte</th>
-            <th class="col-obs">Observación</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach(['Chuleta','Pierna / Pernil','Paleta','Costilla','Lomo','Tocino / Lonja','Cogote','Hueso (sin carne)','Descarte / Merma'] as $corte)
-        <tr class="input-row">
-            <td>{{ $corte }}</td>
-            <td class="num write"></td>
-            <td class="num write"></td>
-            <td class="num write"></td>
-            <td class="write"></td>
-        </tr>
-        @endforeach
-        <tr class="input-row" style="border-bottom:1px dashed #d1d5db;">
-            <td style="color:#9ca3af;font-style:italic;">Otro: _______________</td>
-            <td class="num write"></td>
-            <td class="num write"></td>
-            <td class="num write"></td>
-            <td class="write"></td>
-        </tr>
-        <tr class="subtotal-row">
-            <td>SUBTOTAL CERDO</td>
-            <td class="num">_______ kg</td>
-            <td class="num">_______ kg</td>
-            <td class="num" style="color:#dc2626;">_______ kg</td>
-            <td></td>
-        </tr>
-    </tbody>
-</table>
-
-<!-- ══════════════════════════════════════════════════════════════════ -->
-<!-- POLLO                                                             -->
-<!-- ══════════════════════════════════════════════════════════════════ -->
-<div class="section-title pollo">
-    <span class="icon">🐔</span>
-    <h2>Pollo (Ave)</h2>
-    <div class="stripe"></div>
-</div>
-
-<table>
-    <thead>
-        <tr>
-            <th class="col-corte">Corte / Pieza</th>
-            <th class="col-kgent num">Kg estimado</th>
-            <th class="col-kgreal num">Kg real pesado</th>
-            <th class="col-merma num">Merma corte</th>
-            <th class="col-obs">Observación</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach(['Pechuga (sin hueso)','Pechuga (con hueso)','Muslo','Pierna','Ala','Espinazo / Menudos','Pollo entero (sin despiezar)','Descarte / Merma'] as $corte)
-        <tr class="input-row">
-            <td>{{ $corte }}</td>
-            <td class="num write"></td>
-            <td class="num write"></td>
-            <td class="num write"></td>
-            <td class="write"></td>
-        </tr>
-        @endforeach
-        <tr class="input-row" style="border-bottom:1px dashed #d1d5db;">
-            <td style="color:#9ca3af;font-style:italic;">Otro: _______________</td>
-            <td class="num write"></td>
-            <td class="num write"></td>
-            <td class="num write"></td>
-            <td class="write"></td>
-        </tr>
-        <tr class="subtotal-row">
-            <td>SUBTOTAL POLLO</td>
-            <td class="num">_______ kg</td>
-            <td class="num">_______ kg</td>
-            <td class="num" style="color:#dc2626;">_______ kg</td>
-            <td></td>
-        </tr>
-    </tbody>
-</table>
-
-<!-- ── Totales generales ───────────────────────────────────────────── -->
-<div class="totals-box">
-    <div class="total-cell">
+{{-- ── Totales generales ────────────────────────────────────────────── --}}
+<div class="totals">
+    <div class="tc">
         <label>Kg surtidos (entrada)</label>
-        <div class="tval">{{ $entry ? number_format($entry->kg_surtido_vitrina, 3) : '______' }} kg</div>
+        <div class="v">{{ number_format((float)$entry->kg_surtido_vitrina, 3) }} kg</div>
     </div>
-    <div class="total-cell ok">
+    <div class="tc green">
         <label>Kg cortes documentados</label>
-        <div class="tval">____________ kg</div>
+        <div class="v">____________ kg</div>
     </div>
-    <div class="total-cell merma">
+    <div class="tc red">
         <label>Merma total (diferencia)</label>
-        <div class="tval">____________ kg</div>
+        <div class="v">____________ kg</div>
     </div>
-    <div class="total-cell">
+    <div class="tc">
         <label>% Rendimiento</label>
-        <div class="tval">____________ %</div>
+        <div class="v">____________ %</div>
     </div>
 </div>
 
-<!-- ── Observaciones ──────────────────────────────────────────────── -->
-<div class="notes-box">
-    <label>Observaciones generales</label>
+{{-- ── Observaciones ────────────────────────────────────────────────── --}}
+<div class="obs-box">
+    <label>Observaciones generales del despiece</label>
 </div>
 
-<!-- ── Firmas ─────────────────────────────────────────────────────── -->
-<div class="signatures">
-    <div class="sig-box">
+{{-- ── Firmas ───────────────────────────────────────────────────────── --}}
+<div class="sigs">
+    <div class="sig">
         <div class="sig-space"></div>
         <label>Carnicero / Responsable del despiece</label>
     </div>
-    <div class="sig-box">
+    <div class="sig">
         <div class="sig-space"></div>
         <label>Supervisor / Encargado</label>
     </div>
-    <div class="sig-box">
+    <div class="sig">
         <div class="sig-space"></div>
-        <label>Fecha y hora de registro</label>
+        <label>Fecha y hora de registro en sistema</label>
     </div>
 </div>
 
-<!-- ── Footer ─────────────────────────────────────────────────────── -->
+{{-- ── Footer ──────────────────────────────────────────────────────── --}}
 <div class="footer">
-    <span>{{ $business->name }} &copy; {{ date('Y') }} — Uso interno. Todos los derechos reservados.</span>
-    <span>Desarrollado por <a href="https://synti.dev" target="_blank">synti.dev</a></span>
+    <span>{{ $business->name }} &copy; {{ date('Y') }} — Uso interno. Prohibida su reproducción.</span>
+    <span>Desarrollado por <a href="https://synti.dev">synti.dev</a></span>
 </div>
 
 </body>

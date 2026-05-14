@@ -374,9 +374,23 @@ class BovedaController extends Controller
     {
         abort_unless($entry->business_id === Auth::user()->business_id, 403);
 
-        $business = Business::find($entry->business_id);
+        $businessId = $entry->business_id;
+        $business   = Business::find($businessId);
 
-        return view('boveda.plantilla_despiece', compact('entry', 'business'));
+        // Productos vitrina activos agrupados por categoría (excluye utensilios/despensa)
+        $despieceCats = ['Res', 'Pollo', 'Cerdo', 'Charcutería', 'Embutidos', 'Trastes'];
+
+        $productosPorCategoria = Product::with('category')
+            ->where('business_id', $businessId)
+            ->where('location', 'vitrina')
+            ->where('active', true)
+            ->whereHas('category', fn ($q) => $q->whereIn('name', $despieceCats))
+            ->orderBy('name')
+            ->get()
+            ->groupBy(fn ($p) => $p->category->name)
+            ->sortKeys();
+
+        return view('boveda.plantilla_despiece', compact('entry', 'business', 'productosPorCategoria'));
     }
 
     public function destroyProduct(BovedaProduct $product): \Illuminate\Http\JsonResponse
