@@ -237,6 +237,39 @@ class BovedaController extends Controller
         return response()->json(['message' => 'Entrada cerrada.']);
     }
 
+    public function registerMerma(Request $request, BovedaEntry $entry): \Illuminate\Http\JsonResponse
+    {
+        abort_unless($entry->business_id === Auth::user()->business_id, 403);
+        abort_if($entry->closed_at !== null, 422, 'Entrada ya cerrada.');
+
+        $data = $request->validate([
+            'waste_kg' => ['required', 'numeric', 'min:0.001'],
+        ]);
+
+        $disponible = (float) $entry->kg_entrada
+            - (float) $entry->kg_surtido_vitrina
+            - (float) $entry->waste_kg;
+
+        if ((float) $data['waste_kg'] > $disponible) {
+            return response()->json(
+                ['errors' => ['waste_kg' => ["La merma no puede superar {$disponible} kg disponibles."]]],
+                422
+            );
+        }
+
+        $entry->increment('waste_kg', (float) $data['waste_kg']);
+
+        ActivityLog::create([
+            'business_id' => Auth::user()->business_id,
+            'user_id'     => Auth::id(),
+            'action'      => 'boveda.merma',
+            'model_type'  => 'BovedaEntry',
+            'model_id'    => $entry->id,
+        ]);
+
+        return response()->json(['message' => 'Merma registrada.']);
+    }
+
     public function storeProduct(Request $request): \Illuminate\Http\JsonResponse
     {
         $businessId = Auth::user()->business_id;

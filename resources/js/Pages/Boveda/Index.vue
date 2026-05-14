@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
-import AppLayout from '@/Layouts/AppLayout.vue';
+import AppLayout  from '@/Layouts/AppLayout.vue';
+import HelpModal  from '@/Components/HelpModal.vue';
 
 const props = defineProps({
     activas:          { type: Array,  default: () => [] },
@@ -192,6 +193,97 @@ const productErrors    = ref({});
 // Lista reactiva local (se actualiza optimistamente para no recargar página)
 const localBovedaProducts = ref([...props.bovedaProducts]);
 
+// ─── Ayuda ────────────────────────────────────────────────────────────────────
+const showHelp = ref(false);
+
+const helpSteps = [
+    {
+        icon: '📥',
+        title: 'Registrar entrada',
+        body: 'Cuando llega un canal de res, una paleta o cualquier pieza entera, créala aquí con el peso exacto (kg entrada), el costo en dólares y el proveedor.',
+        tip: 'Usa el campo Descripción para identificar la pieza física: "Canal RES #2", "Paleta - Proveedor García". Así sabes cuál fila es cuál cuando tienes varias del mismo tipo.',
+    },
+    {
+        icon: '⚖️',
+        title: 'Registrar merma (si aplica)',
+        body: 'Si la pieza perdió peso mientras estaba en bóveda (evaporación natural por frío), pésala antes de despachar. Si pesa menos que al entrar, registra esa diferencia con el botón Merma.',
+        tip: 'Ejemplo: entró 50 kg el lunes, el miércoles pesa 48 kg → registra 2 kg de merma. El kg disponible se ajusta a la realidad.',
+    },
+    {
+        icon: '🔪',
+        title: 'Surtir a vitrina',
+        body: 'Cuando llevas carne de esa pieza a la vitrina para venta al corte, haz clic en Surtir EN LA FILA de esa pieza. Indica los kg exactos que estás despachando. El sistema los descuenta de esa pieza y los suma al stock de vitrina.',
+        tip: 'Puedes surtir varias veces de la misma pieza. Cada surtido va al historial con fecha y operador.',
+    },
+    {
+        icon: '✅',
+        title: 'Cerrar entrada',
+        body: 'Cuando ya no queda nada de esa pieza en bóveda, ciérrala. Pasa al Historial con trazabilidad completa: cuánto entró, cuánto se surtió y cuánto mermó.',
+    },
+];
+
+const helpFaqs = [
+    {
+        q: '¿Cómo sé cuál fila corresponde a la pieza que tengo en mano?',
+        a: 'Cada fila ES una pieza física diferente. Al crear la entrada, escribe algo que te identifique la pieza en el campo Descripción ("Canal #4", "Paleta Juan García"). Al hacer Surtir en esa fila, el sistema registra que esos kg salieron exactamente de esa pieza.',
+    },
+    {
+        q: '¿Qué es Surtir?',
+        a: 'Surtir es el acto de llevar carne de la bóveda (donde se almacena en piezas enteras) a la vitrina (donde se vende al corte). Cuando surtres, el sistema descuenta kg de esa entrada específica y los agrega al inventario disponible en vitrina para ventas.',
+    },
+    {
+        q: 'La carne mermó entre el lunes y el miércoles. ¿Cómo afecta el inventario?',
+        a: 'Si no registras la merma, el sistema cree que hay más kg disponibles de los que realmente hay. Antes de surtir, pesa la pieza completa. Si pesa menos que al entrar, haz clic en el botón Merma y registra la diferencia. El kg disponible se corregirá automáticamente.',
+    },
+    {
+        q: '¿Puedo surtir parcialmente varias veces?',
+        a: 'Sí. Puedes surtir 20 kg hoy y otros 15 kg mañana de la misma pieza. Cada surtido se descuenta del disponible de esa entrada. La entrada permanece activa hasta que la cierres manualmente.',
+    },
+    {
+        q: '¿Qué son los "Productos bóveda"?',
+        a: 'Es el catálogo de tipos de piezas que puedes recibir en bóveda (canal de res, paleta, costillar, etc.). Son diferentes a los productos de vitrina. Al crear una entrada, seleccionas el tipo de este catálogo.',
+    },
+];
+
+// ─── Merma ────────────────────────────────────────────────────────────────────
+const showMermaModal = ref(false);
+const mermaEntry     = ref(null);
+const mermaForm      = ref({ waste_kg: '' });
+const mermaErrors    = ref({});
+const savingMerma    = ref(false);
+
+function openMerma(entry) {
+    mermaEntry.value   = entry;
+    mermaForm.value    = { waste_kg: '' };
+    mermaErrors.value  = {};
+    showMermaModal.value = true;
+}
+async function saveMerma() {
+    if (savingMerma.value || !mermaEntry.value) return;
+    savingMerma.value = true;
+    mermaErrors.value = {};
+    try {
+        const res = await fetch(route('boveda.merma', { entry: mermaEntry.value.id }), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json' },
+            body: JSON.stringify(mermaForm.value),
+        });
+        if (res.status === 422) {
+            const body = await res.json();
+            mermaErrors.value = body.errors ?? {};
+            return;
+        }
+        if (!res.ok) throw new Error('Error al registrar merma');
+        showMermaModal.value = false;
+        showFlash('Merma registrada.');
+        setTimeout(() => location.reload(), 600);
+    } catch (e) {
+        alert(e?.message ?? 'Error al registrar merma');
+    } finally {
+        savingMerma.value = false;
+    }
+}
+
 function openNewProduct() {
     editingProduct.value   = null;
     productErrors.value    = {};
@@ -278,7 +370,10 @@ async function deactivateProduct(product) {
                         <p class="page-sub">Control de canales y piezas enteras</p>
                     </div>
                 </div>
-                <button class="btn-brand" @click="openEntrada">+ Nueva entrada</button>
+                <div class="header-actions">
+                    <button class="btn-help" @click="showHelp = true" title="Ayuda">?</button>
+                    <button class="btn-brand" @click="openEntrada">+ Nueva entrada</button>
+                </div>
             </div>
 
             <!-- KPIs -->
@@ -349,9 +444,16 @@ async function deactivateProduct(product) {
                                 <td class="date-col">{{ e.entered_at }}</td>
                                 <td class="actions-col">
                                     <button
+                                        class="btn-sm btn-merma"
+                                        :disabled="e.kg_disponible <= 0"
+                                        @click="openMerma(e)"
+                                        title="Registrar merma (pérdida de peso)"
+                                    >Merma</button>
+                                    <button
                                         class="btn-sm btn-surtir"
                                         :disabled="e.kg_disponible <= 0"
                                         @click="openSurtir(e)"
+                                        title="Llevar kg a vitrina"
                                     >Surtir</button>
                                     <button
                                         class="btn-sm btn-close"
@@ -559,6 +661,57 @@ async function deactivateProduct(product) {
             </Transition>
         </Teleport>
 
+        <!-- ── Modal Merma ───────────────────────────────────────────────── -->
+        <Teleport to="body">
+            <Transition name="mo">
+                <div v-if="showMermaModal" class="modal-bg" @click.self="showMermaModal = false">
+                    <div class="modal-box modal-sm">
+                        <div class="modal-header">
+                            <h3>Registrar merma</h3>
+                            <button class="close-btn" @click="showMermaModal = false">×</button>
+                        </div>
+
+                        <p class="surtir-info">
+                            Pieza: <strong>{{ mermaEntry?.product_type }}</strong>
+                            <span v-if="mermaEntry?.description"> — {{ mermaEntry.description }}</span><br>
+                            Disponible actual: <strong>{{ fmtKg(mermaEntry?.kg_disponible) }}</strong>
+                        </p>
+                        <p class="merma-hint">
+                            Pesa la pieza completa. Si pesa menos que el disponible, la diferencia es merma.
+                            Ingresa solo los kg perdidos.
+                        </p>
+
+                        <div class="form-grid">
+                            <div class="form-field full">
+                                <label>Kg de merma a registrar</label>
+                                <input
+                                    v-model="mermaForm.waste_kg"
+                                    type="number"
+                                    class="form-input"
+                                    min="0.001"
+                                    step="0.001"
+                                    placeholder="Ej: 2.000"
+                                    autofocus
+                                />
+                                <span v-if="mermaErrors.waste_kg" class="field-err">{{ mermaErrors.waste_kg[0] }}</span>
+                            </div>
+                        </div>
+
+                        <div class="modal-actions">
+                            <button class="btn-ghost" @click="showMermaModal = false">Cancelar</button>
+                            <button
+                                class="btn-brand btn-merma-confirm"
+                                :disabled="savingMerma || !mermaForm.waste_kg"
+                                @click="saveMerma"
+                            >
+                                {{ savingMerma ? 'Registrando…' : 'Registrar merma' }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </Transition>
+        </Teleport>
+
         <!-- ── Modal Producto Bóveda ─────────────────────────────────────── -->
         <Teleport to="body">
             <Transition name="mo">
@@ -597,6 +750,15 @@ async function deactivateProduct(product) {
             </Transition>
         </Teleport>
 
+        <!-- ── Panel de ayuda ────────────────────────────────────────────── -->
+        <HelpModal
+            :show="showHelp"
+            title="Bóveda — Cómo funciona"
+            :steps="helpSteps"
+            :faqs="helpFaqs"
+            @close="showHelp = false"
+        />
+
     </AppLayout>
 </template>
 
@@ -610,11 +772,25 @@ async function deactivateProduct(product) {
 .fl-enter-from, .fl-leave-to { opacity: 0; transform: translateY(-8px); }
 
 /* ─── Header ─────────────────────────────────────────────────────────────────*/
-.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; gap: 1rem; flex-wrap: wrap; }
-.header-left { display: flex; align-items: center; gap: 0.75rem; }
-.header-icon { font-size: 2rem; }
-.page-title  { font-size: 1.4rem; font-weight: 700; color: var(--text-primary); margin: 0; }
-.page-sub    { font-size: 0.82rem; color: var(--text-muted); margin: 0; }
+.page-header   { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; gap: 1rem; flex-wrap: wrap; }
+.header-left   { display: flex; align-items: center; gap: 0.75rem; }
+.header-actions { display: flex; align-items: center; gap: 0.6rem; }
+.header-icon   { font-size: 2rem; }
+.page-title    { font-size: 1.4rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+.page-sub      { font-size: 0.82rem; color: var(--text-muted); margin: 0; }
+
+.btn-help {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 14px; font-weight: 700;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.btn-help:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
 
 /* ─── KPIs ───────────────────────────────────────────────────────────────────*/
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
@@ -650,10 +826,15 @@ async function deactivateProduct(product) {
 /* ─── Botones tabla ──────────────────────────────────────────────────────────*/
 .btn-sm { border: none; border-radius: 6px; padding: 0.25rem 0.6rem; font-size: 0.78rem; font-weight: 600; cursor: pointer; font-family: inherit; white-space: nowrap; }
 .btn-sm:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-merma  { background: rgba(245,158,11,0.12); color: #d97706; }
+.btn-merma:not(:disabled):hover { background: rgba(245,158,11,0.22); }
 .btn-surtir { background: rgba(37,99,235,0.12); color: var(--brand); }
 .btn-surtir:not(:disabled):hover { background: rgba(37,99,235,0.22); }
 .btn-close  { background: rgba(239,68,68,0.1); color: #ef4444; }
 .btn-close:not(:disabled):hover { background: rgba(239,68,68,0.2); }
+.btn-merma-confirm { background: #d97706; color: #fff; }
+.btn-merma-confirm:not(:disabled):hover { background: #b45309; }
+.merma-hint { font-size: 0.82rem; color: var(--text-muted); margin: 0; line-height: 1.4; }
 
 /* ─── Modal ──────────────────────────────────────────────────────────────────*/
 .modal-bg  { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 1rem; }
