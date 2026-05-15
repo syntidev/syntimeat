@@ -439,65 +439,8 @@ async function submitDespiece(entry) {
 
                     <div class="fab-modal-body">
 
-                        <!-- Columna izquierda: output + notas -->
+                        <!-- Columna izquierda: ingredientes -->
                         <div class="fab-modal-left">
-
-                            <section class="fab-section">
-                                <h3 class="fab-section-title">Producción</h3>
-
-                                <!-- Producto por UNIDAD -->
-                                <div v-if="isUnitMode" class="fab-field">
-                                    <label class="fab-label">Unidades producidas *</label>
-                                    <div class="fab-unit-input-wrap">
-                                        <input v-model="form.output_units" type="number" step="1" min="1" class="fab-input" placeholder="0" />
-                                        <span class="fab-unit-suffix">piezas</span>
-                                    </div>
-                                    <p v-if="form.errors.output_units" class="fab-error">{{ form.errors.output_units }}</p>
-                                </div>
-
-                                <!-- Producto por PESO -->
-                                <div v-else class="fab-field-row">
-                                    <div class="fab-field">
-                                        <label class="fab-label">Kg fabricados *</label>
-                                        <input v-model="form.output_kg" type="number" step="0.001" min="0.001" class="fab-input" placeholder="0.000" />
-                                        <p v-if="form.errors.output_kg" class="fab-error">{{ form.errors.output_kg }}</p>
-                                    </div>
-                                    <div class="fab-field">
-                                        <label class="fab-label">Unidades (opcional)</label>
-                                        <input v-model="form.output_units" type="number" step="1" min="0" class="fab-input" placeholder="0" />
-                                    </div>
-                                </div>
-                                <div class="fab-field">
-                                    <label class="fab-label">Fecha de producción</label>
-                                    <input v-model="form.produced_at" type="datetime-local" class="fab-input" />
-                                </div>
-                                <div class="fab-field">
-                                    <label class="fab-label">Notas / receta del lote</label>
-                                    <textarea v-model="form.notes" class="fab-input" rows="3" maxlength="500" placeholder="Ingredientes especiales, proporciones, observaciones…" />
-                                </div>
-                            </section>
-
-                            <!-- Resumen del lote -->
-                            <section class="fab-section fab-summary">
-                                <h3 class="fab-section-title">Resumen</h3>
-                                <template v-if="isUnitMode">
-                                    <div class="fab-summary-row"><span>Piezas a producir</span><strong>{{ outputQty || '—' }} piezas</strong></div>
-                                    <div class="fab-summary-row"><span>Insumos usados</span><strong>{{ totalInputKg.toFixed(3) }} u/kg</strong></div>
-                                    <div class="fab-summary-row"><span>Costo total</span><strong>{{ fmtUsd(totalInputCost) }}</strong></div>
-                                    <div class="fab-summary-row fab-summary-row--ok"><span>Costo/unidad</span><strong>{{ costoPorUnidad }}</strong></div>
-                                </template>
-                                <template v-else>
-                                    <div class="fab-summary-row"><span>Insumos totales</span><strong>{{ fmtKg(totalInputKg) }}</strong></div>
-                                    <div class="fab-summary-row"><span>Costo total</span><strong>{{ fmtUsd(totalInputCost) }}</strong></div>
-                                    <div class="fab-summary-row"><span>Costo/kg fabricado</span><strong>{{ costoPorUnidad }}</strong></div>
-                                    <div class="fab-summary-row fab-summary-row--ok"><span>Rendimiento</span><strong>{{ rendimiento }}%</strong></div>
-                                </template>
-                            </section>
-
-                        </div>
-
-                        <!-- Columna derecha: ingredientes -->
-                        <div class="fab-modal-right">
                             <section class="fab-section fab-section--grow">
                                 <h3 class="fab-section-title">Ingredientes usados</h3>
 
@@ -555,6 +498,63 @@ async function submitDespiece(entry) {
 
                                 <p v-if="form.errors.inputs" class="fab-error">{{ form.errors.inputs }}</p>
                             </section>
+                        </div>
+
+                        <!-- Columna derecha: output + notas -->
+                        <div class="fab-modal-right">
+
+                            <section class="fab-section">
+                                <h3 class="fab-section-title">Producción</h3>
+
+                                <!-- Producto por UNIDAD -->
+                                <div v-if="isUnitMode" class="fab-field">
+                                    <label class="fab-label">Unidades producidas *</label>
+                                    <div class="fab-unit-input-wrap">
+                                        <input v-model="form.output_units" type="number" step="1" min="1" class="fab-input" placeholder="0" />
+                                        <span class="fab-unit-suffix">piezas</span>
+                                    </div>
+                                    <p v-if="form.errors.output_units" class="fab-error">{{ form.errors.output_units }}</p>
+                                </div>
+
+                                <!-- Producto por PESO -->
+                                <div v-else class="fab-field-row">
+                                    <div class="fab-field">
+                                        <label class="fab-label">Kg fabricados *</label>
+                                        <input v-model="form.output_kg" type="number" step="0.001" min="0.001" class="fab-input" placeholder="0.000" />
+                                        <p v-if="form.errors.output_kg" class="fab-error">{{ form.errors.output_kg }}</p>
+                                    </div>
+                                    <div class="fab-field">
+                                        <label class="fab-label">Unidades (opcional)</label>
+                                        <input v-model="form.output_units" type="number" step="1" min="0" class="fab-input" placeholder="0" />
+                                    </div>
+                                </div>
+                                <div class="fab-field">
+                                    <label class="fab-label">Fecha de producción</label>
+                                    <input v-model="form.produced_at" type="datetime-local" class="fab-input" />
+                                </div>
+                                <div class="fab-field">
+                                    <label class="fab-label">Notas / receta del lote</label>
+                                    <textarea v-model="form.notes" class="fab-input" rows="3" maxlength="500" placeholder="Ingredientes especiales, proporciones, observaciones…" />
+                                </div>
+                            </section>
+
+                            <!-- Resumen del lote -->
+                            <section class="fab-section fab-summary">
+                                <h3 class="fab-section-title">Resumen</h3>
+                                <template v-if="isUnitMode">
+                                    <div class="fab-summary-row"><span>Piezas a producir</span><strong>{{ outputQty || '—' }} piezas</strong></div>
+                                    <div class="fab-summary-row"><span>Insumos usados</span><strong>{{ totalInputKg.toFixed(3) }} u/kg</strong></div>
+                                    <div class="fab-summary-row"><span>Costo total</span><strong>{{ fmtUsd(totalInputCost) }}</strong></div>
+                                    <div class="fab-summary-row fab-summary-row--ok"><span>Costo/unidad</span><strong>{{ costoPorUnidad }}</strong></div>
+                                </template>
+                                <template v-else>
+                                    <div class="fab-summary-row"><span>Insumos totales</span><strong>{{ fmtKg(totalInputKg) }}</strong></div>
+                                    <div class="fab-summary-row"><span>Costo total</span><strong>{{ fmtUsd(totalInputCost) }}</strong></div>
+                                    <div class="fab-summary-row"><span>Costo/kg fabricado</span><strong>{{ costoPorUnidad }}</strong></div>
+                                    <div class="fab-summary-row fab-summary-row--ok"><span>Rendimiento</span><strong>{{ rendimiento }}%</strong></div>
+                                </template>
+                            </section>
+
                         </div>
 
                     </div>
