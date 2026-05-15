@@ -43,10 +43,12 @@ class TestFlowSeeder extends Seeder
         $this->command->info('  TestFlowSeeder — Certificación completa');
         $this->command->info('══════════════════════════════════════════');
 
-        $this->business = Business::firstOrCreate(
-            ['name' => 'SYNTImeat Test'],
-            ['legal_name' => 'Test Legal Name', 'rif' => 'J-00000000-0', 'ticket_prefix' => 'TST', 'settings' => []],
-        );
+        $this->business = Business::first();
+
+        if (! $this->business) {
+            $this->command->error('No existe ningún Business en la DB. Ejecuta primero el onboarding o CatalogSeederChaguaramas.');
+            return;
+        }
 
         $this->user = User::firstOrCreate(
             ['email' => 'admin@syntimeat.test'],
@@ -232,9 +234,12 @@ class TestFlowSeeder extends Seeder
         $this->command->info('── PASO 3: Despiece ────────────────────────');
 
         // Cortes: 30 + 20 + 20 = 70kg → merma despiece = 75 - 70 = 5kg
+        $baselinePrimera = $this->stockProducto('Primera');
+        $baselineSegunda = $this->stockProducto('Segunda');
+
         $cortes = [
-            ['product' => 'Primera',       'kg' => 30.0],
-            ['product' => 'Segunda',       'kg' => 20.0],
+            ['product' => 'Primera',         'kg' => 30.0],
+            ['product' => 'Segunda',         'kg' => 20.0],
             ['product' => 'Recortes de Res', 'kg' => 20.0],
         ];
 
@@ -288,8 +293,8 @@ class TestFlowSeeder extends Seeder
         $stockSegunda = $this->stockProducto('Segunda');
 
         $this->check('inventory_entries location=vitrina creadas (3)', $entradasVitrina === 3);
-        $this->check('Primera stock = 30kg', $stockPrimera === 30.0);
-        $this->check('Segunda stock = 20kg', $stockSegunda === 20.0);
+        $this->check('Primera stock += 30kg', round($stockPrimera - $baselinePrimera, 3) === 30.0);
+        $this->check('Segunda stock += 20kg', round($stockSegunda - $baselineSegunda, 3) === 20.0);
         $this->check('despiece_completado_at marcado', $this->bovedaEntry->despiece_completado_at !== null);
     }
 
