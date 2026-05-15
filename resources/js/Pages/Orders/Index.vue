@@ -2,7 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue'
 import { ref, computed, reactive } from 'vue'
 import axios from 'axios'
-import { FileText, Truck, Home } from 'lucide-vue-next'
+import { FileText, Truck, Home } from '@lucide/vue'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 const props = defineProps({

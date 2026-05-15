@@ -2,7 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue'
 import { ref, reactive } from 'vue'
 import axios from 'axios'
-import { Printer, BarChart2, Package, Lightbulb, AlertTriangle, Check, FolderOpen } from 'lucide-vue-next'
+import { Printer, BarChart2, Package, Lightbulb, AlertTriangle, Check, FolderOpen } from '@lucide/vue'
 
 // ─── Estado ───────────────────────────────────────────────────────────────────
 const loadingSales = ref(false)

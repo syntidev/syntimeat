@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Bike, Mailbox, Check } from 'lucide-vue-next';
+import { Bike, Mailbox, Check } from '@lucide/vue';
 
 const props = defineProps({
     pedidos:        { type: Array,  default: () => [] },

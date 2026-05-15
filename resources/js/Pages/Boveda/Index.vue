@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue';
 import AppLayout  from '@/Layouts/AppLayout.vue';
 import HelpModal  from '@/Components/HelpModal.vue';
-import { Warehouse, Scissors, Factory, CheckCircle2, Package, Printer } from 'lucide-vue-next';
+import { Warehouse, Scissors, Factory, CheckCircle2, Package, Printer } from '@lucide/vue';
 
 const props = defineProps({
     activas:          { type: Array,  default: () => [] },

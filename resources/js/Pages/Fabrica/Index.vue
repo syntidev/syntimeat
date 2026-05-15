@@ -3,7 +3,7 @@ import { ref, computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useForm, router } from '@inertiajs/vue3';
 import HelpModal from '@/Components/HelpModal.vue';
-import { Factory, AlertTriangle, Check, Printer } from 'lucide-vue-next';
+import { Factory, AlertTriangle, Check, Printer } from '@lucide/vue';
 
 const props = defineProps({
     fabricables:       { type: Array,  default: () => [] },

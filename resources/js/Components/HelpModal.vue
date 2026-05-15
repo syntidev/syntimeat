@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch } from 'vue'
-import { X, Lightbulb } from 'lucide-vue-next'
+import { X, Lightbulb } from '@lucide/vue'
 
 const props = defineProps({
     show:  { type: Boolean, default: false },

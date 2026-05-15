@@ -2,7 +2,7 @@
 import SettingsLayout from '@/Layouts/SettingsLayout.vue'
 import { ref } from 'vue'
 import { router } from '@inertiajs/vue3'
-import { Users, Monitor } from 'lucide-vue-next'
+import { Users, Monitor } from '@lucide/vue'
 
 const props = defineProps({
     branches: { type: Array, default: () => [] },

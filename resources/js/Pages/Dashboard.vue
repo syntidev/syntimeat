@@ -2,7 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue'
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import axios from 'axios'
-import { Receipt, BarChart2, AlertTriangle, CheckCircle, Package, Check } from 'lucide-vue-next'
+import { Receipt, BarChart2, AlertTriangle, CheckCircle, Package, Check } from '@lucide/vue'
 
 // ─── Props iniciales desde Inertia ────────────────────────────────────────────
 const props = defineProps({

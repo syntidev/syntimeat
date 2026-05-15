@@ -3,7 +3,7 @@ import AppLayout from '@/Layouts/AppLayout.vue'
 import { ref, reactive, computed, watch, onMounted, useTemplateRef } from 'vue'
 import { animate } from 'motion'
 import axios from 'axios'
-import { DollarSign, TrendingUp, Receipt, Scale, Lock } from 'lucide-vue-next'
+import { DollarSign, TrendingUp, Receipt, Scale, Lock } from '@lucide/vue'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 const props = defineProps({

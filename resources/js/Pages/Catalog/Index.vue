@@ -2,7 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue'
 import { ref, computed, markRaw } from 'vue'
 import { useForm, router } from '@inertiajs/vue3'
-import { Scale, Package, Pencil, ToggleLeft, ToggleRight, Trash2 } from 'lucide-vue-next'
+import { Scale, Package, Pencil, ToggleLeft, ToggleRight, Trash2 } from '@lucide/vue'
 
 const props = defineProps({
     categories:  { type: Array,   default: () => [] },
