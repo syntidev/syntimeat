@@ -17,7 +17,6 @@ use App\Http\Controllers\PaymentMethodController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SaleController;
-use App\Http\Controllers\SalesController;
 use App\Http\Controllers\FabricaController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -62,7 +61,7 @@ Route::middleware(['auth', 'verified', 'check.onboarding'])->group(function () {
         Route::patch('/pos/ventas/{sale}/cancelar', [SaleController::class, 'cancel'])->name('sales.cancel');
 
         // Ventas del Día (solo lectura para cashier)
-        Route::get('/ventas', [SalesController::class, 'index'])->name('sales.index');
+        Route::get('/ventas', [SaleController::class, 'historial'])->name('sales.index');
 
         // Caja
         Route::get('/caja', [CashRegisterController::class, 'index'])->name('cash.index');
@@ -103,7 +102,7 @@ Route::middleware(['auth', 'verified', 'check.onboarding'])->group(function () {
         Route::post('/caja/cierre/{register}', [CashRegisterController::class, 'confirmClose'])->name('cash.confirm-close');
 
         // Anular venta
-        Route::patch('/ventas/{sale}/anular', [SalesController::class, 'void'])->name('sales.void');
+        Route::patch('/ventas/{sale}/anular', [SaleController::class, 'void'])->name('sales.void');
 
         // Catálogo
         Route::get('/catalogo', [CatalogController::class, 'index'])->name('catalog.index');
