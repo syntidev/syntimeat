@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import SettingsLayout from '@/Layouts/SettingsLayout.vue'
 import { ref } from 'vue'
 import { router } from '@inertiajs/vue3'

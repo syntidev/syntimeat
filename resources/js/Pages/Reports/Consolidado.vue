@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import AppLayout from '@/Layouts/AppLayout.vue'
 import { ref, reactive, computed, watch, onMounted, useTemplateRef } from 'vue'
 import { animate } from 'motion'

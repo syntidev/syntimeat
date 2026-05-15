@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import { Lock, Search, AlertTriangle, Wrench, AlertCircle } from '@lucide/vue'

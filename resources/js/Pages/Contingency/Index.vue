@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import AppLayout from '@/Layouts/AppLayout.vue'
 import { ref, reactive } from 'vue'
 import axios from 'axios'

@@ -1,10 +1,10 @@
-<script setup>
+﻿﻿<script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import AppLogo from '@/Components/AppLogo.vue';
 import { Lock, AlertTriangle, FileText, Store, Bike, Check } from '@lucide/vue';
 
-// --- Props --------------------------------------------------------------------
+// ─── Props ────────────────────────────────────────────────────────────────────
 const props = defineProps({
     products:       { type: Array,  default: () => [] },
     categories:     { type: Array,  default: () => [] },
@@ -18,18 +18,18 @@ const props = defineProps({
     ticketPrefs:    { type: Object, default: () => ({ show_address: true, show_phone: false, show_client: true }) },
 });
 
-// --- Auth / usuario -----------------------------------------------------------
+// ─── Auth / usuario ───────────────────────────────────────────────────────────
 const page     = usePage();
 const authUser = computed(() => page.props.auth?.user ?? null);
 
-// --- Reloj --------------------------------------------------------------------
+// ─── Reloj ────────────────────────────────────────────────────────────────────
 const currentTime = ref('');
 let clockTimer;
 function tick() {
     const n = new Date();
     const t = n.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const d = n.toLocaleDateString('es-VE', { weekday: 'short', day: '2-digit', month: 'short' });
-    currentTime.value = `${t} � ${d}`;
+    currentTime.value = `${t} · ${d}`;
 }
 onMounted(() => {
     tick();
@@ -41,10 +41,10 @@ onUnmounted(() => {
     window.removeEventListener('keydown', onPhysKeyDown);
 });
 
-// --- Animaci�n "reci�n a�adido" -----------------------------------------------
+// ─── Animación "recién añadido" ───────────────────────────────────────────────
 const justAdded = ref(null);
 
-// --- Tickets (tabs paralelos, max 5) -----------------------------------------
+// ─── Tickets (tabs paralelos, max 5) ─────────────────────────────────────────
 function emptyTicket(n) {
     return { id: n, label: `Ticket #${n}`, items: [], sale: null };
 }
@@ -64,7 +64,7 @@ function removeTicket(idx) {
     activeTicket.value = Math.min(activeTicket.value, tickets.value.length - 1);
 }
 
-// --- Filtro de categor�as -----------------------------------------------------
+// ─── Filtro de categorías ─────────────────────────────────────────────────────
 const selectedCat = ref(null);
 const filteredProducts = computed(() =>
     selectedCat.value === null
@@ -72,7 +72,7 @@ const filteredProducts = computed(() =>
         : props.products.filter(p => p.category_id === selectedCat.value)
 );
 
-// --- B�squeda -----------------------------------------------------------------
+// ─── Búsqueda ─────────────────────────────────────────────────────────────────
 const search = ref('');
 const displayedProducts = computed(() => {
     const q = search.value.trim().toLowerCase();
@@ -80,7 +80,7 @@ const displayedProducts = computed(() => {
     return filteredProducts.value.filter(p => p.name.toLowerCase().includes(q));
 });
 
-// --- Precio en Bs -------------------------------------------------------------
+// ─── Precio en Bs ─────────────────────────────────────────────────────────────
 function priceBs(product) {
     const usd = product.sale_mode === 'weight'
         ? parseFloat(product.price_per_kg_usd || 0)
@@ -93,12 +93,12 @@ function fmtQty(qty, mode) {
     return mode === 'weight' ? Number(qty).toFixed(3) + ' kg' : Number(qty).toFixed(0) + ' und';
 }
 
-// --- Color de categor�a -------------------------------------------------------
+// ─── Color de categoría ───────────────────────────────────────────────────────
 function catColor(product) {
     return product.category?.color ?? '#64748B';
 }
 
-// --- Modal de cantidad ---------------------------------------------------------
+// ─── Modal de cantidad ─────────────────────────────────────────────────────────
 const qtyModal   = ref(false);
 const qtyProduct = ref(null);
 const qtyInput   = ref('');
@@ -111,7 +111,7 @@ function openQtyModal(product) {
 function closeQtyModal() { qtyModal.value = false; qtyProduct.value = null; qtyInput.value = ''; }
 
 function kbPress(key) {
-    if (key === '?') { qtyInput.value = qtyInput.value.slice(0, -1); return; }
+    if (key === '←') { qtyInput.value = qtyInput.value.slice(0, -1); return; }
     // Para weight el cajero ingresa Bs. (con decimales); para unit solo enteros
     if (key === '.' && qtyProduct.value?.sale_mode !== 'weight') return;
     if (key === '.' && qtyInput.value.includes('.')) return;
@@ -119,16 +119,16 @@ function kbPress(key) {
     qtyInput.value += key;
 }
 
-// Bug 2 FIX: teclado f�sico ? delegar al numpad del modal
+// Bug 2 FIX: teclado físico → delegar al numpad del modal
 function onPhysKeyDown(e) {
     if (!qtyModal.value) return;
     if (e.key >= '0' && e.key <= '9') { e.preventDefault(); kbPress(e.key); return; }
     if (e.key === '.')         { e.preventDefault(); kbPress('.'); return; }
-    if (e.key === 'Backspace') { e.preventDefault(); kbPress('?'); return; }
+    if (e.key === 'Backspace') { e.preventDefault(); kbPress('←'); return; }
     if (e.key === 'Enter' && qtyValue.value > 0) { e.preventDefault(); addToCart(); }
 }
 
-// Bug 1 FIX: para weight, qtyInput es BOL�VARES ? el sistema calcula kg
+// Bug 1 FIX: para weight, qtyInput es BOLÍVARES → el sistema calcula kg
 // para unit, qtyInput sigue siendo unidades (sin cambio)
 const qtyKg = computed(() => {
     if (!qtyProduct.value || qtyProduct.value.sale_mode !== 'weight') return 0;
@@ -196,10 +196,10 @@ const cartTotalUsd = computed(() => cart.value.reduce((s, i) => s + i.subtotal_u
 const cartTotalBs  = computed(() => cartTotalUsd.value * props.todayRate);
 const cartCount    = computed(() => cart.value.reduce((s, i) => s + i.quantity_value, 0));
 
-// --- Carrito mobile drawer ----------------------------------------------------
+// ─── Carrito mobile drawer ────────────────────────────────────────────────────
 const showMobileCart = ref(false);
 
-// --- Modal de cobro (multi-pago) ---------------------------------------------
+// ─── Modal de cobro (multi-pago) ─────────────────────────────────────────────
 const payModal    = ref(false);
 const paying      = ref(false);
 const payments    = ref([]);
@@ -271,7 +271,7 @@ function pmtMethodName(id) {
     return props.paymentMethods.find(p => p.id === id)?.name ?? id;
 }
 
-// --- Cliente opcional ---------------------------------------------------------
+// ─── Cliente opcional ─────────────────────────────────────────────────────────
 const showClientFields  = ref(false);
 const clientId          = ref(null);
 const clientName        = ref('');
@@ -323,11 +323,11 @@ function submitQuickClient() {
         .finally(() => { quickClientSaving.value = false; });
 }
 
-// --- Modal �xito --------------------------------------------------------------
+// ─── Modal éxito ──────────────────────────────────────────────────────────────
 const successModal    = ref(false);
 const successTicket   = ref('');
 const successTotal    = ref(0);
-const successItems    = ref([]);   // snapshot de �tems antes de limpiar carrito
+const successItems    = ref([]);   // snapshot de ítems antes de limpiar carrito
 const successPayments = ref([]);   // snapshot de pagos
 const successDate     = ref('');   // fecha/hora de la venta
 const successClient   = ref({ name: '', phone: '' });  // snapshot del cliente
@@ -350,7 +350,7 @@ function confirmPay() {
             : { quantity_value: i.quantity_value }),
     }));
 
-    // -- Delivery: crea pedido pendiente, sin cobro inmediato -----------------
+    // ── Delivery: crea pedido pendiente, sin cobro inmediato ─────────────────
     if (saleOrigin.value === 'delivery') {
         window.axios.post(route('sales.store'), { items, origin: 'delivery' })
             .then(({ data }) => {
@@ -370,7 +370,7 @@ function confirmPay() {
         return;
     }
 
-    // -- Cr�dito: despacha sin cobro, payment_status=pendiente_cobro ----------
+    // ── Crédito: despacha sin cobro, payment_status=pendiente_cobro ──────────
     if (saleOrigin.value === 'credit') {
         window.axios.post(route('sales.store'), {
             items,
@@ -390,12 +390,12 @@ function confirmPay() {
                 successModal.value = true;
                 tickets.value[activeTicket.value].items = [];
             })
-            .catch((err) => { alert(err?.response?.data?.error ?? err?.response?.data?.message ?? err?.message ?? 'Error al registrar el cr�dito.'); })
+            .catch((err) => { alert(err?.response?.data?.error ?? err?.response?.data?.message ?? err?.message ?? 'Error al registrar el crédito.'); })
             .finally(() => { paying.value = false; });
         return;
     }
 
-    // -- En Sitio: flujo est�ndar store ? pay --------------------------------
+    // ── En Sitio: flujo estándar store → pay ────────────────────────────────
     window.axios.post(route('sales.store'), { items, origin: 'onsite' })
     .then(({ data }) => {
         if (!data.sale) throw new Error('Sin venta');
@@ -451,7 +451,7 @@ function printTicket() {
     }).join('')
 
     const payRows = successPayments.value.map(p =>
-        `<tr><td colspan="2" class="t-pay-lbl">${p.method_label || p.method || '�'}</td><td class="t-amt">${fmtBs(p.amount_bs ?? 0)}</td></tr>`
+        `<tr><td colspan="2" class="t-pay-lbl">${p.method_label || p.method || '—'}</td><td class="t-amt">${fmtBs(p.amount_bs ?? 0)}</td></tr>`
     ).join('')
 
     const footer = biz.ticket_footer
@@ -504,7 +504,7 @@ function printTicket() {
     </tbody>
   </table>
   ${footer}
-  <p class="t-thanks">�Gracias por su compra!</p>
+  <p class="t-thanks">¡Gracias por su compra!</p>
 </body>
 </html>`
 
@@ -518,7 +518,7 @@ function printTicket() {
 
 function clearCart() { tickets.value[activeTicket.value].items = []; }
 
-// --- Stock helpers ------------------------------------------------------------
+// ─── Stock helpers ────────────────────────────────────────────────────────────
 function stockFor(product) { return props.stockMap[product.id] ?? null; }
 function stockStatus(product) {
     const s = stockFor(product);
@@ -537,7 +537,7 @@ const negativeStockItems = computed(() =>
 );
 const showNegativeWarning = ref(false);
 
-// --- Imagen de producto -------------------------------------------------------
+// ─── Imagen de producto ───────────────────────────────────────────────────────
 function productImageUrl(product) {
     if (!product.image_path) return null;
     if (product.image_path.startsWith('http')) return product.image_path;
@@ -548,7 +548,7 @@ function productImageUrl(product) {
 <template>
     <div class="pos-root">
 
-        <!-- -- Pantalla de bloqueo: sin caja abierta -- -->
+        <!-- ── Pantalla de bloqueo: sin caja abierta ── -->
         <div v-if="!cashRegister" class="pos-caja-lock">
             <div class="pos-caja-lock__card">
                 <div class="pos-caja-lock__icon-wrap">
@@ -559,13 +559,13 @@ function productImageUrl(product) {
                     <p class="pos-caja-lock__sub">Abre tu caja registradora para habilitar el punto de venta.</p>
                 </div>
                 <div class="pos-caja-lock__actions">
-                    <a :href="route('cash.index')" class="pos-caja-lock__btn-primary">Abrir Caja ?</a>
-                    <a :href="route('dashboard')" class="pos-caja-lock__btn-ghost">? Dashboard</a>
+                    <a :href="route('cash.index')" class="pos-caja-lock__btn-primary">Abrir Caja →</a>
+                    <a :href="route('dashboard')" class="pos-caja-lock__btn-ghost">← Dashboard</a>
                 </div>
             </div>
         </div>
 
-        <!-- -- HEADER -- -->
+        <!-- ── HEADER ── -->
         <header v-if="cashRegister" class="pos-header">
 
             <!-- Izquierda: back + logo -->
@@ -604,7 +604,7 @@ function productImageUrl(product) {
                     >
                         {{ t.label }}
                         <span v-if="tickets[idx].items.length" class="h-tab-badge">{{ tickets[idx].items.length }}</span>
-                        <span v-if="tickets.length > 1" class="h-tab-close" @click.stop="removeTicket(idx)">�</span>
+                        <span v-if="tickets.length > 1" class="h-tab-close" @click.stop="removeTicket(idx)">×</span>
                     </button>
                     <button class="h-ticket-add" :disabled="tickets.length >= 5" @click="addTicket" title="Nuevo ticket">+</button>
                 </div>
@@ -625,7 +625,7 @@ function productImageUrl(product) {
 
         </header>
 
-        <!-- -- MAIN -- -->
+        <!-- ── MAIN ── -->
         <div v-if="cashRegister" class="pos-main">
 
             <!-- Productos -->
@@ -654,7 +654,7 @@ function productImageUrl(product) {
                 </div>
 
                 <div class="search-row">
-                    <input v-model="search" type="search" class="search-input" placeholder="Buscar producto�" />
+                    <input v-model="search" type="search" class="search-input" placeholder="Buscar producto…" />
                 </div>
 
                 <div class="grid-wrap">
@@ -683,7 +683,7 @@ function productImageUrl(product) {
                                         <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
                                     </svg>
                                 </div>
-                                <!-- Categor�a encima de la imagen -->
+                                <!-- Categoría encima de la imagen -->
                                 <span class="p-cat-pill" :style="{ background: catColor(product) + '22', color: catColor(product) }">
                                     {{ product.subcategory?.name ?? product.category?.name ?? '' }}
                                 </span>
@@ -704,7 +704,7 @@ function productImageUrl(product) {
                             </div>
                         </button>
 
-                        <p v-if="!displayedProducts.length" class="empty-msg">Sin productos en esta categor�a.</p>
+                        <p v-if="!displayedProducts.length" class="empty-msg">Sin productos en esta categoría.</p>
                     </div>
                 </div>
             </section>
@@ -725,7 +725,7 @@ function productImageUrl(product) {
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                             </svg>
                         </div>
-                        <p class="empty-txt">Ticket vac�o<br>Toca un producto para agregar</p>
+                        <p class="empty-txt">Ticket vacío<br>Toca un producto para agregar</p>
                     </div>
 
                     <div
@@ -737,11 +737,11 @@ function productImageUrl(product) {
                             <div class="ci-name">{{ item.product_name }}</div>
                             <div class="ci-dual">
                                 <span class="ci-qty">{{ fmtQty(item.quantity_value, item.sale_mode) }}</span>
-                                <span class="ci-dot">�</span>
+                                <span class="ci-dot">·</span>
                                 <span class="ci-sub">{{ fmtUsd(item.subtotal_usd) }}</span>
                             </div>
                         </div>
-                        <button class="ci-rm" @click.stop="removeFromCart(idx)">�</button>
+                        <button class="ci-rm" @click.stop="removeFromCart(idx)">×</button>
                     </div>
                 </div>
 
@@ -757,7 +757,7 @@ function productImageUrl(product) {
                         </div>
                     </div>
                     <button class="btn-cobrar" :disabled="!cart.length" @click="openPayModal">
-                        Cobrar � {{ fmtUsd(cartTotalUsd) }} USD
+                        Cobrar · {{ fmtUsd(cartTotalUsd) }} USD
                     </button>
                     <button v-if="cart.length" class="btn-clear-cart" @click="clearCart">Limpiar ticket</button>
                 </div>
@@ -767,12 +767,12 @@ function productImageUrl(product) {
         <!-- FAB mobile -->
         <button class="cart-fab" @click="showMobileCart = true" :class="{ 'cart-fab--has': cart.length > 0 }">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-            <span>{{ cart.length > 0 ? cart.length + ' �tem' + (cart.length > 1 ? 's' : '') : 'Carrito' }}</span>
+            <span>{{ cart.length > 0 ? cart.length + ' ítem' + (cart.length > 1 ? 's' : '') : 'Carrito' }}</span>
         </button>
 
-        <!-- ------------------------------------------------------------------ -->
+        <!-- ══════════════════════════════════════════════════════════════════ -->
         <!-- MODALES                                                           -->
-        <!-- ------------------------------------------------------------------ -->
+        <!-- ══════════════════════════════════════════════════════════════════ -->
 
         <!-- Drawer mobile -->
         <Teleport to="body">
@@ -781,7 +781,7 @@ function productImageUrl(product) {
                     <div class="mobile-cart-drawer">
                         <div class="cart-head">
                             <span class="cart-title">Carrito</span>
-                            <button class="drawer-close" @click="showMobileCart = false">�</button>
+                            <button class="drawer-close" @click="showMobileCart = false">×</button>
                         </div>
                         <div class="cart-items-list">
                             <div v-if="!cart.length" class="cart-empty"><p>Sin productos</p></div>
@@ -791,7 +791,7 @@ function productImageUrl(product) {
                                     <div v-if="posShowKg" class="ci-qty">{{ fmtQty(item.quantity_value, item.sale_mode) }}</div>
                                 </div>
                                 <div class="ci-sub">{{ fmtBs(item.subtotal_usd * todayRate) }} Bs.</div>
-                                <button class="ci-rm" @click="removeFromCart(idx)">�</button>
+                                <button class="ci-rm" @click="removeFromCart(idx)">×</button>
                             </div>
                         </div>
                         <div class="cart-footer">
@@ -819,12 +819,12 @@ function productImageUrl(product) {
                                     </div>
                                     <div class="m-name">{{ qtyProduct?.name }}</div>
                                 </div>
-                                <button class="close-btn" @click="closeQtyModal">�</button>
+                                <button class="close-btn" @click="closeQtyModal">×</button>
                             </div>
                             <div class="modal-body">
-                                <!-- Weight: cajero ingresa BOL�VARES ? sistema calcula kg -->
+                                <!-- Weight: cajero ingresa BOLÍVARES → sistema calcula kg -->
                                 <template v-if="qtyProduct?.sale_mode === 'weight'">
-                                    <label class="input-lbl">Bol�vares a cobrar</label>
+                                    <label class="input-lbl">Bolívares a cobrar</label>
                                     <div class="qty-display-box">
                                         <span class="qty-num">{{ qtyInput || '0' }}</span>
                                         <span class="qty-unit-lbl">Bs.</span>
@@ -832,9 +832,9 @@ function productImageUrl(product) {
                                     <div class="calc-box">
                                         <div class="formula">
                                             <span class="fv">{{ fmtBs(parseFloat(qtyInput) || 0) }} Bs.</span>
-                                            <span class="fo">�</span>
+                                            <span class="fo">÷</span>
                                             <span class="fv">({{ fmtUsd(qtyProduct?.price_per_kg_usd) }}</span>
-                                            <span class="fo">�</span>
+                                            <span class="fo">×</span>
                                             <span class="fv">{{ fmtBs(todayRate) }} Bs/USD)</span>
                                         </div>
                                         <div class="qty-kg-result">
@@ -861,9 +861,9 @@ function productImageUrl(product) {
                                     <div class="calc-box">
                                         <div class="formula">
                                             <span class="fv">{{ qtyInput || '0' }}</span>
-                                            <span class="fo">und �</span>
+                                            <span class="fo">und ×</span>
                                             <span class="fv">{{ fmtUsd(qtyProduct?.price_per_unit_usd) }}</span>
-                                            <span class="fo">�</span>
+                                            <span class="fo">×</span>
                                             <span class="fv">{{ fmtBs(todayRate) }}</span>
                                             <span class="fo">Bs/USD =</span>
                                         </div>
@@ -877,10 +877,10 @@ function productImageUrl(product) {
                                     </div>
                                 </template>
                                 <div v-if="qtyProduct?.sale_mode === 'weight'" class="numpad">
-                                    <button v-for="k in ['1','2','3','4','5','6','7','8','9','.','0','?']" :key="k" class="np-key" @click="kbPress(k)">{{ k }}</button>
+                                    <button v-for="k in ['1','2','3','4','5','6','7','8','9','.','0','←']" :key="k" class="np-key" @click="kbPress(k)">{{ k }}</button>
                                 </div>
                                 <div v-else class="unit-controls">
-                                    <button class="unit-btn" @click="qtyInput = String(Math.max(1, (parseInt(qtyInput)||0) - 1))">-</button>
+                                    <button class="unit-btn" @click="qtyInput = String(Math.max(1, (parseInt(qtyInput)||0) - 1))">−</button>
                                     <input type="number" v-model="qtyInput" min="1" step="1" class="unit-input" />
                                     <button class="unit-btn" @click="qtyInput = String((parseInt(qtyInput)||0) + 1)">+</button>
                                 </div>
@@ -898,12 +898,12 @@ function productImageUrl(product) {
                 <div class="modal-box">
                     <div class="modal-header">
                         <h3 style="display:flex;align-items:center;gap:0.4rem;"><AlertTriangle :size="16" stroke-width="2" style="color:var(--amber);flex-shrink:0" /> Advertencia de inventario</h3>
-                        <button class="close-btn" @click="showNegativeWarning = false">�</button>
+                        <button class="close-btn" @click="showNegativeWarning = false">×</button>
                     </div>
-                    <p class="warn-text">Los siguientes productos quedar�n con stock negativo:</p>
+                    <p class="warn-text">Los siguientes productos quedarán con stock negativo:</p>
                     <ul class="warn-list">
                         <li v-for="item in negativeStockItems" :key="item.product_id">
-                            <strong>{{ item.product_name }}</strong> � solicitado: {{ fmtQty(item.quantity_value, item.sale_mode) }}, disponible: {{ fmtQty(stockMap[item.product_id] ?? 0, item.sale_mode) }}
+                            <strong>{{ item.product_name }}</strong> — solicitado: {{ fmtQty(item.quantity_value, item.sale_mode) }}, disponible: {{ fmtQty(stockMap[item.product_id] ?? 0, item.sale_mode) }}
                         </li>
                     </ul>
                     <div class="modal-actions">
@@ -914,16 +914,16 @@ function productImageUrl(product) {
             </div>
         </Teleport>
 
-        <!-- Modal cobro � 2 columnas -->
+        <!-- Modal cobro — 2 columnas -->
         <Teleport to="body">
             <div v-if="payModal" class="modal-bg">
                 <div class="pay-modal-2col">
 
-                    <!-- -- Columna izquierda: resumen + cliente -- -->
+                    <!-- ── Columna izquierda: resumen + cliente ── -->
                     <div class="pay-col pay-col--left">
                         <div class="pay-col-head">
                             <h3 class="pay-col-title">Cobrar</h3>
-                            <button class="close-btn" @click="closePayModal">�</button>
+                            <button class="close-btn" @click="closePayModal">×</button>
                         </div>
 
                         <!-- Selector de origen -->
@@ -938,14 +938,14 @@ function productImageUrl(product) {
                             </button>
                             <button class="origin-btn" :class="{ active: saleOrigin === 'credit' }" @click="saleOrigin = 'credit'">
                                 <FileText :size="15" stroke-width="1.8" class="origin-icon-svg" />
-                                <span class="origin-label">Cr�dito</span>
+                                <span class="origin-label">Crédito</span>
                             </button>
                         </div>
 
                         <!-- Items del carrito -->
                         <div class="pay-items-scroll">
                             <div v-for="(item, idx) in cart" :key="idx" class="pay-item-row">
-                                <span class="pay-item-name">{{ item.product_name }} <em class="pay-item-qty">� {{ fmtQty(item.quantity_value, item.sale_mode) }}</em></span>
+                                <span class="pay-item-name">{{ item.product_name }} <em class="pay-item-qty">× {{ fmtQty(item.quantity_value, item.sale_mode) }}</em></span>
                                 <span class="pay-item-amount">{{ fmtBs(item.subtotal_usd * todayRate) }} Bs.</span>
                             </div>
                         </div>
@@ -971,13 +971,13 @@ function productImageUrl(product) {
 
                         <!-- Cliente -->
                         <div class="client-toggle" @click="showClientFields = !showClientFields">
-                            <span>{{ showClientFields ? '?' : '?' }} {{ clientId ? clientName : 'Cliente (opcional)' }}</span>
+                            <span>{{ showClientFields ? '▾' : '▸' }} {{ clientId ? clientName : 'Cliente (opcional)' }}</span>
                             <Check v-if="clientId" :size="13" class="client-selected-badge" />
                         </div>
                         <div v-if="showClientFields" class="client-fields">
                             <div class="client-search-wrap">
-                                <input v-model="clientSearch" type="text" class="pay-amount-input" placeholder="Buscar cliente�" @input="onClientInput" @blur="clientSearchOpen = false" @focus="clientSearch.length >= 3 && (clientSearchOpen = clientResults.length > 0)" />
-                                <button v-if="clientId" class="client-clear-btn" @click="clearClient">�</button>
+                                <input v-model="clientSearch" type="text" class="pay-amount-input" placeholder="Buscar cliente…" @input="onClientInput" @blur="clientSearchOpen = false" @focus="clientSearch.length >= 3 && (clientSearchOpen = clientResults.length > 0)" />
+                                <button v-if="clientId" class="client-clear-btn" @click="clearClient">×</button>
                                 <button class="client-add-btn" @click="openQuickClient">+</button>
                             </div>
                             <div v-if="clientSearchOpen" class="client-dropdown">
@@ -989,27 +989,27 @@ function productImageUrl(product) {
                             </div>
                             <div v-if="clientId" class="client-selected-row">
                                 <span class="client-tag">{{ clientName }}</span>
-                                <input v-model="clientPhone" type="tel" class="pay-amount-input" maxlength="30" placeholder="Tel�fono (opcional)" style="margin-top:0.4rem;" />
+                                <input v-model="clientPhone" type="tel" class="pay-amount-input" maxlength="30" placeholder="Teléfono (opcional)" style="margin-top:0.4rem;" />
                             </div>
                         </div>
                     </div>
 
-                    <!-- -- Columna derecha: m�todos de pago -- -->
+                    <!-- ── Columna derecha: métodos de pago ── -->
                     <div class="pay-col pay-col--right">
 
-                        <!-- Aviso para delivery/cr�dito -->
+                        <!-- Aviso para delivery/crédito -->
                         <div v-if="saleOrigin === 'delivery'" class="origin-notice origin-notice--delivery">
                             <Bike :size="20" class="origin-notice-icon" />
                             <div>
                                 <strong>Delivery pendiente</strong>
-                                <p>El pedido se registrar� sin cobro. El cobro se realiza desde la pantalla de Pedidos al confirmar la entrega.</p>
+                                <p>El pedido se registrará sin cobro. El cobro se realiza desde la pantalla de Pedidos al confirmar la entrega.</p>
                             </div>
                         </div>
                         <div v-else-if="saleOrigin === 'credit'" class="origin-notice origin-notice--credit">
                             <FileText :size="15" stroke-width="1.8" class="origin-notice-icon" />
                             <div>
-                                <strong>Venta a cr�dito</strong>
-                                <p>El producto se despacha ahora. El cobro queda pendiente y aparecer� en la secci�n "Por Cobrar" de Pedidos.</p>
+                                <strong>Venta a crédito</strong>
+                                <p>El producto se despacha ahora. El cobro queda pendiente y aparecerá en la sección "Por Cobrar" de Pedidos.</p>
                             </div>
                         </div>
 
@@ -1022,10 +1022,10 @@ function productImageUrl(product) {
                                     <span class="multipay-method">{{ pmtMethodName(p.payment_method_id) }}</span>
                                     <span v-if="p.reference" class="multipay-ref">{{ p.reference }}</span>
                                     <span class="multipay-amount">{{ fmtBs(p.amount_bs) }} Bs.</span>
-                                    <button class="multipay-remove" @click="removePayment(idx)">�</button>
+                                    <button class="multipay-remove" @click="removePayment(idx)">×</button>
                                 </div>
                             </div>
-                            <p v-else class="pay-no-payments">Ning�n pago a�adido a�n</p>
+                            <p v-else class="pay-no-payments">Ningún pago añadido aún</p>
 
                             <div v-if="payRestBs > 0 || !payments.length" class="multipay-add">
                                 <p class="pay-section-label" style="margin-top:0.75rem">+ Agregar pago</p>
@@ -1037,7 +1037,7 @@ function productImageUrl(product) {
                                 </div>
                                 <input v-model="newPmtAmountBs" type="number" class="pay-amount-input" min="0.01" step="0.01" placeholder="Monto Bs." />
                                 <input v-if="selectedMethodNeedsRef" v-model="newPmtReference" type="text" class="pay-amount-input" maxlength="50" placeholder="Referencia (opcional)" style="margin-top:0.5rem;" />
-                                <button class="btn btn-ghost multipay-btn-add" @click="addPayment">A�adir pago</button>
+                                <button class="btn btn-ghost multipay-btn-add" @click="addPayment">Añadir pago</button>
                             </div>
                         </template>
 
@@ -1045,9 +1045,9 @@ function productImageUrl(product) {
                         <div class="pay-col-actions">
                             <button class="btn btn-ghost" @click="closePayModal">Cancelar</button>
                             <button class="btn btn-brand" :disabled="!payCanConfirm || paying" @click="confirmPay">
-                                <template v-if="paying">Procesando�</template>
+                                <template v-if="paying">Procesando…</template>
                                 <template v-else-if="saleOrigin === 'delivery'">Registrar Delivery</template>
-                                <template v-else-if="saleOrigin === 'credit'">Despachar a Cr�dito</template>
+                                <template v-else-if="saleOrigin === 'credit'">Despachar a Crédito</template>
                                 <template v-else>Confirmar Pago</template>
                             </button>
                         </div>
@@ -1056,7 +1056,7 @@ function productImageUrl(product) {
             </div>
         </Teleport>
 
-        <!-- Modal �xito -->
+        <!-- Modal éxito -->
         <Teleport to="body">
             <div v-if="successModal" class="modal-bg">
                 <div class="modal-box success-modal">
@@ -1067,7 +1067,7 @@ function productImageUrl(product) {
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                         </div>
                         <div>
-                            <div class="sc-title">�Venta Confirmada!</div>
+                            <div class="sc-title">¡Venta Confirmada!</div>
                             <div class="sc-subtitle">Pago registrado exitosamente</div>
                         </div>
                     </div>
@@ -1087,12 +1087,12 @@ function productImageUrl(product) {
                             <span v-if="cashRegister">{{ cashRegister.name }}</span>
                         </div>
                         <div v-if="ticketPrefs.show_client && (successClient.name || successClient.phone)" class="sc-biz-sub" style="margin-top:0.15rem">
-                            Cliente: {{ [successClient.name, successClient.phone].filter(Boolean).join(' � ') }}
+                            Cliente: {{ [successClient.name, successClient.phone].filter(Boolean).join(' · ') }}
                         </div>
 
                         <div class="sc-sep"></div>
 
-                        <!-- �tems -->
+                        <!-- Ítems -->
                         <div class="sc-items">
                             <div v-for="item in successItems" :key="item.product_id" class="sc-item">
                                 <div class="sc-item-left">
@@ -1114,7 +1114,7 @@ function productImageUrl(product) {
                             <span class="sc-total-val">{{ fmtBs(successTotal) }} Bs.</span>
                         </div>
                         <div v-for="p in successPayments" :key="p.method" class="sc-payment-row">
-                            M�todo: {{ p.method_label || p.method || '�' }}
+                            Método: {{ p.method_label || p.method || '—' }}
                         </div>
 
                         <!-- Pie -->
@@ -1136,23 +1136,23 @@ function productImageUrl(product) {
             </div>
         </Teleport>
 
-        <!-- Modal cliente r�pido -->
+        <!-- Modal cliente rápido -->
         <Teleport to="body">
             <div v-if="showQuickClientModal" class="modal-bg">
                 <div class="modal-box" style="max-width:400px;">
                     <div class="modal-header">
                         <h3>Nuevo cliente</h3>
-                        <button class="close-btn" @click="closeQuickClient">�</button>
+                        <button class="close-btn" @click="closeQuickClient">×</button>
                     </div>
                     <div style="display:flex;flex-direction:column;gap:0.65rem;">
                         <input v-model="quickClientForm.name"  type="text"  class="pay-amount-input" placeholder="Nombre *" maxlength="100" />
-                        <input v-model="quickClientForm.phone" type="tel"   class="pay-amount-input" placeholder="Tel�fono" maxlength="30" />
+                        <input v-model="quickClientForm.phone" type="tel"   class="pay-amount-input" placeholder="Teléfono" maxlength="30" />
                         <input v-model="quickClientForm.email" type="email" class="pay-amount-input" placeholder="Email" maxlength="100" />
                     </div>
                     <div class="modal-actions" style="margin-top:1rem;">
                         <button class="btn btn-ghost" @click="closeQuickClient">Cancelar</button>
                         <button class="btn btn-brand" :disabled="!quickClientForm.name || quickClientSaving" @click="submitQuickClient">
-                            {{ quickClientSaving ? 'Guardando�' : 'Crear' }}
+                            {{ quickClientSaving ? 'Guardando…' : 'Crear' }}
                         </button>
                     </div>
                 </div>
@@ -1163,7 +1163,7 @@ function productImageUrl(product) {
 </template>
 
 <style scoped>
-/* -- Local vars -- */
+/* ── Local vars ── */
 .pos-root {
     --amber:   #F59E0B;
     --green:   #10B981;
@@ -1172,7 +1172,7 @@ function productImageUrl(product) {
     --red-a:   rgba(239,68,68,.12);
 }
 
-/* -- Layout -- */
+/* ── Layout ── */
 .pos-root {
     height: 100vh;
     display: flex;
@@ -1198,7 +1198,7 @@ function productImageUrl(product) {
         radial-gradient(ellipse 45% 35% at 88% 108%, rgba(16,185,129,0.07) 0%, transparent 70%);
 }
 
-/* -- Header -- */
+/* ── Header ── */
 .pos-header {
     height: 56px;
     display: flex; align-items: center; gap: 10px;
@@ -1215,13 +1215,13 @@ function productImageUrl(product) {
 .hd-center { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; overflow: hidden; }
 .hd-right  { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
 
-/* Logo � id�ntico al sidebar */
+/* Logo — idéntico al sidebar */
 .pos-logo      { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .logo-text     { font-size: 1.05rem; font-weight: 800; letter-spacing: -0.3px; white-space: nowrap; line-height: 1; }
 .logo-synti    { color: var(--text-primary); }
 .logo-meat     { color: #B91C1C; }
 
-/* Back button � siempre visible a la izquierda */
+/* Back button — siempre visible a la izquierda */
 .nav-back {
     flex-shrink: 0; display: flex; align-items: center; justify-content: center;
     width: 32px; height: 32px; border-radius: 7px;
@@ -1341,13 +1341,13 @@ function productImageUrl(product) {
 }
 .nav-back:hover { background: var(--bg-card); border-color: var(--brand); color: var(--brand); }
 
-/* -- Main -- */
+/* ── Main ── */
 .pos-main { flex: 1; display: flex; overflow: hidden; min-height: 0; position: relative; z-index: 1; }
 
-/* -- Products panel -- */
+/* ── Products panel ── */
 .pnl-products { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
 
-/* -- Category tabs � scrollable on mobile -- */
+/* ── Category tabs — scrollable on mobile ── */
 .tabs-wrap {
     padding: 14px 0 0;
     flex-shrink: 0;
@@ -1419,7 +1419,7 @@ function productImageUrl(product) {
 .product-card:hover::after { opacity: 0.6; transform: scale(1) rotate(0deg); }
 .product-card:active { transform: translateY(-1px) scale(0.99); }
 
-/* Zona imagen � banner superior de la card */
+/* Zona imagen — banner superior de la card */
 .p-img-zone {
     position: relative;
     width: calc(100% + 24px);
@@ -1487,7 +1487,7 @@ function productImageUrl(product) {
 .p-usd   { font-size: 10px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .empty-msg { grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem; font-size: 0.875rem; }
 
-/* -- Cart panel -- */
+/* ── Cart panel ── */
 .pnl-cart { width: 340px; flex-shrink: 0; display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--bg-card); overflow: hidden; }
 .cart-head { padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .cart-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.4px; color: var(--text-muted); }
@@ -1535,7 +1535,7 @@ function productImageUrl(product) {
 .btn-clear-cart { display: block; width: calc(100% - 24px); margin: 0 12px 12px; padding: 7px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font-size: 12px; cursor: pointer; font-family: inherit; }
 .btn-clear-cart:hover { color: var(--text-primary); }
 
-/* -- FAB mobile -- */
+/* ── FAB mobile ── */
 .cart-fab {
     display: none; position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 50;
     padding: 0.75rem 1.25rem; border-radius: 50px;
@@ -1551,14 +1551,14 @@ function productImageUrl(product) {
     box-shadow: 0 4px 20px rgba(37,99,235,0.45);
 }
 
-/* -- Mobile drawer -- */
+/* ── Mobile drawer ── */
 .mobile-cart-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 60; display: flex; align-items: flex-end; }
 .mobile-cart-drawer { width: 100%; max-height: 80vh; background: var(--bg-card); border-radius: 16px 16px 0 0; display: flex; flex-direction: column; overflow: hidden; }
 .drawer-close { margin-left: auto; background: none; border: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer; }
 .cart-drawer-enter-active, .cart-drawer-leave-active { transition: transform 0.25s ease; }
 .cart-drawer-enter-from .mobile-cart-drawer, .cart-drawer-leave-to .mobile-cart-drawer { transform: translateY(100%); }
 
-/* -- Modal overlay -- */
+/* ── Modal overlay ── */
 .modal-bg { position: fixed; inset: 0; background: rgba(6,12,24,0.78); backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); display: flex; align-items: center; justify-content: center; z-index: 70; }
 
 /* Qty modal transitions */
@@ -1646,7 +1646,7 @@ function productImageUrl(product) {
 .warn-text { font-size: 0.88rem; color: var(--text-muted); }
 .warn-list { list-style: none; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.85rem; color: var(--text-primary); background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; }
 
-/* -- Modal cobro 2 columnas � sin scroll -- */
+/* ── Modal cobro 2 columnas — sin scroll ── */
 .pay-modal-2col {
     display: flex;
     width: min(800px, 96vw);
@@ -1673,7 +1673,7 @@ function productImageUrl(product) {
     gap: 0.6rem;
 }
 
-/* derecha: m�todos + confirmar */
+/* derecha: métodos + confirmar */
 .pay-col--right {
     width: 310px;
     flex-shrink: 0;
@@ -1693,7 +1693,7 @@ function productImageUrl(product) {
     margin: 0;
 }
 
-/* -- Selector de origen -- */
+/* ── Selector de origen ── */
 .origin-selector {
     display: flex;
     gap: 0.4rem;
@@ -1719,7 +1719,7 @@ function productImageUrl(product) {
 .origin-icon { font-size: 1.1rem; }
 .origin-label { font-size: 0.65rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; }
 
-/* -- Aviso delivery/cr�dito -- */
+/* ── Aviso delivery/crédito ── */
 .origin-notice {
     display: flex;
     gap: 0.75rem;
@@ -1737,7 +1737,7 @@ function productImageUrl(product) {
 .origin-notice strong { display: block; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.3rem; }
 .origin-notice p { font-size: 0.75rem; color: var(--text-muted); margin: 0; line-height: 1.45; }
 
-/* lista de �tems: crece y hace scroll solo si hay muchos */
+/* lista de ítems: crece y hace scroll solo si hay muchos */
 .pay-items-scroll {
     flex: 1;
     min-height: 0;
@@ -1782,7 +1782,7 @@ function productImageUrl(product) {
 .pay-tot-line.rest-done    { color: var(--green); font-weight: 700; }
 .pay-tot-line.rest-change  { color: var(--green); }
 
-/* secci�n cliente compacta */
+/* sección cliente compacta */
 .client-toggle {
     flex-shrink: 0;
     display: flex;
@@ -1795,7 +1795,7 @@ function productImageUrl(product) {
     border-top: 1px solid var(--border);
 }
 
-/* -- Columna derecha -- */
+/* ── Columna derecha ── */
 .pay-section-label {
     font-size: 0.68rem;
     font-weight: 700;
@@ -1813,7 +1813,7 @@ function productImageUrl(product) {
     flex-shrink: 0;
 }
 
-/* pagos a�adidos: lista compacta */
+/* pagos añadidos: lista compacta */
 .multipay-list   { display: flex; flex-direction: column; gap: 0.2rem; flex-shrink: 0; }
 .multipay-row    { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; background: var(--bg-elevated); border-radius: 6px; padding: 0.3rem 0.5rem; }
 .multipay-method { font-weight: 600; color: var(--text-primary); flex: 1; }
@@ -1822,7 +1822,7 @@ function productImageUrl(product) {
 .multipay-remove { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; padding: 0 0.2rem; line-height: 1; }
 .multipay-remove:hover { color: #ef4444; }
 
-/* m�todos: grid 3 columnas, tarjetas compactas */
+/* métodos: grid 3 columnas, tarjetas compactas */
 .multipay-add { display: flex; flex-direction: column; gap: 0.4rem; flex-shrink: 0; }
 .pay-methods {
     display: grid;
@@ -1850,7 +1850,7 @@ function productImageUrl(product) {
 .pm-name { font-size: 0.72rem; font-weight: 600; color: var(--text-primary); line-height: 1.2; }
 .pm-type { font-size: 0.62rem; color: var(--text-muted); }
 
-/* monto + bot�n a�adir */
+/* monto + botón añadir */
 .pay-amount-input {
     width: 100%;
     background: var(--bg-input, var(--bg-elevated));
@@ -1884,7 +1884,7 @@ function productImageUrl(product) {
 }
 .pay-col-actions .btn { flex: 1; padding: 0.6rem 0.5rem; font-size: 0.84rem; }
 
-/* responsive tablet/m�vil */
+/* responsive tablet/móvil */
 @media (max-width: 680px) {
     .pay-modal-2col {
         flex-direction: column;
@@ -1903,7 +1903,7 @@ function productImageUrl(product) {
     }
 }
 
-/* -- Modal �xito -- */
+/* ── Modal éxito ── */
 .success-modal { padding: 0; overflow: hidden; gap: 0; max-width: 360px; }
 
 .sc-status {
@@ -1918,7 +1918,7 @@ function productImageUrl(product) {
 .sc-title    { font-size: 1rem; font-weight: 800; color: var(--text-primary); }
 .sc-subtitle { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.1rem; }
 
-/* Mini ticket � fondo blanco, fuente monoespaciada */
+/* Mini ticket — fondo blanco, fuente monoespaciada */
 .sc-ticket {
     background: #fff; color: #111;
     font-family: 'Courier New', Courier, monospace;
@@ -1957,7 +1957,7 @@ function productImageUrl(product) {
 }
 .sc-actions .btn { flex: 1; justify-content: center; display: flex; align-items: center; gap: 0.4rem; }
 
-/* -- Responsive -- */
+/* ── Responsive ── */
 @media (max-width: 1024px) {
     .hd-sep-tabs { display: none; }
     .rate-lbl    { display: none; }

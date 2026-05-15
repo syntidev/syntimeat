@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import AppLayout from '@/Layouts/AppLayout.vue'
 import { ref, computed, markRaw } from 'vue'
 import { useForm, router } from '@inertiajs/vue3'
