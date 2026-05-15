@@ -174,7 +174,7 @@ function destroy(user) {
 
         <!-- Modal -->
         <Teleport to="body">
-            <div v-if="showModal" class="overlay" @click.self="closeModal">
+            <div v-if="showModal" class="overlay">
                 <div class="modal">
                     <div class="modal-head">
                         <h3>{{ editTarget ? 'Editar usuario' : 'Nuevo usuario' }}</h3>

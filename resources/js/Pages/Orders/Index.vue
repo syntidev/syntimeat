@@ -528,7 +528,7 @@ function methodName(id) {
              MODAL: NUEVO PEDIDO
         ════════════════════════════════════════════════════════════════════ -->
         <Teleport to="body">
-            <div v-if="showNewModal" class="modal-overlay" @click.self="showNewModal = false; resetNewModal()">
+            <div v-if="showNewModal" class="modal-overlay">
                 <div class="modal-box modal-xl">
                     <div class="modal-head">
                         <h2 class="modal-title">Nuevo Pedido</h2>
@@ -660,7 +660,7 @@ function methodName(id) {
              MODAL: COBRAR
         ════════════════════════════════════════════════════════════════════ -->
         <Teleport to="body">
-            <div v-if="showCollectModal" class="modal-overlay" @click.self="showCollectModal = false">
+            <div v-if="showCollectModal" class="modal-overlay">
                 <div class="modal-box modal-md">
                     <div class="modal-head">
                         <h2 class="modal-title">Cobrar Pedido</h2>
@@ -731,7 +731,7 @@ function methodName(id) {
              MODAL: CANCELAR
         ════════════════════════════════════════════════════════════════════ -->
         <Teleport to="body">
-            <div v-if="showCancelModal" class="modal-overlay" @click.self="showCancelModal = false">
+            <div v-if="showCancelModal" class="modal-overlay">
                 <div class="modal-box modal-sm">
                     <div class="modal-head">
                         <h2 class="modal-title">Cancelar Pedido</h2>
@@ -760,7 +760,7 @@ function methodName(id) {
              MODAL: REGISTRAR COBRO (venta despachada sin pago)
         ════════════════════════════════════════════════════════════════════ -->
         <Teleport to="body">
-            <div v-if="showPendCollectModal" class="modal-overlay" @click.self="showPendCollectModal = false">
+            <div v-if="showPendCollectModal" class="modal-overlay">
                 <div class="modal-box modal-md">
                     <div class="modal-head">
                         <h2 class="modal-title">Registrar Cobro</h2>

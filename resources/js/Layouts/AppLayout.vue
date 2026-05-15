@@ -74,7 +74,7 @@ function logout() {
 // ─── Visibilidad del menú por rol ─────────────────────────────────────────────
 const rolePermissions = {
     admin:      ['dashboard','pos','inventory','boveda','fabrica','orders','sales','dayclose','catalog','clients','contingency','users','settings'],
-    supervisor: ['dashboard','pos','inventory','boveda','orders','sales','dayclose','catalog','clients'],
+    supervisor: ['dashboard','pos','inventory','boveda','fabrica','orders','sales','dayclose','catalog','clients'],
     cashier:    ['pos'],
 }
 function canAccess(permission) {

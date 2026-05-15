@@ -150,7 +150,8 @@
         }
         tbody td.r { text-align: right; }
         .product-name { font-weight: 600; }
-        .write { border-bottom: 1px solid #9ca3af !important; background: #fafafa; }
+        .write  { border-bottom: 1px solid #9ca3af !important; background: #fafafa; }
+        .filled { border-bottom: 2px solid #15803d !important; background: #f0fdf4; font-weight: 700; color: #15803d; }
         .subtotal td {
             padding: 3px 5px;
             font-size: 9.5px;
@@ -287,33 +288,30 @@
     </div>
     <div class="ef">
         <label>Fecha de despiece</label>
-        <div class="val blank">&nbsp;</div>
+        <div class="val {{ $entry->despiece_completado_at ? '' : 'blank' }}">
+            {{ $entry->despiece_completado_at?->format('d/m/Y H:i') ?? '&nbsp;' }}
+        </div>
     </div>
     <div class="ef">
-        <label>Carnicero responsable</label>
-        <div class="val blank">&nbsp;</div>
+        <label>Estado</label>
+        <div class="val" style="color: {{ $entry->despiece_completado_at ? '#16a34a' : '#b91c1c' }}; font-weight:700">
+            {{ $entry->despiece_completado_at ? '✓ Registrado en sistema' : 'Pendiente de registro' }}
+        </div>
     </div>
 </div>
 
-{{-- ── Secciones por categoría ─────────────────────────────────────── --}}
-@foreach($productosPorCategoria as $categoria => $productos)
+{{-- ── Cortes de la pieza ───────────────────────────────────────────── --}}
 @php
-    $slug = strtolower(str_replace(['é','ú','ó','á','í'], ['e','u','o','a','i'], $categoria));
-    $icons = [
-        'res'        => '🐄',
-        'cerdo'      => '🐷',
-        'pollo'      => '🐔',
-        'charcuteria'=> '🧀',
-        'embutidos'  => '🌭',
-        'trastes'    => '🫀',
-    ];
-    $icon = $icons[$slug] ?? '📦';
+    $icons = ['Res' => '🐄', 'Cerdo' => '🐷', 'Pollo' => '🐔'];
+    $colors = ['Res' => '#dc2626', 'Cerdo' => '#ea580c', 'Pollo' => '#ca8a04'];
+    $icon  = $icons[$catName]  ?? '📦';
+    $color = $colors[$catName] ?? '#374151';
 @endphp
-<div class="section cat-{{ $slug }}">
+<div class="section" style="--cat-color: {{ $color }}">
     <div class="section-head">
         <span>{{ $icon }}</span>
-        <h2>{{ $categoria }}</h2>
-        <div class="line"></div>
+        <h2 style="color: var(--cat-color)">{{ $catName ?? $entry->product_type }}</h2>
+        <div class="line" style="background: var(--cat-color)"></div>
     </div>
     <table>
         <thead>
@@ -327,16 +325,19 @@
         </thead>
         <tbody>
             @foreach($productos as $producto)
+            @php $kgReal = isset($kgRegistrados[$producto->id]) ? (float)$kgRegistrados[$producto->id] : null; @endphp
             <tr>
                 <td class="product-name">{{ $producto->name }}</td>
                 <td class="r write"></td>
-                <td class="r write"></td>
+                <td class="r {{ $kgReal !== null ? 'filled' : 'write' }}">
+                    {{ $kgReal !== null ? number_format($kgReal, 3) : '' }}
+                </td>
                 <td class="r write"></td>
                 <td class="write"></td>
             </tr>
             @endforeach
-            <tr class="subtotal">
-                <td>SUBTOTAL {{ strtoupper($categoria) }}</td>
+            <tr class="subtotal" style="color: var(--cat-color)">
+                <td>TOTAL DOCUMENTADO</td>
                 <td class="r">________ kg</td>
                 <td class="r">________ kg</td>
                 <td class="r">________ kg</td>
@@ -345,7 +346,6 @@
         </tbody>
     </table>
 </div>
-@endforeach
 
 {{-- ── Totales generales ────────────────────────────────────────────── --}}
 <div class="totals">
@@ -355,15 +355,15 @@
     </div>
     <div class="tc green">
         <label>Kg cortes documentados</label>
-        <div class="v">____________ kg</div>
+        <div class="v">{{ $totalDocumentado > 0 ? number_format($totalDocumentado, 3) . ' kg' : '____________ kg' }}</div>
     </div>
     <div class="tc red">
         <label>Merma total (diferencia)</label>
-        <div class="v">____________ kg</div>
+        <div class="v">{{ $totalDocumentado > 0 ? number_format($mermaReal, 3) . ' kg' : '____________ kg' }}</div>
     </div>
     <div class="tc">
         <label>% Rendimiento</label>
-        <div class="v">____________ %</div>
+        <div class="v">{{ $rendimiento !== null ? $rendimiento . ' %' : '____________ %' }}</div>
     </div>
 </div>
 

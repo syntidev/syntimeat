@@ -387,17 +387,45 @@ class BovedaController extends Controller
         // Productos vitrina activos agrupados por categoría (excluye utensilios/despensa)
         $despieceCats = ['Res', 'Cerdo', 'Pollo'];
 
-        $productosPorCategoria = Product::with('category')
+        $catMap = [
+            'Medio Canal Res'        => 'Res',
+            'Canal Cerdo'            => 'Cerdo',
+            'Pollo Entero Congelado' => 'Pollo',
+        ];
+        $catName  = $catMap[$entry->product_type] ?? null;
+        $resOrder = ['Premium', 'Primera', 'Segunda', 'Costilla', 'Hueso Redondo', 'Hueso Rojo', 'Rabo', 'Recortes de Res'];
+
+        $productos = Product::with('category')
             ->where('business_id', $businessId)
             ->where('location', 'vitrina')
             ->where('active', true)
-            ->whereHas('category', fn ($q) => $q->whereIn('name', $despieceCats))
-            ->orderBy('name')
+            ->where('fabricable', false)
+            ->when($catName, fn ($q) => $q->whereHas('category', fn ($q2) => $q2->where('name', $catName)))
             ->get()
-            ->groupBy(fn ($p) => $p->category->name)
-            ->sortKeys();
+            ->sortBy(fn ($p) => $catName === 'Res'
+                ? (($pos = array_search($p->name, $resOrder)) !== false ? $pos : 999)
+                : $p->name
+            )
+            ->values();
 
-        return view('boveda.plantilla_despiece', compact('entry', 'business', 'productosPorCategoria'));
+        // Kg registrados por producto si el despiece ya fue completado
+        $kgRegistrados = $entry->despiece_completado_at
+            ? InventoryEntry::where('boveda_entry_id', $entry->id)
+                ->where('location', 'vitrina')
+                ->where('quantity_kg', '>', 0)
+                ->pluck('quantity_kg', 'product_id')
+            : collect();
+
+        $totalDocumentado = round($kgRegistrados->sum(), 3);
+        $mermaReal        = round((float) $entry->kg_surtido_vitrina - $totalDocumentado, 3);
+        $rendimiento      = $totalDocumentado > 0 && (float) $entry->kg_surtido_vitrina > 0
+            ? round(($totalDocumentado / (float) $entry->kg_surtido_vitrina) * 100, 1)
+            : null;
+
+        return view('boveda.plantilla_despiece', compact(
+            'entry', 'business', 'catName', 'productos',
+            'kgRegistrados', 'totalDocumentado', 'mermaReal', 'rendimiento'
+        ));
     }
 
     public function destroyProduct(BovedaProduct $product): \Illuminate\Http\JsonResponse

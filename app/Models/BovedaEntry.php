@@ -22,24 +22,31 @@ class BovedaEntry extends Model
         'supplier',
         'entered_at',
         'closed_at',
+        'despiece_completado_at',
     ];
 
     protected function casts(): array
     {
         return [
-            'kg_entrada'         => 'decimal:3',
-            'costo_usd'          => 'decimal:2',
-            'waste_kg'           => 'decimal:3',
-            'kg_surtido_vitrina' => 'decimal:3',
-            'kg_disponible'      => 'decimal:3',
-            'entered_at'         => 'datetime',
-            'closed_at'          => 'datetime',
+            'kg_entrada'             => 'decimal:3',
+            'costo_usd'              => 'decimal:2',
+            'waste_kg'               => 'decimal:3',
+            'kg_surtido_vitrina'     => 'decimal:3',
+            'kg_disponible'          => 'decimal:3',
+            'entered_at'             => 'datetime',
+            'closed_at'              => 'datetime',
+            'despiece_completado_at' => 'datetime',
         ];
     }
 
     public function business(): BelongsTo
     {
         return $this->belongsTo(Business::class);
+    }
+
+    public function bovedaProduct(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(BovedaProduct::class, 'name', 'product_type');
     }
 
     public function inventoryEntries(): HasMany

@@ -503,7 +503,7 @@ function fmtDia(d) { return d ? new Date(d + 'T00:00:00').toLocaleDateString('es
 
         <!-- ── Modal límite ────────────────────────────────────────────────── -->
         <Transition name="modal-fade">
-            <div v-if="limitModal" class="modal-backdrop" @click.self="limitModal = false">
+            <div v-if="limitModal" class="modal-backdrop">
                 <div class="modal-box">
                     <span class="modal-icon">🔒</span>
                     <h3 class="modal-title">Límite del plan alcanzado</h3>

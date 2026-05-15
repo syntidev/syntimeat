@@ -264,7 +264,7 @@ function destroyTerminal(t) {
 
         <!-- ── Modal Método ──────────────────────────────────────────────────── -->
         <Teleport to="body">
-            <div v-if="showMethodModal" class="overlay" @click.self="closeMethodModal">
+            <div v-if="showMethodModal" class="overlay">
                 <div class="modal">
                     <div class="modal-head">
                         <h3>{{ editMethod ? 'Editar método' : 'Nuevo método de pago' }}</h3>
@@ -304,7 +304,7 @@ function destroyTerminal(t) {
 
         <!-- ── Modal Dispositivo ─────────────────────────────────────────────── -->
         <Teleport to="body">
-            <div v-if="showTerminalModal" class="overlay" @click.self="closeTerminalModal">
+            <div v-if="showTerminalModal" class="overlay">
                 <div class="modal">
                     <div class="modal-head">
                         <h3>{{ editTerminal ? 'Editar dispositivo' : 'Nuevo dispositivo' }}</h3>

@@ -211,7 +211,7 @@ function submitCorte() {
 
         <!-- Modal Abrir Caja ──────────────────────────────────────────────── -->
         <Teleport to="body">
-            <div v-if="openModal" class="modal-overlay" @click.self="openModal = false">
+            <div v-if="openModal" class="modal-overlay">
                 <div class="modal-box">
                     <div class="modal-header">
                         <h3>Abrir Caja</h3>
@@ -245,7 +245,7 @@ function submitCorte() {
 
         <!-- Modal Movimiento ─────────────────────────────────────────────── -->
         <Teleport to="body">
-            <div v-if="movModal" class="modal-overlay" @click.self="movModal = false">
+            <div v-if="movModal" class="modal-overlay">
                 <div class="modal-box">
                     <div class="modal-header">
                         <h3>Registrar Movimiento</h3>
@@ -304,7 +304,7 @@ function submitCorte() {
 
         <!-- Modal Corte ──────────────────────────────────────────────────── -->
         <Teleport to="body">
-            <div v-if="corteModal" class="modal-overlay" @click.self="corteModal = false">
+            <div v-if="corteModal" class="modal-overlay">
                 <div class="modal-box">
                     <div class="modal-header">
                         <h3>Hacer Corte de Caja</h3>

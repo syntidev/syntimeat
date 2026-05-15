@@ -6,7 +6,6 @@ import { useForm, router } from '@inertiajs/vue3'
 const props = defineProps({
     categories:  { type: Array,   default: () => [] },
     products:    { type: Array,   default: () => [] },
-    canSeeCost:  { type: Boolean, default: false },
 })
 
 // ─── Tabs + búsqueda ──────────────────────────────────────────────────────────
@@ -50,8 +49,6 @@ const form = useForm({
     sale_mode:          'weight',
     price_per_kg_usd:   '',
     price_per_unit_usd: '',
-    cost_per_kg_usd:    '',
-    cost_per_unit_usd:  '',
     min_stock:          0,
     active:             true,
     fabricable:         false,
@@ -100,8 +97,6 @@ function openEdit(product) {
     form.sale_mode          = product.sale_mode
     form.price_per_kg_usd   = product.price_per_kg_usd ?? ''
     form.price_per_unit_usd = product.price_per_unit_usd ?? ''
-    form.cost_per_kg_usd    = product.cost_per_kg_usd ?? ''
-    form.cost_per_unit_usd  = product.cost_per_unit_usd ?? ''
     form.min_stock          = product.min_stock ?? 0
     form.active             = product.active
     form.fabricable         = product.fabricable ?? false
@@ -155,8 +150,6 @@ function submitForm() {
         sale_mode:          form.sale_mode,
         price_per_kg_usd:   form.price_per_kg_usd || null,
         price_per_unit_usd: form.price_per_unit_usd || null,
-        cost_per_kg_usd:    form.cost_per_kg_usd || null,
-        cost_per_unit_usd:  form.cost_per_unit_usd || null,
         min_stock:          form.min_stock ?? 0,
         active:             form.active,
         fabricable:         form.fabricable ? 1 : 0,
@@ -536,7 +529,7 @@ function subProductCount(subId) {
 
             <!-- ─── Modal nuevo / editar producto ─────────────────────────── -->
             <Teleport to="body">
-                <div v-if="showModal" class="modal-overlay" @click.self="tryCloseModal">
+                <div v-if="showModal" class="modal-overlay">
                     <div class="modal-box prod-modal-box">
                         <div class="modal-header">
                             <h2 class="modal-title">{{ editProduct ? 'Editar Producto' : 'Nuevo Producto' }}</h2>
@@ -660,18 +653,6 @@ function subProductCount(subId) {
                                             required
                                         />
                                         <p v-if="form.errors.price_per_kg_usd" class="field-error">{{ form.errors.price_per_kg_usd }}</p>
-
-                                        <template v-if="canSeeCost">
-                                            <label class="field-label field-label--cost">Precio de costo / kg (USD)</label>
-                                            <input
-                                                v-model="form.cost_per_kg_usd"
-                                                class="field-input field-input--cost"
-                                                type="number"
-                                                step="0.01"
-                                                min="0"
-                                                placeholder="0.00"
-                                            />
-                                        </template>
                                     </template>
 
                                     <!-- Precio por unidad -->
@@ -687,18 +668,6 @@ function subProductCount(subId) {
                                             required
                                         />
                                         <p v-if="form.errors.price_per_unit_usd" class="field-error">{{ form.errors.price_per_unit_usd }}</p>
-
-                                        <template v-if="canSeeCost">
-                                            <label class="field-label field-label--cost">Precio de costo / und (USD)</label>
-                                            <input
-                                                v-model="form.cost_per_unit_usd"
-                                                class="field-input field-input--cost"
-                                                type="number"
-                                                step="0.01"
-                                                min="0"
-                                                placeholder="0.00"
-                                            />
-                                        </template>
                                     </template>
 
                                     <!-- Existencia mínima -->
@@ -738,7 +707,7 @@ function subProductCount(subId) {
 
             <!-- ─── Modal categoría ───────────────────────────────────────── -->
             <Teleport to="body">
-                <div v-if="showCatModal" class="modal-overlay" @click.self="tryCloseCatModal">
+                <div v-if="showCatModal" class="modal-overlay">
                     <div class="modal-box">
                         <div class="modal-header">
                             <h2 class="modal-title">{{ editCategory ? 'Editar Categoría' : 'Nueva Categoría' }}</h2>
@@ -783,7 +752,7 @@ function subProductCount(subId) {
 
             <!-- ─── Modal subcategoría ────────────────────────────────────── -->
             <Teleport to="body">
-                <div v-if="showSubModal" class="modal-overlay" @click.self="tryCloseSubModal">
+                <div v-if="showSubModal" class="modal-overlay">
                     <div class="modal-box">
                         <div class="modal-header">
                             <h2 class="modal-title">{{ editSubcat ? 'Editar Subcategoría' : 'Nueva Subcategoría' }}</h2>

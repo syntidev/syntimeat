@@ -211,48 +211,48 @@ const helpSteps = [
     {
         icon: '📥',
         title: 'Registrar entrada',
-        body: 'Cuando llega un canal de res, una paleta o cualquier pieza entera, créala aquí con el peso exacto (kg entrada), el costo en dólares y el proveedor.',
-        tip: 'Usa el campo Descripción para identificar la pieza física: "Canal RES #2", "Paleta - Proveedor García". Así sabes cuál fila es cuál cuando tienes varias del mismo tipo.',
-    },
-    {
-        icon: '⚖️',
-        title: 'Registrar merma (si aplica)',
-        body: 'Antes de despachar, pon la pieza en la balanza. Haz clic en Merma e ingresa el peso que ves ahora. El sistema calcula y registra la diferencia solo — tú no tienes que restar nada.',
-        tip: 'Ejemplo: sistema muestra 50 kg disponibles, la balanza marca 48 kg → ingresas 48 → el sistema registra 2 kg de merma automáticamente.',
+        body: 'Cuando llega una pieza entera (canal de res, canal de cerdo, caja de pollos), regístrala con el peso exacto en kg, el costo en dólares y el proveedor.',
+        tip: 'Usa Descripción para identificar la pieza: "Media canal #1 — García". Si entran dos canales el mismo día, podrás saber exactamente cuál es cuál.',
     },
     {
         icon: '🔪',
         title: 'Surtir a vitrina',
-        body: 'Cuando llevas carne de esa pieza a la vitrina para venta al corte, haz clic en Surtir EN LA FILA de esa pieza. Indica los kg exactos que estás despachando. El sistema los descuenta de esa pieza y los suma al stock de vitrina.',
-        tip: 'Puedes surtir varias veces de la misma pieza. Cada surtido va al historial con fecha y operador.',
+        body: 'Cuando sacas la pieza de bóveda para cortarla, ponla en la balanza y anota el peso real. Haz clic en Surtir e ingresa ese peso. El sistema descuenta los kg de la entrada y calcula la merma de almacenamiento solo.',
+        tip: 'La merma es automática: si la pieza tenía 50 kg disponibles y la balanza marca 48 kg al sacarla, el sistema registra 2 kg de merma de almacenamiento. Tú no calculas nada.',
+    },
+    {
+        icon: '🏭',
+        title: 'Despiece en Fábrica',
+        body: 'Si la pieza requiere despiece (res, cerdo, pollo), después de surtir verás un aviso con el botón "Ir a Fábrica". Allí documentas cuántos kg quedaron en cada corte (Premium, Primera, Costilla, etc.).',
+        tip: 'Lo que no documentes en cortes se registra como merma de despiece. Es normal: huesos, grasa descartada, sangre.',
     },
     {
         icon: '✅',
         title: 'Cerrar entrada',
-        body: 'Cuando ya no queda nada de esa pieza en bóveda, ciérrala. Pasa al Historial con trazabilidad completa: cuánto entró, cuánto se surtió y cuánto mermó.',
+        body: 'Cuando una pieza está completamente procesada y no queda nada en bóveda, ciérrala. Pasa al Historial con trazabilidad completa: cuánto entró, cuánto se surtió y cuánto mermó en total.',
     },
 ];
 
 const helpFaqs = [
     {
-        q: '¿Cómo sé cuál fila corresponde a la pieza que tengo en mano?',
-        a: 'Cada fila ES una pieza física diferente. Al crear la entrada, escribe algo que te identifique la pieza en el campo Descripción ("Canal #4", "Paleta Juan García"). Al hacer Surtir en esa fila, el sistema registra que esos kg salieron exactamente de esa pieza.',
+        q: '¿Qué es "Surtir" exactamente?',
+        a: 'Es el momento en que sacas una pieza de la bóveda (almacén frío) para llevarla al área de corte. Pesas la pieza antes de cortarla, registras ese peso y el sistema calcula automáticamente si mermó durante el almacenamiento.',
     },
     {
-        q: '¿Qué es Surtir?',
-        a: 'Surtir es el acto de llevar carne de la bóveda (donde se almacena en piezas enteras) a la vitrina (donde se vende al corte). Cuando surtres, el sistema descuenta kg de esa entrada específica y los agrega al inventario disponible en vitrina para ventas.',
+        q: '¿Por qué el sistema calcula la merma solo?',
+        a: 'Porque tú ingresas el peso real que marca la balanza al sacar la pieza. Si la pieza tenía 80 kg disponibles y pesa 78 kg al sacarla, el sistema registra 2 kg de merma de almacenamiento (evaporación, goteo) sin que hagas ningún cálculo.',
     },
     {
-        q: 'La carne mermó entre el lunes y el miércoles. ¿Cómo afecta el inventario?',
-        a: 'Haz clic en el botón Merma de esa fila e ingresa el peso que marca la balanza ahora mismo. El sistema hace la resta: disponible actual menos el peso que ingresaste = merma. Tú no calculas nada. El kg disponible se corrige al instante.',
+        q: '¿Cuándo uso "Flujo Directo" y cuándo "Despiece"?',
+        a: 'Usa Directo para productos terminados que van directamente a vitrina sin cortar (embutidos, charcutería). Usa Despiece para piezas que se cortan en varios productos (canal de res → Premium, Primera, Costilla, etc.).',
     },
     {
-        q: '¿Puedo surtir parcialmente varias veces?',
-        a: 'Sí. Puedes surtir 20 kg hoy y otros 15 kg mañana de la misma pieza. Cada surtido se descuenta del disponible de esa entrada. La entrada permanece activa hasta que la cierres manualmente.',
+        q: '¿Puedo surtir varias veces de la misma pieza?',
+        a: 'Sí. Puedes surtir 30 kg hoy y otros 20 kg mañana de la misma entrada. El sistema descuenta cada surtido del disponible de esa pieza. La entrada se mantiene activa hasta que la cierres.',
     },
     {
-        q: '¿Qué son los "Productos bóveda"?',
-        a: 'Es el catálogo de tipos de piezas que puedes recibir en bóveda (canal de res, paleta, costillar, etc.). Son diferentes a los productos de vitrina. Al crear una entrada, seleccionas el tipo de este catálogo.',
+        q: '¿Qué son los "Productos bóveda" en la pestaña Catálogo?',
+        a: 'Son los tipos de piezas que recibes en almacén (Medio Canal Res, Canal Cerdo, Pollo Entero). No confundirlos con los productos de vitrina (Premium, Costilla). En bóveda entran piezas enteras; en vitrina salen cortes.',
     },
 ];
 
@@ -356,7 +356,6 @@ async function deactivateProduct(product) {
                     </div>
                 </div>
                 <div class="header-actions">
-                    <button class="btn-help" @click="showHelp = true" title="Ayuda">?</button>
                     <button class="btn-brand" @click="openEntrada">+ Nueva entrada</button>
                 </div>
             </div>
@@ -388,9 +387,9 @@ async function deactivateProduct(product) {
                     <div class="despiece-alert__body">
                         <strong>Despiece pendiente:</strong>
                         {{ despiecePendiente.product_type }} — {{ Number(despiecePendiente.kg_surtir).toFixed(3) }} kg enviados a vitrina.
-                        Registra los cortes resultantes desde el módulo de Despiece.
+                        Registra los cortes resultantes desde el módulo de Fábrica.
                     </div>
-                    <a :href="route('despiece.index')" class="despiece-alert__btn">Ir a Despiece →</a>
+                    <a :href="route('fabrica.index')" class="despiece-alert__btn">Ir a Fábrica →</a>
                     <button class="despiece-alert__close" @click="despiecePendiente = null">×</button>
                 </div>
             </Transition>
@@ -406,6 +405,7 @@ async function deactivateProduct(product) {
                 <button class="tab-btn" :class="{ active: tab === 'productos' }" @click="tab = 'productos'">
                     Productos bóveda ({{ localBovedaProducts.length }})
                 </button>
+                <button class="tab-btn tab-btn--help" @click="showHelp = true" title="Ayuda">?</button>
             </div>
 
             <!-- Tabla Activas -->
@@ -554,7 +554,7 @@ async function deactivateProduct(product) {
         <!-- ── Modal Nueva Entrada ─────────────────────────────────────────── -->
         <Teleport to="body">
             <Transition name="mo">
-                <div v-if="showEntradaModal" class="modal-bg" @click.self="showEntradaModal = false">
+                <div v-if="showEntradaModal" class="modal-bg">
                     <div class="modal-box">
                         <div class="modal-header">
                             <h3>Nueva entrada bóveda</h3>
@@ -614,7 +614,7 @@ async function deactivateProduct(product) {
         <!-- ── Modal Surtir ───────────────────────────────────────────────── -->
         <Teleport to="body">
             <Transition name="mo">
-                <div v-if="showSurtirModal" class="modal-bg" @click.self="showSurtirModal = false">
+                <div v-if="showSurtirModal" class="modal-bg">
                     <div class="modal-box modal-sm">
                         <div class="modal-header">
                             <h3>Surtir a vitrina</h3>
@@ -672,7 +672,7 @@ async function deactivateProduct(product) {
         <!-- ── Modal Producto Bóveda ─────────────────────────────────────── -->
         <Teleport to="body">
             <Transition name="mo">
-                <div v-if="showProductModal" class="modal-bg" @click.self="showProductModal = false">
+                <div v-if="showProductModal" class="modal-bg">
                     <div class="modal-box modal-sm">
                         <div class="modal-header">
                             <h3>{{ editingProduct ? 'Editar producto' : 'Nuevo producto bóveda' }}</h3>
@@ -760,9 +760,13 @@ async function deactivateProduct(product) {
 .page-title    { font-size: 1.4rem; font-weight: 700; color: var(--text-primary); margin: 0; }
 .page-sub      { font-size: 0.82rem; color: var(--text-muted); margin: 0; }
 
-.btn-help {
-    width: 32px; height: 32px;
+.tab-btn--help {
+    margin-left: auto;
     border-radius: 50%;
+    width: 2rem; height: 2rem;
+    padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
     border: 1px solid var(--border);
     background: transparent;
     color: var(--text-muted);
@@ -771,7 +775,7 @@ async function deactivateProduct(product) {
     display: flex; align-items: center; justify-content: center;
     transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-.btn-help:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
+.tab-btn--help:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
 
 /* ─── KPIs ───────────────────────────────────────────────────────────────────*/
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }

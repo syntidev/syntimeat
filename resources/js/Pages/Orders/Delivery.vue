@@ -181,7 +181,7 @@ const localPedidos = ref([...props.pedidos]);
         <!-- Modal cobro -->
         <Teleport to="body">
             <Transition name="mo">
-                <div v-if="payModal" class="modal-bg" @click.self="closeModal">
+                <div v-if="payModal" class="modal-bg">
                     <div class="modal-box">
                         <div class="modal-header">
                             <h3>Cobrar delivery · {{ activeSale?.ticket_number }}</h3>

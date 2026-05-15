@@ -34,20 +34,30 @@ class ResetDemoData extends Command
 
         DB::transaction(function () use ($businessId): void {
             // ── Limpiar tablas transaccionales ───────────────────────────────
+            // Ventas y sus ítems
+            $saleIds = DB::table('sales')->where('business_id', $businessId)->pluck('id');
+            if ($saleIds->isNotEmpty()) {
+                DB::table('sale_items')->whereIn('sale_id', $saleIds)->delete();
+            }
+            DB::table('sales')->where('business_id', $businessId)->delete();
+
+            // Despiece legacy
             DB::table('despiece_items')
                 ->whereIn('despiece_log_id', fn ($q) => $q->select('id')->from('despiece_logs')->where('business_id', $businessId))
                 ->delete();
             DB::table('despiece_logs')->where('business_id', $businessId)->delete();
+
+            // Fábrica
             DB::table('fabrica_inputs')
                 ->whereIn('fabrica_batch_id', fn ($q) => $q->select('id')->from('fabrica_batches')->where('business_id', $businessId))
                 ->delete();
             DB::table('fabrica_batches')->where('business_id', $businessId)->delete();
+
+            // Inventario y bóveda
             DB::table('inventory_entries')->where('business_id', $businessId)->delete();
             DB::table('boveda_entries')->where('business_id', $businessId)->delete();
-            DB::table('activity_logs')->where('business_id', $businessId)->whereIn('action', [
-                'boveda.entry', 'boveda.surte', 'boveda.close', 'boveda.merma',
-                'despiece', 'fabrica.batch',
-            ])->delete();
+
+            DB::table('activity_logs')->where('business_id', $businessId)->delete();
 
             $this->info('Tablas limpiadas.');
 

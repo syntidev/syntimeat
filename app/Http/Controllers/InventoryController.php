@@ -69,10 +69,11 @@ class InventoryController extends Controller
             ->groupBy('product_id')
             ->pluck('last_at', 'product_id');
 
-        // ─── KPIs ─────────────────────────────────────────────────────────────
-        $kgToday    = $todayEntries->sum(fn (InventoryEntry $e) => (float) $e->net_kg);
+        // ─── KPIs — solo entradas positivas (excluye descuentos de Fábrica) ──────
+        $positiveEntries = $todayEntries->filter(fn (InventoryEntry $e) => (float) $e->quantity_kg > 0);
+        $kgToday    = $positiveEntries->sum(fn (InventoryEntry $e) => (float) $e->net_kg);
         $totalStock = array_sum($stockMap);
-        $costToday  = $todayEntries->sum(
+        $costToday  = $positiveEntries->sum(
             fn (InventoryEntry $e) => (float) $e->quantity_kg * (float) ($e->cost_per_kg_usd ?? 0)
         );
         $belowMin = $products->filter(
@@ -109,16 +110,15 @@ class InventoryController extends Controller
         $businessId = Auth::user()->business->id;
         $userId     = Auth::id();
 
-        // Garantizar que el producto pertenece al negocio
-        abort_unless(
-            Product::where('id', $data['product_id'])->where('business_id', $businessId)->exists(),
-            403
-        );
+        $product = Product::where('id', $data['product_id'])
+            ->where('business_id', $businessId)
+            ->firstOrFail();
 
-        $wasteKg = (float) ($data['waste_kg'] ?? 0);
+        $isUnit  = $product->sale_mode === 'unit';
+        $wasteKg = $isUnit ? 0.0 : (float) ($data['waste_kg'] ?? 0);
 
-        // waste_kg no puede superar quantity_kg
-        if ($wasteKg >= (float) $data['quantity_kg']) {
+        // Para productos por peso: waste no puede superar la cantidad
+        if (! $isUnit && $wasteKg >= (float) $data['quantity_kg']) {
             return back()->withErrors(['waste_kg' => 'La merma no puede ser igual o mayor al total recibido.']);
         }
 

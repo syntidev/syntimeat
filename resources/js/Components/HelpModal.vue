@@ -31,7 +31,7 @@ function onKeydown(e) {
             <div
                 v-if="show"
                 class="help-overlay"
-                @click.self="emit('close')"
+               
                 @keydown="onKeydown"
                 tabindex="-1"
             >

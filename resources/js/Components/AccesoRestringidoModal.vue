@@ -9,7 +9,7 @@ defineEmits(['close'])
 
 <template>
     <Teleport to="body">
-        <div v-if="show" class="ar-overlay" @click.self="$emit('close')">
+        <div v-if="show" class="ar-overlay">
             <div class="ar-modal" role="dialog" aria-modal="true">
                 <div class="ar-icon-wrap">
                     <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

@@ -1,0 +1,25 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('products', function (Blueprint $table) {
+            $table->dropColumn(['cost_per_kg_usd', 'cost_per_unit_usd']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('products', function (Blueprint $table) {
+            $table->decimal('cost_per_kg_usd',   10, 2)->nullable()->after('price_per_unit_usd');
+            $table->decimal('cost_per_unit_usd',  10, 2)->nullable()->after('cost_per_kg_usd');
+        });
+    }
+};

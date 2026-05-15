@@ -769,7 +769,7 @@ function productImageUrl(product) {
         <!-- Drawer mobile -->
         <Teleport to="body">
             <Transition name="cart-drawer">
-                <div v-if="showMobileCart" class="mobile-cart-overlay" @click.self="showMobileCart = false">
+                <div v-if="showMobileCart" class="mobile-cart-overlay">
                     <div class="mobile-cart-drawer">
                         <div class="cart-head">
                             <span class="cart-title">Carrito</span>
@@ -801,7 +801,7 @@ function productImageUrl(product) {
         <!-- Modal cantidad -->
         <Teleport to="body">
             <Transition name="mo">
-                <div v-if="qtyModal" class="modal-bg" @click.self="qtyInput === '' ? closeQtyModal() : null">
+                <div v-if="qtyModal" class="modal-bg">
                     <Transition name="mc" appear>
                         <div v-if="qtyModal" class="modal-card">
                             <div class="modal-top" :style="{ borderTopColor: catColor(qtyProduct) }">
@@ -886,7 +886,7 @@ function productImageUrl(product) {
 
         <!-- Modal stock negativo -->
         <Teleport to="body">
-            <div v-if="showNegativeWarning" class="modal-bg" @click.self="showNegativeWarning = false">
+            <div v-if="showNegativeWarning" class="modal-bg">
                 <div class="modal-box">
                     <div class="modal-header">
                         <h3>⚠ Advertencia de inventario</h3>
@@ -1130,7 +1130,7 @@ function productImageUrl(product) {
 
         <!-- Modal cliente rápido -->
         <Teleport to="body">
-            <div v-if="showQuickClientModal" class="modal-bg" @click.self="closeQuickClient">
+            <div v-if="showQuickClientModal" class="modal-bg">
                 <div class="modal-box" style="max-width:400px;">
                     <div class="modal-header">
                         <h3>Nuevo cliente</h3>

@@ -238,7 +238,7 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
 
         <!-- ── Modal Anulación ────────────────────────────────────────────── -->
         <Teleport to="body">
-            <div v-if="showVoidModal" class="modal-overlay" @click.self="closeVoid">
+            <div v-if="showVoidModal" class="modal-overlay">
                 <div class="modal">
                     <div class="modal__header">
                         <h3 class="modal__title">Anular venta</h3>

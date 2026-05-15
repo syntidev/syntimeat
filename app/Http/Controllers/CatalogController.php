@@ -38,12 +38,9 @@ class CatalogController extends Controller
             ->orderBy('name')
             ->get();
 
-        $user = Auth::user();
-
         return Inertia::render('Catalog/Index', [
-            'categories'  => $categories,
-            'products'    => $products,
-            'canSeeCost'  => $user->hasRole(['super_admin', 'owner', 'branch_admin', 'analyst', 'admin']),
+            'categories' => $categories,
+            'products'   => $products,
         ]);
     }
 
@@ -56,8 +53,6 @@ class CatalogController extends Controller
             'sale_mode'          => ['required', 'in:weight,unit'],
             'price_per_kg_usd'   => ['nullable', 'numeric', 'min:0', 'required_if:sale_mode,weight'],
             'price_per_unit_usd' => ['nullable', 'numeric', 'min:0', 'required_if:sale_mode,unit'],
-            'cost_per_kg_usd'    => ['nullable', 'numeric', 'min:0'],
-            'cost_per_unit_usd'  => ['nullable', 'numeric', 'min:0'],
             'min_stock'          => ['nullable', 'numeric', 'min:0'],
             'fabricable'         => ['boolean'],
             'image'              => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
@@ -74,8 +69,6 @@ class CatalogController extends Controller
             'base_unit_label'    => $validated['sale_mode'] === 'weight' ? 'kg' : 'und',
             'price_per_kg_usd'   => $validated['price_per_kg_usd'] ?? null,
             'price_per_unit_usd' => $validated['price_per_unit_usd'] ?? null,
-            'cost_per_kg_usd'    => $validated['cost_per_kg_usd'] ?? null,
-            'cost_per_unit_usd'  => $validated['cost_per_unit_usd'] ?? null,
             'min_stock'          => $validated['min_stock'] ?? 0,
             'fabricable'         => $validated['fabricable'] ?? false,
             'active'             => true,
@@ -105,8 +98,6 @@ class CatalogController extends Controller
             'sale_mode'          => ['required', 'in:weight,unit'],
             'price_per_kg_usd'   => ['nullable', 'numeric', 'min:0', 'required_if:sale_mode,weight'],
             'price_per_unit_usd' => ['nullable', 'numeric', 'min:0', 'required_if:sale_mode,unit'],
-            'cost_per_kg_usd'    => ['nullable', 'numeric', 'min:0'],
-            'cost_per_unit_usd'  => ['nullable', 'numeric', 'min:0'],
             'min_stock'          => ['nullable', 'numeric', 'min:0'],
             'fabricable'         => ['boolean'],
             'active'             => ['boolean'],
@@ -122,8 +113,6 @@ class CatalogController extends Controller
             'base_unit_label'    => $validated['sale_mode'] === 'weight' ? 'kg' : 'und',
             'price_per_kg_usd'   => $validated['price_per_kg_usd'] ?? null,
             'price_per_unit_usd' => $validated['price_per_unit_usd'] ?? null,
-            'cost_per_kg_usd'    => $validated['cost_per_kg_usd'] ?? null,
-            'cost_per_unit_usd'  => $validated['cost_per_unit_usd'] ?? null,
             'min_stock'          => $validated['min_stock'] ?? 0,
             'fabricable'         => $validated['fabricable'] ?? $product->fabricable,
             'active'             => $validated['active'] ?? $product->active,

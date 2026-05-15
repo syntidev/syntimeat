@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
+use App\Models\BovedaEntry;
+use App\Models\BovedaProduct;
 use App\Models\FabricaBatch;
 use App\Models\InventoryEntry;
 use App\Models\Product;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -91,11 +94,56 @@ class FabricaController extends Controller
                 'inputs_kg'      => round($b->inputs->sum('quantity_kg'), 3),
             ]);
 
+        // Piezas surtidas desde bóveda que requieren despiece y aún no se procesaron
+        $despiecePendiente = BovedaEntry::where('business_id', $businessId)
+            ->where('kg_surtido_vitrina', '>', 0)
+            ->whereNull('despiece_completado_at')
+            ->whereHas('bovedaProduct', fn ($q) => $q->where('requires_despiece', true)->where('business_id', $businessId))
+            ->orderBy('updated_at')
+            ->get()
+            ->map(function ($e) use ($businessId) {
+                // Categoría → productos vitrina que reciben los cortes
+                $catMap = [
+                    'Medio Canal Res'        => 'Res',
+                    'Canal Cerdo'            => 'Cerdo',
+                    'Pollo Entero Congelado' => 'Pollo',
+                ];
+                $catName  = $catMap[$e->product_type] ?? null;
+                $resOrder = ['Premium', 'Primera', 'Segunda', 'Costilla', 'Hueso Redondo', 'Hueso Rojo', 'Rabo', 'Recortes de Res'];
+
+                $productos = $catName
+                    ? Product::with('category')
+                        ->where('business_id', $businessId)
+                        ->where('location', 'vitrina')
+                        ->where('active', true)
+                        ->where('fabricable', false)
+                        ->whereHas('category', fn ($q) => $q->where('name', $catName))
+                        ->get(['id', 'name'])
+                        ->sortBy(fn ($p) => $catName === 'Res'
+                            ? (array_search($p->name, $resOrder) !== false ? array_search($p->name, $resOrder) : 999)
+                            : $p->name
+                        )
+                        ->values()
+                        ->map(fn ($p) => ['id' => $p->id, 'name' => $p->name])
+                    : collect();
+
+                return [
+                    'id'                 => $e->id,
+                    'product_type'       => $e->product_type,
+                    'description'        => $e->description,
+                    'kg_surtido'         => (float) $e->kg_surtido_vitrina,
+                    'supplier'           => $e->supplier,
+                    'entered_at'         => $e->entered_at?->format('d/m/Y'),
+                    'productos_vitrina'  => $productos,
+                ];
+            });
+
         return Inertia::render('Fabrica/Index', [
-            'fabricables' => $fabricables,
-            'ingredientes'=> $ingredientes,
-            'stockMap'    => $stockMap,
-            'historial'   => $historial,
+            'fabricables'       => $fabricables,
+            'ingredientes'      => $ingredientes,
+            'stockMap'          => $stockMap,
+            'historial'         => $historial,
+            'despiecePendiente' => $despiecePendiente,
         ]);
     }
 
@@ -106,8 +154,8 @@ class FabricaController extends Controller
 
         $data = $request->validate([
             'output_product_id'          => ['required', 'integer', 'exists:products,id'],
-            'output_kg'                  => ['required', 'numeric', 'min:0.001'],
-            'output_units'               => ['sometimes', 'numeric', 'min:0'],
+            'output_kg'                  => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'output_units'               => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'notes'                      => ['nullable', 'string', 'max:500'],
             'produced_at'                => ['required', 'date'],
             'inputs'                     => ['required', 'array', 'min:1'],
@@ -117,14 +165,24 @@ class FabricaController extends Controller
         ]);
 
         // Verificar que el producto output pertenece al negocio y es fabricable
-        abort_unless(
-            Product::where('id', $data['output_product_id'])
-                ->where('business_id', $businessId)
-                ->where('fabricable', true)
-                ->exists(),
-            403,
-            'Producto no es fabricable.'
-        );
+        $outputProduct = Product::where('id', $data['output_product_id'])
+            ->where('business_id', $businessId)
+            ->where('fabricable', true)
+            ->firstOrFail();
+
+        abort_if($outputProduct === null, 403, 'Producto no es fabricable.');
+
+        // Resolver cantidad según sale_mode
+        $isUnit = $outputProduct->sale_mode === 'unit';
+
+        if ($isUnit) {
+            $units = (float) ($data['output_units'] ?? 0);
+            abort_if($units < 1, 422, 'Debes indicar al menos 1 unidad producida.');
+            $data['output_kg']    = $units; // unidades se almacenan en quantity_kg
+            $data['output_units'] = $units;
+        } else {
+            abort_if(($data['output_kg'] ?? 0) <= 0, 422, 'Debes indicar los kg producidos.');
+        }
 
         // Verificar que todos los ingredientes pertenecen al negocio
         $inputIds = array_column($data['inputs'], 'product_id');
@@ -197,5 +255,80 @@ class FabricaController extends Controller
         });
 
         return back()->with('success', 'Lote registrado. Inventario actualizado.');
+    }
+
+    public function storeDespiece(Request $request): JsonResponse
+    {
+        $user       = Auth::user();
+        $businessId = $user->business_id;
+
+        $data = $request->validate([
+            'boveda_entry_id' => ['required', 'integer', 'exists:boveda_entries,id'],
+            'cortes'          => ['required', 'array', 'min:1'],
+            'cortes.*.product_id' => ['required', 'integer', 'exists:products,id'],
+            'cortes.*.kg'         => ['required', 'numeric', 'min:0'],
+            'notes'           => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $entry = BovedaEntry::where('id', $data['boveda_entry_id'])
+            ->where('business_id', $businessId)
+            ->firstOrFail();
+
+        abort_if($entry->despiece_completado_at !== null, 422, 'Este despiece ya fue procesado.');
+
+        $cortesConKg = collect($data['cortes'])->filter(fn ($c) => (float) $c['kg'] > 0);
+
+        if ($cortesConKg->isEmpty()) {
+            return response()->json(['error' => 'Debes registrar al menos un corte con kg mayor a 0.'], 422);
+        }
+
+        $totalCortes = round($cortesConKg->sum(fn ($c) => (float) $c['kg']), 3);
+        $kgSurtido   = round((float) $entry->kg_surtido_vitrina, 3);
+        $merma       = round($kgSurtido - $totalCortes, 3);
+
+        if ($totalCortes > $kgSurtido) {
+            return response()->json([
+                'error' => "La suma de cortes ({$totalCortes} kg) supera los kg surtidos ({$kgSurtido} kg).",
+            ], 422);
+        }
+
+        DB::transaction(function () use ($entry, $cortesConKg, $merma, $kgSurtido, $businessId, $user, $data): void {
+            foreach ($cortesConKg as $corte) {
+                InventoryEntry::create([
+                    'business_id'     => $businessId,
+                    'product_id'      => $corte['product_id'],
+                    'boveda_entry_id' => $entry->id,
+                    'quantity_kg'     => (float) $corte['kg'],
+                    'waste_kg'        => 0,
+                    'location'        => 'vitrina',
+                    'notes'           => 'Despiece ' . $entry->product_type . ' #' . $entry->id,
+                    'entered_at'      => now(),
+                    'created_by'      => $user->id,
+                ]);
+            }
+
+            $entry->update(['despiece_completado_at' => now()]);
+            if ($merma > 0) {
+                $entry->increment('waste_kg', $merma);
+            }
+
+            ActivityLog::create([
+                'business_id' => $businessId,
+                'user_id'     => $user->id,
+                'action'      => 'fabrica.despiece',
+                'model_type'  => BovedaEntry::class,
+                'model_id'    => $entry->id,
+                'new_values'  => [
+                    'total_cortes' => $kgSurtido,
+                    'documentado'  => round($kgSurtido - $merma, 3),
+                    'merma'        => $merma,
+                ],
+            ]);
+        });
+
+        return response()->json([
+            'message' => 'Despiece registrado. Stock de vitrina actualizado.',
+            'merma'   => $merma,
+        ]);
     }
 }

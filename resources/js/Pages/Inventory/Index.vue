@@ -1,6 +1,6 @@
 ﻿<script setup>
 import AppLayout from '@/Layouts/AppLayout.vue'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 
 const props = defineProps({
@@ -115,7 +115,21 @@ const filteredProducts = computed(() => {
     return props.products.filter(p => p.category_id === Number(selectedCategory.value))
 })
 
+const selectedProduct = computed(() => {
+    if (!form.product_id) return null
+    return props.products.find(p => p.id === Number(form.product_id)) ?? null
+})
+
+const isUnitMode = computed(() => selectedProduct.value?.sale_mode === 'unit')
+
+watch(() => form.product_id, () => {
+    if (isUnitMode.value) form.waste_kg = 0
+})
+
 const netKg = computed(() => {
+    if (isUnitMode.value) {
+        return Math.max(0, parseFloat(form.quantity_kg) || 0).toFixed(0)
+    }
     const qty   = parseFloat(form.quantity_kg) || 0
     const waste = parseFloat(form.waste_kg)    || 0
     return Math.max(0, qty - waste).toFixed(3)
@@ -172,6 +186,15 @@ function fmtKg(val) {
 function fmtTime(dt) {
     if (! dt) return '—'
     return new Date(dt).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })
+}
+
+function entryLabel(e) {
+    const n = (e.notes ?? '').toLowerCase()
+    if (n.includes('producción fábrica') || n.includes('produccion fabrica')) return { text: 'Fábrica', cls: 'badge-fabrica' }
+    if (n.includes('insumo fábrica')     || n.includes('insumo fabrica'))     return { text: 'Consumo', cls: 'badge-consumo' }
+    if (n.includes('despiece'))                                                return { text: 'Despiece', cls: 'badge-despiece' }
+    if (parseFloat(e.quantity_kg) < 0)                                        return { text: 'Salida', cls: 'badge-consumo' }
+    return { text: 'Entrada', cls: 'badge-entry' }
 }
 
 function fmtDate(dt) {
@@ -341,7 +364,7 @@ function fmtUsd(val) {
         <!-- ── Drawer producto ────────────────────────────────────────────────── -->
         <Teleport to="body">
             <Transition name="drawer">
-                <div v-if="drawerProduct" class="drawer-overlay" @click.self="closeDrawer">
+                <div v-if="drawerProduct" class="drawer-overlay">
                     <aside class="drawer">
                         <!-- Header -->
                         <div class="drawer-header">
@@ -403,16 +426,22 @@ function fmtUsd(val) {
                                 <div v-for="e in drawerEntries" :key="e.id" class="history-row">
                                     <div class="history-meta">
                                         <span class="h-time">{{ fmtTime(e.entered_at) }}</span>
-                                        <span class="h-type badge-entry">Entrada</span>
+                                        <span class="h-type" :class="entryLabel(e).cls">{{ entryLabel(e).text }}</span>
                                     </div>
                                     <div class="history-nums">
-                                        <span class="h-qty">{{ fmtKg(e.quantity_kg) }} kg</span>
-                                        <span v-if="parseFloat(e.waste_kg) > 0" class="h-waste">
+                                        <span class="h-qty" :class="parseFloat(e.quantity_kg) < 0 ? 'h-qty--neg' : ''">
+                                            {{ fmtKg(Math.abs(parseFloat(e.quantity_kg))) }}
+                                            {{ drawerProduct.sale_mode === 'unit' ? 'und' : 'kg' }}
+                                        </span>
+                                        <span v-if="drawerProduct.sale_mode !== 'unit' && parseFloat(e.waste_kg) > 0" class="h-waste">
                                             − {{ fmtKg(e.waste_kg) }} kg merma
                                         </span>
-                                        <span class="h-net">Neto: {{ fmtKg(e.net_kg) }} kg</span>
+                                        <span v-if="drawerProduct.sale_mode !== 'unit' && parseFloat(e.quantity_kg) > 0" class="h-net">
+                                            Neto: {{ fmtKg(e.net_kg) }} kg
+                                        </span>
                                     </div>
-                                    <div v-if="e.supplier" class="h-supplier">{{ e.supplier }}</div>
+                                    <div v-if="e.notes" class="h-notes">{{ e.notes }}</div>
+                                    <div v-else-if="e.supplier" class="h-supplier">{{ e.supplier }}</div>
                                 </div>
                             </div>
                         </div>
@@ -423,7 +452,7 @@ function fmtUsd(val) {
 
         <!-- ── Modal Nueva Entrada ────────────────────────────────────────────── -->
         <Teleport to="body">
-            <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
+            <div v-if="showModal" class="modal-overlay">
                 <div class="modal-box">
                     <h2 class="modal-title">Registrar Entrada</h2>
 
@@ -454,16 +483,18 @@ function fmtUsd(val) {
                             </div>
                         </div>
 
-                        <!-- Fila 2: Kilos + Merma + Neto -->
+                        <!-- Fila 2: Cantidad + Merma + Neto -->
                         <div class="form-row">
                             <div class="field-group">
-                                <label class="field-label">Kilos recibidos *</label>
-                                <input v-model="form.quantity_kg" type="number" step="0.001" min="0.001"
+                                <label class="field-label">{{ isUnitMode ? 'Unidades recibidas *' : 'Kilos recibidos *' }}</label>
+                                <input v-model="form.quantity_kg" type="number"
+                                    :step="isUnitMode ? '1' : '0.001'"
+                                    :min="isUnitMode ? '1' : '0.001'"
                                     class="field-input" :class="{ 'field-error': form.errors.quantity_kg }"
-                                    placeholder="0.000" />
+                                    :placeholder="isUnitMode ? '0' : '0.000'" />
                                 <span v-if="form.errors.quantity_kg" class="error-msg">{{ form.errors.quantity_kg }}</span>
                             </div>
-                            <div class="field-group">
+                            <div v-if="!isUnitMode" class="field-group">
                                 <label class="field-label">Merma / hueso / pérdida (kg)</label>
                                 <input v-model="form.waste_kg" type="number" step="0.001" min="0"
                                     class="field-input" :class="{ 'field-error': form.errors.waste_kg }"
@@ -471,15 +502,15 @@ function fmtUsd(val) {
                                 <span v-if="form.errors.waste_kg" class="error-msg">{{ form.errors.waste_kg }}</span>
                             </div>
                             <div class="field-group">
-                                <label class="field-label">Neto calculado</label>
-                                <div class="field-readonly">{{ netKg }} kg</div>
+                                <label class="field-label">{{ isUnitMode ? 'Total' : 'Neto calculado' }}</label>
+                                <div class="field-readonly">{{ netKg }} {{ isUnitMode ? 'und' : 'kg' }}</div>
                             </div>
                         </div>
 
                         <!-- Fila 3: Costo + Proveedor + Fecha -->
                         <div class="form-row">
                             <div class="field-group">
-                                <label class="field-label">Costo por kg ($)</label>
+                                <label class="field-label">{{ isUnitMode ? 'Costo por unidad ($)' : 'Costo por kg ($)' }}</label>
                                 <input v-model="form.cost_per_kg_usd" type="number" step="0.01" min="0"
                                     class="field-input" placeholder="0.00 (opcional)" />
                             </div>
@@ -822,11 +853,16 @@ function fmtUsd(val) {
 }
 .history-meta { display: flex; align-items: center; gap: 0.5rem; }
 .h-time { font-size: 0.75rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.badge-entry { background: color-mix(in srgb, #3b82f6 18%, transparent); color: #2563eb; font-size: 0.68rem; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 999px; text-transform: uppercase; }
+.badge-entry    { background: color-mix(in srgb, #3b82f6 18%, transparent); color: #2563eb; font-size: 0.68rem; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 999px; text-transform: uppercase; }
+.badge-fabrica  { background: color-mix(in srgb, #8b5cf6 18%, transparent); color: #7c3aed; font-size: 0.68rem; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 999px; text-transform: uppercase; }
+.badge-consumo  { background: color-mix(in srgb, #ef4444 15%, transparent); color: #dc2626; font-size: 0.68rem; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 999px; text-transform: uppercase; }
+.badge-despiece { background: color-mix(in srgb, #f59e0b 18%, transparent); color: #d97706; font-size: 0.68rem; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 999px; text-transform: uppercase; }
 .history-nums { display: flex; flex-wrap: wrap; gap: 0.5rem; font-size: 0.82rem; font-variant-numeric: tabular-nums; }
 .h-qty { color: var(--text-primary); font-weight: 600; }
+.h-qty--neg { color: #dc2626; }
 .h-waste { color: #f59e0b; }
 .h-net { color: #16a34a; font-weight: 600; }
+.h-notes { font-size: 0.72rem; color: var(--text-muted); font-style: italic; }
 .h-supplier { font-size: 0.75rem; color: var(--text-muted); }
 
 /* ─── Modal ──────────────────────────────────────────────────────────────── */

@@ -160,7 +160,7 @@ const errorClass = 'mt-1 text-xs text-red-400'
 
         <!-- ── Modal ─────────────────────────────────────────────────────────── -->
         <Teleport to="body">
-            <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
+            <div v-if="showModal" class="modal-overlay">
                 <div class="modal">
                     <div class="modal__header">
                         <h3>{{ editTerminal ? 'Editar terminal' : 'Nuevo terminal POS' }}</h3>

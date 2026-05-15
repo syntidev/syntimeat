@@ -193,7 +193,7 @@ function toggleActive(client) {
 
         <!-- ─── Drawer lateral ────────────────────────────────────────────── -->
         <Teleport to="body">
-            <div v-if="activeClient" class="drawer-overlay" @click.self="closeDrawer">
+            <div v-if="activeClient" class="drawer-overlay">
                 <div class="drawer">
                     <div class="drawer-header">
                         <div>
@@ -237,7 +237,7 @@ function toggleActive(client) {
 
         <!-- ─── Modal crear/editar ───────────────────────────────────────── -->
         <Teleport to="body">
-            <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
+            <div v-if="showModal" class="modal-overlay">
                 <div class="modal-box">
                     <div class="modal-header">
                         <h3>{{ modalMode === 'create' ? 'Nuevo cliente' : 'Editar cliente' }}</h3>

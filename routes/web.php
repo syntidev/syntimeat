@@ -10,7 +10,6 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ContingencyController;
-use App\Http\Controllers\DespieceController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PaymentMethodController;
@@ -117,16 +116,13 @@ Route::middleware(['auth', 'verified', 'check.onboarding'])->group(function () {
         Route::delete('/catalogo/subcategorias/{subcategory}', [CatalogController::class, 'destroySubcategory'])->name('catalog.subcategory.destroy');
 
         // Fábrica
-        Route::get('/fabrica',  [FabricaController::class, 'index'])->name('fabrica.index');
-        Route::post('/fabrica', [FabricaController::class, 'store'])->name('fabrica.store');
+        Route::get('/fabrica',           [FabricaController::class, 'index'])->name('fabrica.index');
+        Route::post('/fabrica',          [FabricaController::class, 'store'])->name('fabrica.store');
+        Route::post('/fabrica/despiece', [FabricaController::class, 'storeDespiece'])->name('fabrica.despiece');
 
         // Inventario
         Route::get('/inventario', [InventoryController::class, 'index'])->name('inventory.index');
         Route::post('/inventario', [InventoryController::class, 'store'])->name('inventory.store');
-
-        // Despiece
-        Route::get('/despiece', [DespieceController::class, 'index'])->name('despiece.index');
-        Route::post('/despiece', [DespieceController::class, 'store'])->name('despiece.store');
 
         // Bóveda
         Route::get('/boveda', [BovedaController::class, 'index'])->name('boveda.index');

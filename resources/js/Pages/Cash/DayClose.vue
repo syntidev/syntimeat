@@ -302,7 +302,7 @@ function submitClose() {
 
         <!-- Modal confirmación ─────────────────────────────────────────────── -->
         <Teleport to="body">
-            <div v-if="showModal && cashRegister" class="modal-overlay" @click.self="showModal = false">
+            <div v-if="showModal && cashRegister" class="modal-overlay">
                 <div class="modal-box">
                     <h3 class="modal-title">¿Confirmar cierre del día?</h3>
                     <p class="modal-body">

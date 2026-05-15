@@ -1,19 +1,32 @@
 <script setup>
 import { ref, computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { useForm } from '@inertiajs/vue3';
+import { useForm, router } from '@inertiajs/vue3';
+import HelpModal from '@/Components/HelpModal.vue';
 
 const props = defineProps({
-    fabricables:  { type: Array,  default: () => [] },
-    ingredientes: { type: Array,  default: () => [] },
-    stockMap:     { type: Object, default: () => ({}) },
-    historial:    { type: Array,  default: () => [] },
+    fabricables:       { type: Array,  default: () => [] },
+    ingredientes:      { type: Array,  default: () => [] },
+    stockMap:          { type: Object, default: () => ({}) },
+    historial:         { type: Array,  default: () => [] },
+    despiecePendiente: { type: Array,  default: () => [] },
 });
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 function fmtKg(v)   { return Number(v || 0).toFixed(3) + ' kg'; }
 function fmtUsd(v)  { return '$ ' + Number(v || 0).toFixed(2); }
 function fmtDate(d) { return d ?? '—'; }
+
+function fmtStock(prodId) {
+    const val  = props.stockMap[prodId] ?? 0;
+    const prod = props.ingredientes.find(p => p.id === prodId);
+    if (prod?.sale_mode === 'unit') return Math.floor(val) + ' piezas';
+    return fmtKg(val);
+}
+
+function ingredSaleMode(prodId) {
+    return props.ingredientes.find(p => p.id === prodId)?.sale_mode ?? 'weight';
+}
 
 // ─── Tab principal ────────────────────────────────────────────────────────────
 const tab = ref('fabricar');
@@ -76,21 +89,30 @@ function removeIngrediente(idx) {
     form.inputs.splice(idx, 1);
 }
 
+// ─── Modo unidad ──────────────────────────────────────────────────────────────
+const isUnitMode = computed(() => modalProduct.value?.sale_mode === 'unit');
+
 // ─── Totales ──────────────────────────────────────────────────────────────────
 const totalInputKg   = computed(() => form.inputs.reduce((s, i) => s + (parseFloat(i.quantity_kg) || 0), 0));
 const totalInputCost = computed(() => form.inputs.reduce((s, i) => s + (parseFloat(i.cost_usd)    || 0), 0));
-const rendimiento    = computed(() => {
-    const outKg = parseFloat(form.output_kg) || 0;
-    return totalInputKg.value > 0 ? ((outKg / totalInputKg.value) * 100).toFixed(1) : '—';
+
+const outputQty = computed(() =>
+    isUnitMode.value ? (parseFloat(form.output_units) || 0) : (parseFloat(form.output_kg) || 0)
+);
+
+const rendimiento = computed(() => {
+    if (isUnitMode.value) return '—'; // no aplica para piezas
+    return totalInputKg.value > 0 ? ((outputQty.value / totalInputKg.value) * 100).toFixed(1) : '—';
 });
-const costoPorKg = computed(() => {
-    const outKg = parseFloat(form.output_kg) || 0;
-    return outKg > 0 ? fmtUsd(totalInputCost.value / outKg) : '—';
+
+const costoPorUnidad = computed(() => {
+    if (outputQty.value <= 0) return '—';
+    return fmtUsd(totalInputCost.value / outputQty.value);
 });
 
 const canSubmit = computed(() =>
     form.output_product_id &&
-    parseFloat(form.output_kg) > 0 &&
+    outputQty.value >= (isUnitMode.value ? 1 : 0.001) &&
     form.inputs.length > 0 &&
     form.inputs.every(i => parseFloat(i.quantity_kg) > 0)
 );
@@ -102,6 +124,123 @@ function submitBatch() {
         onSuccess: () => closeModal(),
     });
 }
+
+// ─── Ayuda ────────────────────────────────────────────────────────────────────
+const showHelp = ref(false);
+
+const helpSteps = [
+    {
+        icon: '🏭',
+        title: 'Despiece pendiente',
+        body: 'Cuando en Bóveda se surte una pieza que requiere despiece (res, cerdo, pollo), aparece aquí automáticamente con los kg surtidos. Es la primera tarea del día: documentar los cortes antes de fabricar.',
+        tip: 'El sistema muestra cuántos kg van a cada corte (Premium, Primera, Costilla…). Lo que no se documente se registra como merma de despiece.',
+    },
+    {
+        icon: '⚖️',
+        title: 'Registrar cortes del despiece',
+        body: 'Abre la pieza pendiente, ingresa los kg reales de cada corte según la balanza. El sistema calcula en tiempo real los kg documentados y la merma. Cuando cuadre, haz clic en "Registrar cortes".',
+        tip: 'No puedes ingresar más kg de los que se surtieron. El botón se bloquea si la suma excede el total.',
+    },
+    {
+        icon: '📄',
+        title: 'Planilla de despiece (PDF)',
+        body: 'Al registrar, el sistema ofrece imprimir la planilla con todos los datos. Abre en otra pestaña pre-llenada con los kg reales. Usa Ctrl+P → "Guardar como PDF" para el control físico o digital del día.',
+    },
+    {
+        icon: '🥩',
+        title: 'Fabricar un lote',
+        body: 'Para productos elaborados (chorizo, embutidos, cestas), selecciona el producto en las tarjetas, agrega los ingredientes que usaste con sus kg y costo, anota los kg producidos y guarda el lote.',
+        tip: 'Los ingredientes (incluyendo Recortes de Res del despiece) se descuentan del stock de vitrina al guardar. El producto fabricado se suma al inventario.',
+    },
+    {
+        icon: '📋',
+        title: 'Historial de lotes',
+        body: 'En la pestaña Historial ves todos los lotes registrados con fecha, kg producidos, insumos usados, costo y operador. Sirve para trazabilidad y control de rendimiento.',
+    },
+];
+
+const helpFaqs = [
+    {
+        q: '¿Por qué aparece una pieza en "Despiece pendiente"?',
+        a: 'Porque en el módulo Bóveda se surtió esa pieza con flujo "Despiece". Eso significa que la carne salió de bóveda y ahora está en el área de corte esperando ser documentada. Hasta que registres los cortes, el stock de vitrina no se actualiza.',
+    },
+    {
+        q: '¿Qué pasa con los kg que no documento en cortes?',
+        a: 'Se registran automáticamente como merma de despiece en la entrada de bóveda. Es normal: huesos, grasa descartada, pérdidas de sangre al cortar. El sistema los separa de la merma de almacenamiento para que puedas analizar cada tipo por separado.',
+    },
+    {
+        q: '¿Qué son los ingredientes de un lote?',
+        a: 'Son los insumos de vitrina que se consumen para producir un lote. Por ejemplo, para chorizo usas Recortes de Res (que entraron del despiece), especias, etc. Al guardar el lote, esos kg se descuentan del stock de vitrina automáticamente.',
+    },
+    {
+        q: '¿Puedo registrar un lote sin hacer despiece antes?',
+        a: 'Sí, si tienes ingredientes en stock de vitrina. El despiece y la fabricación son procesos independientes. El despiece alimenta el stock; la fabricación lo consume.',
+    },
+    {
+        q: '¿El % de rendimiento qué indica?',
+        a: 'Es la relación entre los kg producidos y los kg de ingredientes usados. Si usaste 10 kg de carne y obtuviste 8 kg de chorizo, el rendimiento es 80%. Te ayuda a detectar si una receta está dando buenas proporciones o hay pérdida excesiva.',
+    },
+];
+
+// ─── Despiece ─────────────────────────────────────────────────────────────────
+const despieceExpanded  = ref({});
+const despieceForms     = ref({});
+const despieceErrors    = ref({});
+const despieceSaving    = ref({});
+const despieceFlash     = ref(null);
+const despiecePdfEntry  = ref(null);
+
+function initDespiece(entry) {
+    if (despieceForms.value[entry.id]) return;
+    despieceForms.value[entry.id] = entry.productos_vitrina.map(p => ({
+        product_id: p.id,
+        name:       p.name,
+        kg:         '',
+    }));
+}
+
+function toggleDespiece(entry) {
+    initDespiece(entry);
+    despieceExpanded.value[entry.id] = !despieceExpanded.value[entry.id];
+}
+
+function totalCortes(entryId) {
+    const rows = despieceForms.value[entryId] ?? [];
+    return rows.reduce((s, r) => s + (parseFloat(r.kg) || 0), 0);
+}
+
+function mermaDespiece(entry) {
+    return Math.max(0, entry.kg_surtido - totalCortes(entry.id));
+}
+
+function cortesExceden(entry) {
+    return totalCortes(entry.id) > entry.kg_surtido + 0.001;
+}
+
+async function submitDespiece(entry) {
+    despieceErrors.value[entry.id] = null;
+    despieceSaving.value[entry.id] = true;
+
+    const cortes = (despieceForms.value[entry.id] ?? []).map(r => ({
+        product_id: r.product_id,
+        kg:         parseFloat(r.kg) || 0,
+    }));
+
+    try {
+        const { data } = await axios.post(route('fabrica.despiece'), {
+            boveda_entry_id: entry.id,
+            cortes,
+        });
+
+        despieceFlash.value   = `Despiece completado. Merma registrada: ${Number(data.merma).toFixed(3)} kg`;
+        despiecePdfEntry.value = entry;
+        router.reload({ only: ['despiecePendiente', 'historial'] });
+    } catch (err) {
+        despieceErrors.value[entry.id] = err?.response?.data?.error ?? 'Error al guardar. Intenta de nuevo.';
+    } finally {
+        despieceSaving.value[entry.id] = false;
+    }
+}
 </script>
 
 <template>
@@ -111,7 +250,10 @@ function submitBatch() {
             <!-- Header ─────────────────────────────────────────────────────── -->
             <div class="fab-header">
                 <div>
-                    <h1 class="fab-title">Fábrica</h1>
+                    <h1 class="fab-title">
+                        Fábrica
+                        <span v-if="despiecePendiente.length" class="fab-despiece-badge">{{ despiecePendiente.length }} despiece{{ despiecePendiente.length > 1 ? 's' : '' }} pendiente{{ despiecePendiente.length > 1 ? 's' : '' }}</span>
+                    </h1>
                     <p class="fab-sub">Selecciona un producto para registrar su producción.</p>
                 </div>
                 <div class="fab-tabs">
@@ -119,11 +261,110 @@ function submitBatch() {
                     <button :class="['fab-tab', { 'fab-tab--active': tab === 'historial' }]" @click="tab = 'historial'">
                         Historial <span v-if="historial.length" class="fab-count">{{ historial.length }}</span>
                     </button>
+                    <button class="fab-tab fab-tab--help" @click="showHelp = true" title="Ayuda">?</button>
                 </div>
             </div>
 
             <!-- Flash ───────────────────────────────────────────────────────── -->
             <div v-if="$page.props.flash?.success" class="fab-flash">{{ $page.props.flash.success }}</div>
+            <div v-if="despieceFlash" class="fab-flash fab-flash--despiece">
+                <span>{{ despieceFlash }}</span>
+                <div class="despiece-pdf-actions">
+                    <a
+                        v-if="despiecePdfEntry"
+                        :href="route('boveda.plantilla', { entry: despiecePdfEntry.id })"
+                        target="_blank"
+                        class="btn-pdf"
+                    >🖨 Guardar / Imprimir planilla</a>
+                    <button class="btn-pdf-close" @click="despieceFlash = null; despiecePdfEntry = null">×</button>
+                </div>
+            </div>
+
+            <!-- ── Despiece pendiente ─────────────────────────────────────── -->
+            <section v-if="despiecePendiente.length" class="despiece-section">
+                <div class="despiece-section-header">
+                    <div class="despiece-badge">{{ despiecePendiente.length }}</div>
+                    <div>
+                        <h2 class="despiece-title">Despiece pendiente</h2>
+                        <p class="despiece-sub">Piezas surtidas de bóveda que requieren registro de cortes en vitrina.</p>
+                    </div>
+                </div>
+
+                <div class="despiece-list">
+                    <div v-for="entry in despiecePendiente" :key="entry.id" class="despiece-card">
+
+                        <!-- Cabecera de la pieza -->
+                        <div class="despiece-card-header" @click="toggleDespiece(entry)">
+                            <div class="despiece-card-info">
+                                <span class="despiece-card-title">{{ entry.product_type }}</span>
+                                <span v-if="entry.description" class="despiece-card-desc">{{ entry.description }}</span>
+                                <span v-if="entry.supplier" class="despiece-card-supplier">Proveedor: {{ entry.supplier }}</span>
+                            </div>
+                            <div class="despiece-card-kg">
+                                <span class="despiece-kg-val">{{ fmtKg(entry.kg_surtido) }}</span>
+                                <span class="despiece-kg-label">surtidos</span>
+                            </div>
+                            <button class="despiece-toggle" :aria-expanded="!!despieceExpanded[entry.id]">
+                                {{ despieceExpanded[entry.id] ? '▲' : '▼' }}
+                            </button>
+                        </div>
+
+                        <!-- Formulario de cortes -->
+                        <div v-if="despieceExpanded[entry.id]" class="despiece-form">
+                            <p class="despiece-form-hint">Ingresa los kg de cada corte. Lo que no se documente se registra como merma.</p>
+
+                            <div class="despiece-rows">
+                                <div
+                                    v-for="row in despieceForms[entry.id]"
+                                    :key="row.product_id"
+                                    class="despiece-row"
+                                >
+                                    <label class="despiece-row-name">{{ row.name }}</label>
+                                    <input
+                                        v-model="row.kg"
+                                        type="number"
+                                        step="0.001"
+                                        min="0"
+                                        class="fab-input despiece-input"
+                                        placeholder="0.000 kg"
+                                    />
+                                </div>
+                            </div>
+
+                            <div class="despiece-totals">
+                                <div class="despiece-total-row">
+                                    <span>Surtido</span>
+                                    <strong>{{ fmtKg(entry.kg_surtido) }}</strong>
+                                </div>
+                                <div class="despiece-total-row">
+                                    <span>Documentado</span>
+                                    <strong>{{ fmtKg(totalCortes(entry.id)) }}</strong>
+                                </div>
+                                    <div class="despiece-total-row despiece-total-merma">
+                                    <span>Merma</span>
+                                    <strong>{{ fmtKg(mermaDespiece(entry)) }}</strong>
+                                </div>
+                            </div>
+
+                            <p v-if="cortesExceden(entry)" class="despiece-over-limit">
+                                ⚠ La suma ({{ fmtKg(totalCortes(entry.id)) }}) supera los {{ fmtKg(entry.kg_surtido) }} surtidos. Revisa los pesos.
+                            </p>
+                            <p v-else-if="despieceErrors[entry.id]" class="fab-error despiece-error">{{ despieceErrors[entry.id] }}</p>
+
+                            <div class="despiece-actions">
+                                <button
+                                    class="btn btn-brand"
+                                    :disabled="despieceSaving[entry.id] || cortesExceden(entry)"
+                                    @click="submitDespiece(entry)"
+                                >
+                                    {{ despieceSaving[entry.id] ? 'Registrando…' : 'Registrar cortes' }}
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </section>
 
             <!-- ── Tab: Fabricar ──────────────────────────────────────────── -->
             <div v-if="tab === 'fabricar'">
@@ -184,7 +425,7 @@ function submitBatch() {
 
         <!-- ── Modal de lote ──────────────────────────────────────────────── -->
         <Teleport to="body">
-            <div v-if="showModal" class="fab-modal-bg" @click.self="closeModal">
+            <div v-if="showModal" class="fab-modal-bg">
                 <div class="fab-modal">
 
                     <!-- Header del modal -->
@@ -203,7 +444,19 @@ function submitBatch() {
 
                             <section class="fab-section">
                                 <h3 class="fab-section-title">Producción</h3>
-                                <div class="fab-field-row">
+
+                                <!-- Producto por UNIDAD -->
+                                <div v-if="isUnitMode" class="fab-field">
+                                    <label class="fab-label">Unidades producidas *</label>
+                                    <div class="fab-unit-input-wrap">
+                                        <input v-model="form.output_units" type="number" step="1" min="1" class="fab-input" placeholder="0" />
+                                        <span class="fab-unit-suffix">piezas</span>
+                                    </div>
+                                    <p v-if="form.errors.output_units" class="fab-error">{{ form.errors.output_units }}</p>
+                                </div>
+
+                                <!-- Producto por PESO -->
+                                <div v-else class="fab-field-row">
                                     <div class="fab-field">
                                         <label class="fab-label">Kg fabricados *</label>
                                         <input v-model="form.output_kg" type="number" step="0.001" min="0.001" class="fab-input" placeholder="0.000" />
@@ -227,10 +480,18 @@ function submitBatch() {
                             <!-- Resumen del lote -->
                             <section class="fab-section fab-summary">
                                 <h3 class="fab-section-title">Resumen</h3>
-                                <div class="fab-summary-row"><span>Insumos totales</span><strong>{{ fmtKg(totalInputKg) }}</strong></div>
-                                <div class="fab-summary-row"><span>Costo total</span><strong>{{ fmtUsd(totalInputCost) }}</strong></div>
-                                <div class="fab-summary-row"><span>Costo/kg fabricado</span><strong>{{ costoPorKg }}</strong></div>
-                                <div class="fab-summary-row fab-summary-row--ok"><span>Rendimiento</span><strong>{{ rendimiento }}%</strong></div>
+                                <template v-if="isUnitMode">
+                                    <div class="fab-summary-row"><span>Piezas a producir</span><strong>{{ outputQty || '—' }} piezas</strong></div>
+                                    <div class="fab-summary-row"><span>Insumos usados</span><strong>{{ totalInputKg.toFixed(3) }} u/kg</strong></div>
+                                    <div class="fab-summary-row"><span>Costo total</span><strong>{{ fmtUsd(totalInputCost) }}</strong></div>
+                                    <div class="fab-summary-row fab-summary-row--ok"><span>Costo/unidad</span><strong>{{ costoPorUnidad }}</strong></div>
+                                </template>
+                                <template v-else>
+                                    <div class="fab-summary-row"><span>Insumos totales</span><strong>{{ fmtKg(totalInputKg) }}</strong></div>
+                                    <div class="fab-summary-row"><span>Costo total</span><strong>{{ fmtUsd(totalInputCost) }}</strong></div>
+                                    <div class="fab-summary-row"><span>Costo/kg fabricado</span><strong>{{ costoPorUnidad }}</strong></div>
+                                    <div class="fab-summary-row fab-summary-row--ok"><span>Rendimiento</span><strong>{{ rendimiento }}%</strong></div>
+                                </template>
                             </section>
 
                         </div>
@@ -260,7 +521,7 @@ function submitBatch() {
                                     >
                                         <span class="fab-ingred-name">{{ prod.name }}</span>
                                         <span class="fab-ingred-stock" :class="stockFor(prod.id) <= 0 ? 'stock-zero' : ''">
-                                            {{ fmtKg(stockFor(prod.id)) }}
+                                            {{ fmtStock(prod.id) }}
                                         </span>
                                         <span class="fab-ingred-add">{{ form.inputs.some(i => i.product_id === prod.id) ? '✓' : '+' }}</span>
                                     </button>
@@ -274,10 +535,10 @@ function submitBatch() {
                                         <input
                                             v-model="inp.quantity_kg"
                                             type="number"
-                                            step="0.001"
+                                            :step="ingredSaleMode(inp.product_id) === 'unit' ? 1 : 0.001"
                                             min="0.001"
                                             class="fab-input fab-input--qty"
-                                            placeholder="kg"
+                                            :placeholder="ingredSaleMode(inp.product_id) === 'unit' ? 'piezas' : 'kg'"
                                         />
                                         <input
                                             v-model="inp.cost_usd"
@@ -314,6 +575,14 @@ function submitBatch() {
             </div>
         </Teleport>
 
+        <HelpModal
+            :show="showHelp"
+            title="Fábrica y Despiece"
+            :steps="helpSteps"
+            :faqs="helpFaqs"
+            @close="showHelp = false"
+        />
+
     </AppLayout>
 </template>
 
@@ -321,12 +590,14 @@ function submitBatch() {
 .fab-root { padding: 1.5rem; max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.25rem; }
 
 .fab-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
-.fab-title  { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+.fab-title  { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 0.625rem; flex-wrap: wrap; }
+.fab-despiece-badge { font-size: 0.7rem; font-weight: 700; background: #a855f7; color: #fff; border-radius: 999px; padding: 0.2rem 0.6rem; vertical-align: middle; }
 .fab-sub    { font-size: 0.875rem; color: var(--text-secondary); margin: 0; }
 
 .fab-tabs        { display: flex; gap: 0.5rem; }
 .fab-tab         { padding: 0.45rem 1rem; border-radius: 0.5rem; border: 1px solid var(--border); background: transparent; color: var(--text-secondary); font-size: 0.875rem; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 0.4rem; }
 .fab-tab--active { background: var(--brand); color: #fff; border-color: var(--brand); }
+.fab-tab--help   { border-radius: 50%; width: 2rem; height: 2rem; padding: 0; font-weight: 700; justify-content: center; }
 .fab-count       { background: rgba(255,255,255,0.25); border-radius: 999px; padding: 0 0.4rem; font-size: 0.7rem; }
 
 .fab-flash { padding: 0.75rem 1rem; background: color-mix(in srgb, var(--brand) 15%, transparent); border: 1px solid var(--brand); border-radius: 0.5rem; color: var(--brand); font-size: 0.875rem; }
@@ -414,6 +685,8 @@ function submitBatch() {
 .fab-section-title { font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; margin: 0; }
 
 .fab-field { display: flex; flex-direction: column; gap: 0.25rem; }
+.fab-unit-input-wrap { display: flex; align-items: center; gap: 0.5rem; }
+.fab-unit-suffix { font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap; }
 .fab-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
 .fab-label { font-size: 0.8rem; font-weight: 500; color: var(--text-secondary); }
 .fab-input {
@@ -476,6 +749,13 @@ function submitBatch() {
 .fab-sel-remove { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1.1rem; text-align: center; }
 .fab-sel-remove:hover { color: var(--error, #ef4444); }
 
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.55rem 1.25rem; border-radius: 8px; font-size: 0.875rem; font-weight: 600; cursor: pointer; border: none; transition: opacity 0.15s; font-family: inherit; text-decoration: none; }
+.btn-brand { background: var(--brand); color: #fff; }
+.btn-brand:not(:disabled):hover { opacity: 0.88; }
+.btn-brand:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--bg-input); }
+
 .fab-modal-footer {
     display: flex;
     justify-content: flex-end;
@@ -493,4 +773,134 @@ function submitBatch() {
 .fab-date    { font-size: 0.8rem; color: var(--text-muted); white-space: nowrap; }
 .fab-creator { font-size: 0.8rem; color: var(--text-muted); }
 .text-right  { text-align: right; }
+
+.fab-flash--despiece { background: color-mix(in srgb, #a855f7 15%, transparent); border-color: #a855f7; color: #a855f7; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; }
+.despiece-pdf-actions { display: flex; align-items: center; gap: 0.5rem; }
+.btn-pdf { background: #a855f7; color: #fff; border: none; border-radius: 0.375rem; padding: 0.35rem 0.75rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.btn-pdf:hover { background: #9333ea; }
+.btn-pdf-close { background: none; border: none; color: #a855f7; font-size: 1.2rem; cursor: pointer; line-height: 1; padding: 0 0.25rem; }
+
+/* ── Despiece pendiente ───────────────────────────────────────────── */
+.despiece-section {
+    background: color-mix(in srgb, #a855f7 8%, var(--bg-card));
+    border: 1.5px solid #a855f7;
+    border-radius: 0.875rem;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.despiece-section-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.875rem;
+}
+
+.despiece-badge {
+    background: #a855f7;
+    color: #fff;
+    font-size: 0.875rem;
+    font-weight: 700;
+    border-radius: 999px;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.despiece-title { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+.despiece-sub   { font-size: 0.8rem; color: var(--text-secondary); margin: 0; }
+
+.despiece-list { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.despiece-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    overflow: hidden;
+}
+
+.despiece-card-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.despiece-card-header:hover { background: var(--bg-input); }
+
+.despiece-card-info { flex: 1; display: flex; flex-direction: column; gap: 0.15rem; }
+.despiece-card-title    { font-size: 0.9375rem; font-weight: 600; color: var(--text-primary); }
+.despiece-card-desc     { font-size: 0.8rem; color: var(--text-secondary); }
+.despiece-card-supplier { font-size: 0.75rem; color: var(--text-muted); }
+
+.despiece-card-kg { text-align: right; flex-shrink: 0; }
+.despiece-kg-val   { display: block; font-size: 1.125rem; font-weight: 700; color: #a855f7; }
+.despiece-kg-label { font-size: 0.7rem; color: var(--text-muted); }
+
+.despiece-toggle { background: none; border: none; font-size: 0.75rem; color: var(--text-muted); cursor: pointer; padding: 0.25rem; }
+
+.despiece-form {
+    border-top: 1px solid var(--border);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.despiece-form-hint { font-size: 0.8125rem; color: var(--text-secondary); margin: 0; }
+
+.despiece-rows { display: flex; flex-direction: column; gap: 0.5rem; }
+.despiece-row  { display: grid; grid-template-columns: 1fr 140px; gap: 0.75rem; align-items: center; }
+.despiece-row-name { font-size: 0.875rem; color: var(--text-primary); }
+.despiece-input { text-align: right; }
+
+.despiece-totals {
+    background: var(--bg-input);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+.despiece-total-row { display: flex; justify-content: space-between; font-size: 0.8125rem; color: var(--text-secondary); }
+.despiece-total-row strong { color: var(--text-primary); }
+.despiece-total-merma strong { color: #f59e0b; }
+
+.despiece-error   { margin: 0; }
+.despiece-over-limit { margin: 0; font-size: 0.8125rem; font-weight: 600; color: #ef4444; background: color-mix(in srgb, #ef4444 10%, transparent); border: 1px solid #ef4444; border-radius: 0.375rem; padding: 0.5rem 0.75rem; }
+
+.despiece-actions { display: flex; justify-content: flex-end; }
+
+@media (max-width: 640px) {
+    .despiece-row { grid-template-columns: 1fr 110px; }
+}
+
+/* ── Responsividad móvil ──────────────────────────────────── */
+@media (max-width: 640px) {
+    .fab-root    { padding: 1rem 0.75rem; }
+    .fab-header  { flex-direction: column; align-items: flex-start; }
+    .fab-tabs    { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+    .fab-tab     { flex: 1; justify-content: center; min-height: 40px; }
+    .fab-tab--help { flex: none; }
+
+    .fab-cards   { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+
+    .fab-modal   { max-height: 100dvh; border-radius: 0; }
+    .fab-modal-body { grid-template-columns: 1fr; overflow-y: auto; max-height: calc(100dvh - 130px); }
+    .fab-modal-left  { border-right: none; border-bottom: 1px solid var(--border); }
+    .fab-modal-right { max-height: 55vh; }
+
+    .fab-selected-row { grid-template-columns: 1fr 70px 70px 24px; }
+
+    .despiece-card-header { flex-wrap: wrap; gap: 0.5rem; }
+    .despiece-card-kg     { text-align: left; }
+
+    .fab-table th, .fab-table td { padding: 0.4rem 0.5rem; font-size: 0.75rem; }
+    .fab-table .fab-creator { display: none; }
+}
 </style>

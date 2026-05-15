@@ -102,7 +102,7 @@ function submitEdit() {
 
         <!-- Modal nueva -->
         <Teleport to="body">
-            <div v-if="showNew" class="overlay" @click.self="showNew = false">
+            <div v-if="showNew" class="overlay">
                 <div class="modal">
                     <div class="modal-head"><h3>Nueva Sucursal</h3><button @click="showNew = false">✕</button></div>
                     <div class="modal-body">
@@ -128,7 +128,7 @@ function submitEdit() {
 
         <!-- Modal editar -->
         <Teleport to="body">
-            <div v-if="editTarget" class="overlay" @click.self="editTarget = null">
+            <div v-if="editTarget" class="overlay">
                 <div class="modal">
                     <div class="modal-head"><h3>Editar — {{ editTarget.name }}</h3><button @click="editTarget = null">✕</button></div>
                     <div class="modal-body">

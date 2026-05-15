@@ -228,8 +228,6 @@ class BranchController extends Controller
                 'fraction_allowed'  => $product->fraction_allowed,
                 'price_per_kg_usd'  => $product->price_per_kg_usd,
                 'price_per_unit_usd'=> $product->price_per_unit_usd,
-                'cost_per_kg_usd'   => $product->cost_per_kg_usd,
-                'cost_per_unit_usd' => $product->cost_per_unit_usd,
                 'min_stock'         => $product->min_stock,
                 'sort_order'        => $product->sort_order,
                 'active'            => $product->active,
