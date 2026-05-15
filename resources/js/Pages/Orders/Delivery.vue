@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { Bike, Mailbox, Check } from 'lucide-vue-next';
 
 const props = defineProps({
     pedidos:        { type: Array,  default: () => [] },
@@ -113,7 +114,7 @@ const localPedidos = ref([...props.pedidos]);
             <!-- Header -->
             <div class="page-header">
                 <div class="header-left">
-                    <span class="header-icon">🛵</span>
+                    <span class="header-icon"><Bike :size="28" /></span>
                     <div>
                         <h1 class="page-title">Delivery en tránsito</h1>
                         <p class="page-sub">{{ localPedidos.length }} pedido{{ localPedidos.length !== 1 ? 's' : '' }} pendiente{{ localPedidos.length !== 1 ? 's' : '' }} de cobro</p>
@@ -124,7 +125,7 @@ const localPedidos = ref([...props.pedidos]);
 
             <!-- Sin pedidos -->
             <div v-if="!localPedidos.length" class="empty-state">
-                <div class="empty-icon">📭</div>
+                <div class="empty-icon"><Mailbox :size="40" /></div>
                 <p class="empty-txt">No hay deliveries pendientes de cobro</p>
             </div>
 
@@ -245,7 +246,8 @@ const localPedidos = ref([...props.pedidos]);
                         <div class="modal-actions">
                             <button class="btn-ghost" @click="closeModal">Cancelar</button>
                             <button class="btn-brand" :disabled="!canConfirm || paying" @click="confirmCobro">
-                                {{ paying ? 'Procesando…' : '✓ Confirmar cobro' }}
+                                <template v-if="paying">Procesando…</template>
+                                <template v-else><Check :size="14" style="vertical-align:middle;margin-right:4px;" />Confirmar cobro</template>
                             </button>
                         </div>
                     </div>

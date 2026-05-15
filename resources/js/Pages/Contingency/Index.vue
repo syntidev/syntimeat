@@ -2,6 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue'
 import { ref, reactive } from 'vue'
 import axios from 'axios'
+import { Printer, BarChart2, Package, Lightbulb, AlertTriangle, Check, FolderOpen } from 'lucide-vue-next'
 
 // ─── Estado ───────────────────────────────────────────────────────────────────
 const loadingSales = ref(false)
@@ -102,7 +103,7 @@ function fmtKg(n) {
 
                     <!-- Hoja de papel -->
                     <div class="resource-card resource-card--paper">
-                        <div class="resource-card__icon">🖨️</div>
+                        <div class="resource-card__icon"><Printer :size="28" /></div>
                         <div class="resource-card__content">
                             <h3>Hoja de registro en papel</h3>
                             <p>
@@ -110,7 +111,7 @@ function fmtKg(n) {
                                 Contiene 20 filas con columnas: Hora, Producto, Cantidad, Precio Bs., Total Bs. y Pago.
                             </p>
                             <div class="instruction-tip">
-                                💡 Imprime al inicio de cada jornada o tenla en el cajón del mostrador.
+                                <Lightbulb :size="13" class="tip-inline" /> Imprime al inicio de cada jornada o tenla en el cajón del mostrador.
                             </div>
                         </div>
                         <a :href="route('contingency.form')" class="btn-download" target="_blank" rel="noopener">
@@ -120,7 +121,7 @@ function fmtKg(n) {
 
                     <!-- Plantilla ventas -->
                     <div class="resource-card resource-card--excel">
-                        <div class="resource-card__icon">📊</div>
+                        <div class="resource-card__icon"><BarChart2 :size="28" /></div>
                         <div class="resource-card__content">
                             <h3>Plantilla de ventas Excel</h3>
                             <p>
@@ -129,7 +130,7 @@ function fmtKg(n) {
                                 Columnas exactas para importación directa.
                             </p>
                             <div class="instruction-tip">
-                                💡 Necesitas: hora, product_id, quantity_value, input_type, price_bs, total_bs, payment_method.
+                                <Lightbulb :size="13" class="tip-inline" /> Necesitas: hora, product_id, quantity_value, input_type, price_bs, total_bs, payment_method.
                             </div>
                         </div>
                         <a :href="route('contingency.sales-template')" class="btn-download" target="_blank" rel="noopener">
@@ -139,7 +140,7 @@ function fmtKg(n) {
 
                     <!-- Plantilla inventario -->
                     <div class="resource-card resource-card--inv">
-                        <div class="resource-card__icon">📦</div>
+                        <div class="resource-card__icon"><Package :size="28" /></div>
                         <div class="resource-card__content">
                             <h3>Plantilla de inventario Excel</h3>
                             <p>
@@ -147,7 +148,7 @@ function fmtKg(n) {
                                 Registra entradas con cantidad, merma y costo.
                             </p>
                             <div class="instruction-tip">
-                                💡 Necesitas: hour, product_id, quantity_kg, waste_kg, cost_per_kg_usd, supplier.
+                                <Lightbulb :size="13" class="tip-inline" /> Necesitas: hour, product_id, quantity_kg, waste_kg, cost_per_kg_usd, supplier.
                             </div>
                         </div>
                         <a :href="route('contingency.inventory-template')" class="btn-download" target="_blank" rel="noopener">
@@ -168,7 +169,7 @@ function fmtKg(n) {
                 </h2>
 
                 <div class="alert-order">
-                    ⚠️ <strong>Orden importante:</strong>
+                    <AlertTriangle :size="16" style="vertical-align:middle;margin-right:6px;flex-shrink:0;" /><strong>Orden importante:</strong>
                     Importa primero el inventario y luego las ventas.
                     Las ventas descuentan stock — si no hay stock previo el sistema puede quedar en negativo.
                 </div>
@@ -188,7 +189,7 @@ function fmtKg(n) {
                             <input id="inv-file" type="file" accept=".xlsx,.xls,.csv"
                                    class="file-input-hidden" @change="onInvFile" />
                             <label for="inv-file" class="file-label">
-                                <span class="file-icon">📁</span>
+                                <span class="file-icon"><FolderOpen :size="22" /></span>
                                 <span v-if="invFile">{{ invFile.name }}</span>
                                 <span v-else>Seleccionar archivo Excel (.xlsx)</span>
                             </label>
@@ -210,7 +211,7 @@ function fmtKg(n) {
                             </ul>
                         </div>
                         <div v-if="invResult.imported.length" class="import-result">
-                            <p class="result-title">✓ {{ invResult.total }} entradas importadas</p>
+                            <p class="result-title"><Check :size="14" class="result-check" />{{ invResult.total }} entradas importadas</p>
                             <div class="result-table-wrap">
                                 <table class="result-table">
                                     <thead>
@@ -250,7 +251,7 @@ function fmtKg(n) {
                             <input id="sales-file" type="file" accept=".xlsx,.xls,.csv"
                                    class="file-input-hidden" @change="onSalesFile" />
                             <label for="sales-file" class="file-label">
-                                <span class="file-icon">📁</span>
+                                <span class="file-icon"><FolderOpen :size="22" /></span>
                                 <span v-if="salesFile">{{ salesFile.name }}</span>
                                 <span v-else>Seleccionar archivo Excel (.xlsx)</span>
                             </label>
@@ -272,7 +273,7 @@ function fmtKg(n) {
                             </ul>
                         </div>
                         <div v-if="salesResult.imported.length" class="import-result">
-                            <p class="result-title">✓ {{ salesResult.total }} ventas importadas</p>
+                            <p class="result-title"><Check :size="14" class="result-check" />{{ salesResult.total }} ventas importadas</p>
                             <div class="result-table-wrap">
                                 <table class="result-table">
                                     <thead>
@@ -377,7 +378,11 @@ section { display: flex; flex-direction: column; gap: 1rem; }
     padding: 0.45rem 0.65rem;
     font-size: 0.78rem;
     color: var(--text-muted);
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
 }
+.tip-inline { flex-shrink: 0; margin-top: 1px; color: var(--brand); }
 .btn-download {
     display: block;
     background: var(--bg-base);
@@ -401,6 +406,9 @@ section { display: flex; flex-direction: column; gap: 1rem; }
     padding: 0.75rem 1rem;
     font-size: 0.86rem;
     color: #d97706;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
 }
 
 /* ─── Import grid ───────────────────────────────────────────────────────────── */
@@ -494,6 +502,9 @@ section { display: flex; flex-direction: column; gap: 1rem; }
     font-size: 0.85rem;
     font-weight: 700;
     color: #16a34a;
+    display: flex;
+    align-items: center;
+    gap: 5px;
     margin: 0 0 0.5rem;
 }
 .result-table-wrap { overflow-x: auto; }

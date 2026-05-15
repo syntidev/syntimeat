@@ -2,6 +2,7 @@
 import SettingsLayout from '@/Layouts/SettingsLayout.vue'
 import { ref } from 'vue'
 import { router } from '@inertiajs/vue3'
+import { Users, Monitor } from 'lucide-vue-next'
 
 const props = defineProps({
     branches: { type: Array, default: () => [] },
@@ -91,8 +92,8 @@ function submitEdit() {
                     </div>
 
                     <div class="branch-stats">
-                        <span class="stat">👥 {{ branch.users_count }} usuario{{ branch.users_count !== 1 ? 's' : '' }}</span>
-                        <span class="stat">🖥️ {{ branch.cash_registers?.length ?? 0 }} caja{{ (branch.cash_registers?.length ?? 0) !== 1 ? 's' : '' }}</span>
+                        <span class="stat"><Users :size="13" class="stat-icon" /> {{ branch.users_count }} usuario{{ branch.users_count !== 1 ? 's' : '' }}</span>
+                        <span class="stat"><Monitor :size="13" class="stat-icon" /> {{ branch.cash_registers?.length ?? 0 }} caja{{ (branch.cash_registers?.length ?? 0) !== 1 ? 's' : '' }}</span>
                     </div>
 
                     <button class="btn-ghost btn-sm" @click="openEdit(branch)">Editar</button>
@@ -175,7 +176,8 @@ function submitEdit() {
 .badge-off   { font-size: .65rem; font-weight: 700; padding: 1px 6px; border-radius: 20px; background: #ef444422; color: #ef4444; }
 .branch-meta { display: flex; gap: .85rem; font-size: .78rem; color: var(--text-muted); margin-top: 2px; flex-wrap: wrap; }
 .branch-stats { display: flex; gap: .5rem; flex-shrink: 0; }
-.stat        { font-size: .75rem; color: var(--text-muted); background: var(--hover); border-radius: 20px; padding: .2rem .65rem; }
+.stat        { font-size: .75rem; color: var(--text-muted); background: var(--hover); border-radius: 20px; padding: .2rem .65rem; display: inline-flex; align-items: center; gap: 4px; }
+.stat-icon   { flex-shrink: 0; }
 
 .empty-state { text-align: center; padding: 3rem; color: var(--text-muted); font-size: .875rem; }
 

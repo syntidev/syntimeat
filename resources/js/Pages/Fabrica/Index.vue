@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useForm, router } from '@inertiajs/vue3';
 import HelpModal from '@/Components/HelpModal.vue';
+import { Factory, AlertTriangle, Check, Printer } from 'lucide-vue-next';
 
 const props = defineProps({
     fabricables:       { type: Array,  default: () => [] },
@@ -130,30 +131,25 @@ const showHelp = ref(false);
 
 const helpSteps = [
     {
-        icon: '🏭',
         title: 'Despiece pendiente',
         body: 'Cuando en Bóveda se surte una pieza que requiere despiece (res, cerdo, pollo), aparece aquí automáticamente con los kg surtidos. Es la primera tarea del día: documentar los cortes antes de fabricar.',
         tip: 'El sistema muestra cuántos kg van a cada corte (Premium, Primera, Costilla…). Lo que no se documente se registra como merma de despiece.',
     },
     {
-        icon: '⚖️',
         title: 'Registrar cortes del despiece',
         body: 'Abre la pieza pendiente, ingresa los kg reales de cada corte según la balanza. El sistema calcula en tiempo real los kg documentados y la merma. Cuando cuadre, haz clic en "Registrar cortes".',
         tip: 'No puedes ingresar más kg de los que se surtieron. El botón se bloquea si la suma excede el total.',
     },
     {
-        icon: '📄',
         title: 'Planilla de despiece (PDF)',
         body: 'Al registrar, el sistema ofrece imprimir la planilla con todos los datos. Abre en otra pestaña pre-llenada con los kg reales. Usa Ctrl+P → "Guardar como PDF" para el control físico o digital del día.',
     },
     {
-        icon: '🥩',
         title: 'Fabricar un lote',
         body: 'Para productos elaborados (chorizo, embutidos, cestas), selecciona el producto en las tarjetas, agrega los ingredientes que usaste con sus kg y costo, anota los kg producidos y guarda el lote.',
         tip: 'Los ingredientes (incluyendo Recortes de Res del despiece) se descuentan del stock de vitrina al guardar. El producto fabricado se suma al inventario.',
     },
     {
-        icon: '📋',
         title: 'Historial de lotes',
         body: 'En la pestaña Historial ves todos los lotes registrados con fecha, kg producidos, insumos usados, costo y operador. Sirve para trazabilidad y control de rendimiento.',
     },
@@ -275,7 +271,7 @@ async function submitDespiece(entry) {
                         :href="route('boveda.plantilla', { entry: despiecePdfEntry.id })"
                         target="_blank"
                         class="btn-pdf"
-                    >🖨 Guardar / Imprimir planilla</a>
+                    ><Printer :size="14" style="vertical-align:middle;margin-right:5px;" />Guardar / Imprimir planilla</a>
                     <button class="btn-pdf-close" @click="despieceFlash = null; despiecePdfEntry = null">×</button>
                 </div>
             </div>
@@ -347,7 +343,7 @@ async function submitDespiece(entry) {
                             </div>
 
                             <p v-if="cortesExceden(entry)" class="despiece-over-limit">
-                                ⚠ La suma ({{ fmtKg(totalCortes(entry.id)) }}) supera los {{ fmtKg(entry.kg_surtido) }} surtidos. Revisa los pesos.
+                                <AlertTriangle :size="13" class="over-limit-icon" /> La suma ({{ fmtKg(totalCortes(entry.id)) }}) supera los {{ fmtKg(entry.kg_surtido) }} surtidos. Revisa los pesos.
                             </p>
                             <p v-else-if="despieceErrors[entry.id]" class="fab-error despiece-error">{{ despieceErrors[entry.id] }}</p>
 
@@ -383,7 +379,7 @@ async function submitDespiece(entry) {
                     >
                         <div class="fab-card-img">
                             <img v-if="p.image_path" :src="`/storage/${p.image_path}`" :alt="p.name" />
-                            <span v-else class="fab-card-placeholder">🏭</span>
+                            <span v-else class="fab-card-placeholder"><Factory :size="32" /></span>
                         </div>
                         <div class="fab-card-info">
                             <span class="fab-card-name">{{ p.name }}</span>
@@ -466,7 +462,10 @@ async function submitDespiece(entry) {
                                         <span class="fab-ingred-stock" :class="stockFor(prod.id) <= 0 ? 'stock-zero' : ''">
                                             {{ fmtStock(prod.id) }}
                                         </span>
-                                        <span class="fab-ingred-add">{{ form.inputs.some(i => i.product_id === prod.id) ? '✓' : '+' }}</span>
+                                        <span class="fab-ingred-add">
+                                            <Check v-if="form.inputs.some(i => i.product_id === prod.id)" :size="13" />
+                                            <span v-else>+</span>
+                                        </span>
                                     </button>
                                 </div>
 
@@ -872,7 +871,8 @@ async function submitDespiece(entry) {
 .despiece-total-merma strong { color: #f59e0b; }
 
 .despiece-error   { margin: 0; }
-.despiece-over-limit { margin: 0; font-size: 0.8125rem; font-weight: 600; color: #ef4444; background: color-mix(in srgb, #ef4444 10%, transparent); border: 1px solid #ef4444; border-radius: 0.375rem; padding: 0.5rem 0.75rem; }
+.despiece-over-limit { margin: 0; font-size: 0.8125rem; font-weight: 600; color: #ef4444; background: color-mix(in srgb, #ef4444 10%, transparent); border: 1px solid #ef4444; border-radius: 0.375rem; padding: 0.5rem 0.75rem; display: flex; align-items: center; gap: 6px; }
+.over-limit-icon { flex-shrink: 0; }
 
 .despiece-actions { display: flex; justify-content: flex-end; }
 

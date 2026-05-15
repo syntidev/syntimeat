@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import AppLogo from '@/Components/AppLogo.vue';
+import { Lock, AlertTriangle, FileText, Store, Bike, Check } from 'lucide-vue-next';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 const props = defineProps({
@@ -547,18 +548,25 @@ function productImageUrl(product) {
 <template>
     <div class="pos-root">
 
-        <!-- ── Banner: sin caja abierta ── -->
-        <div v-if="!cashRegister" class="no-caja-banner">
-            <div class="no-caja-banner__icon">🏧</div>
-            <div class="no-caja-banner__body">
-                <strong>No tienes una caja abierta</strong>
-                <span>Debes abrir tu caja antes de registrar ventas.</span>
+        <!-- ── Pantalla de bloqueo: sin caja abierta ── -->
+        <div v-if="!cashRegister" class="pos-caja-lock">
+            <div class="pos-caja-lock__card">
+                <div class="pos-caja-lock__icon-wrap">
+                    <Lock :size="48" stroke-width="1.5" style="color: var(--brand)" />
+                </div>
+                <div class="pos-caja-lock__text">
+                    <h2 class="pos-caja-lock__title">Caja cerrada</h2>
+                    <p class="pos-caja-lock__sub">Abre tu caja registradora para habilitar el punto de venta.</p>
+                </div>
+                <div class="pos-caja-lock__actions">
+                    <a :href="route('cash.index')" class="pos-caja-lock__btn-primary">Abrir Caja →</a>
+                    <a :href="route('dashboard')" class="pos-caja-lock__btn-ghost">← Dashboard</a>
+                </div>
             </div>
-            <a :href="route('cash.index')" class="no-caja-banner__btn">Ir a Caja →</a>
         </div>
 
         <!-- ── HEADER ── -->
-        <header class="pos-header">
+        <header v-if="cashRegister" class="pos-header">
 
             <!-- Izquierda: back + logo -->
             <div class="hd-left">
@@ -604,7 +612,7 @@ function productImageUrl(product) {
 
             <!-- Derecha: estado + hora + usuario -->
             <div class="hd-right">
-                <span v-if="!cashRegister" class="no-caja-pill">⚠ Sin caja</span>
+                <span v-if="!cashRegister" class="no-caja-pill">Sin caja</span>
                 <span class="pos-time">{{ currentTime }}</span>
                 <div class="user-chip">
                     <div class="user-av">{{ (authUser?.name ?? 'U')[0].toUpperCase() }}</div>
@@ -618,7 +626,7 @@ function productImageUrl(product) {
         </header>
 
         <!-- ── MAIN ── -->
-        <div class="pos-main">
+        <div v-if="cashRegister" class="pos-main">
 
             <!-- Productos -->
             <section class="pnl-products">
@@ -889,7 +897,7 @@ function productImageUrl(product) {
             <div v-if="showNegativeWarning" class="modal-bg">
                 <div class="modal-box">
                     <div class="modal-header">
-                        <h3>⚠ Advertencia de inventario</h3>
+                        <h3 style="display:flex;align-items:center;gap:0.4rem;"><AlertTriangle :size="16" stroke-width="2" style="color:var(--amber);flex-shrink:0" /> Advertencia de inventario</h3>
                         <button class="close-btn" @click="showNegativeWarning = false">×</button>
                     </div>
                     <p class="warn-text">Los siguientes productos quedarán con stock negativo:</p>
@@ -921,15 +929,15 @@ function productImageUrl(product) {
                         <!-- Selector de origen -->
                         <div class="origin-selector">
                             <button class="origin-btn" :class="{ active: saleOrigin === 'onsite' }" @click="saleOrigin = 'onsite'">
-                                <span class="origin-icon">🏪</span>
+                                <Store :size="16" class="origin-icon-svg" />
                                 <span class="origin-label">En Sitio</span>
                             </button>
                             <button class="origin-btn" :class="{ active: saleOrigin === 'delivery' }" @click="saleOrigin = 'delivery'">
-                                <span class="origin-icon">🛵</span>
+                                <Bike :size="16" class="origin-icon-svg" />
                                 <span class="origin-label">Delivery</span>
                             </button>
                             <button class="origin-btn" :class="{ active: saleOrigin === 'credit' }" @click="saleOrigin = 'credit'">
-                                <span class="origin-icon">📋</span>
+                                <FileText :size="15" stroke-width="1.8" class="origin-icon-svg" />
                                 <span class="origin-label">Crédito</span>
                             </button>
                         </div>
@@ -964,7 +972,7 @@ function productImageUrl(product) {
                         <!-- Cliente -->
                         <div class="client-toggle" @click="showClientFields = !showClientFields">
                             <span>{{ showClientFields ? '▾' : '▸' }} {{ clientId ? clientName : 'Cliente (opcional)' }}</span>
-                            <span v-if="clientId" class="client-selected-badge">✓</span>
+                            <Check v-if="clientId" :size="13" class="client-selected-badge" />
                         </div>
                         <div v-if="showClientFields" class="client-fields">
                             <div class="client-search-wrap">
@@ -991,14 +999,14 @@ function productImageUrl(product) {
 
                         <!-- Aviso para delivery/crédito -->
                         <div v-if="saleOrigin === 'delivery'" class="origin-notice origin-notice--delivery">
-                            <span class="origin-notice-icon">🛵</span>
+                            <Bike :size="20" class="origin-notice-icon" />
                             <div>
                                 <strong>Delivery pendiente</strong>
                                 <p>El pedido se registrará sin cobro. El cobro se realiza desde la pantalla de Pedidos al confirmar la entrega.</p>
                             </div>
                         </div>
                         <div v-else-if="saleOrigin === 'credit'" class="origin-notice origin-notice--credit">
-                            <span class="origin-notice-icon">📋</span>
+                            <FileText :size="15" stroke-width="1.8" class="origin-notice-icon" />
                             <div>
                                 <strong>Venta a crédito</strong>
                                 <p>El producto se despacha ahora. El cobro queda pendiente y aparecerá en la sección "Por Cobrar" de Pedidos.</p>
@@ -1267,25 +1275,41 @@ function productImageUrl(product) {
 }
 .h-ticket-add:disabled { opacity: 0.35; cursor: not-allowed; }
 
-.no-caja-banner {
-    display: flex; align-items: center; gap: 0.75rem;
-    background: color-mix(in srgb, var(--red) 12%, var(--bg-base));
-    border-bottom: 2px solid var(--red);
-    padding: 0.65rem 1rem;
-    font-size: 0.85rem;
-    color: var(--text-primary);
-    flex-shrink: 0;
+.pos-caja-lock {
+    position: fixed; inset: 0; z-index: 200;
+    background: var(--bg-base);
+    display: flex; align-items: center; justify-content: center;
+    padding: 1.5rem;
 }
-.no-caja-banner__icon { font-size: 1.25rem; flex-shrink: 0; }
-.no-caja-banner__body { display: flex; flex-direction: column; flex: 1; gap: 0.1rem; }
-.no-caja-banner__body strong { font-weight: 700; color: var(--red); }
-.no-caja-banner__body span   { font-size: 0.78rem; color: var(--text-muted); }
-.no-caja-banner__btn {
-    background: var(--red); color: #fff; border: none; border-radius: 0.4rem;
-    padding: 0.4rem 0.85rem; font-size: 0.8rem; font-weight: 700;
-    cursor: pointer; text-decoration: none; white-space: nowrap; flex-shrink: 0;
+.pos-caja-lock__card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 48px;
+    max-width: 420px;
+    width: 100%;
+    display: flex; flex-direction: column; align-items: center; gap: 1.5rem;
 }
-.no-caja-banner__btn:hover { opacity: 0.85; }
+.pos-caja-lock__icon-wrap { display: flex; align-items: center; justify-content: center; }
+.pos-caja-lock__text { text-align: center; display: flex; flex-direction: column; gap: 0.5rem; }
+.pos-caja-lock__title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+.pos-caja-lock__sub   { font-size: 0.9rem; color: var(--text-secondary); margin: 0; line-height: 1.6; }
+.pos-caja-lock__actions { display: flex; flex-direction: column; align-items: stretch; gap: 0.625rem; width: 100%; }
+.pos-caja-lock__btn-primary {
+    display: block; width: 100%; text-align: center; box-sizing: border-box;
+    background: var(--brand); color: #fff;
+    border-radius: 0.5rem; padding: 0.7rem 1.5rem;
+    font-size: 0.9375rem; font-weight: 700;
+    text-decoration: none; transition: opacity 0.15s;
+}
+.pos-caja-lock__btn-primary:hover { opacity: 0.85; }
+.pos-caja-lock__btn-ghost {
+    display: block; width: 100%; text-align: center; box-sizing: border-box;
+    border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.7rem 1.5rem;
+    font-size: 0.9375rem; font-weight: 500; color: var(--text-secondary);
+    text-decoration: none; transition: color 0.15s, border-color 0.15s;
+}
+.pos-caja-lock__btn-ghost:hover { color: var(--text-primary); border-color: var(--text-secondary); }
 
 .no-caja-pill {
     font-size: 0.75rem; font-weight: 700; color: var(--red);

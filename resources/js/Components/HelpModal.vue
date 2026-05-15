@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch } from 'vue'
+import { X, Lightbulb } from 'lucide-vue-next'
 
 const props = defineProps({
     show:  { type: Boolean, default: false },
@@ -44,7 +45,7 @@ function onKeydown(e) {
                                 <div class="help-badge">?</div>
                                 <h2 class="help-title">{{ title }}</h2>
                             </div>
-                            <button class="help-close" @click="emit('close')" aria-label="Cerrar ayuda">✕</button>
+                            <button class="help-close" @click="emit('close')" aria-label="Cerrar ayuda"><X :size="16" /></button>
                         </div>
 
                         <!-- Tabs (solo si hay ambas secciones) -->
@@ -68,11 +69,10 @@ function onKeydown(e) {
                                     <div class="step-num">{{ i + 1 }}</div>
                                     <div class="step-content">
                                         <div class="step-head">
-                                            <span v-if="step.icon" class="step-icon">{{ step.icon }}</span>
                                             <span class="step-title">{{ step.title }}</span>
                                         </div>
                                         <p class="step-body">{{ step.body }}</p>
-                                        <p v-if="step.tip" class="step-tip">💡 {{ step.tip }}</p>
+                                        <p v-if="step.tip" class="step-tip"><Lightbulb :size="13" class="tip-icon" />{{ step.tip }}</p>
                                     </div>
                                 </div>
                             </div>
@@ -242,7 +242,6 @@ function onKeydown(e) {
     align-items: center;
     gap: 6px;
 }
-.step-icon { font-size: 1rem; line-height: 1; }
 .step-title {
     font-size: 0.92rem;
     font-weight: 600;
@@ -254,8 +253,17 @@ function onKeydown(e) {
     line-height: 1.55;
     margin: 0;
 }
+.tip-icon {
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 5px;
+    flex-shrink: 0;
+    color: var(--brand);
+}
 .step-tip {
     font-size: 0.8rem;
+    display: flex;
+    align-items: flex-start;
     color: var(--text-muted);
     background: var(--bg-row-hover, rgba(255,255,255,0.04));
     border-left: 3px solid var(--brand);

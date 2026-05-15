@@ -2,6 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue'
 import { ref, computed, markRaw } from 'vue'
 import { useForm, router } from '@inertiajs/vue3'
+import { Scale, Package, Pencil, ToggleLeft, ToggleRight, Trash2 } from 'lucide-vue-next'
 
 const props = defineProps({
     categories:  { type: Array,   default: () => [] },
@@ -447,7 +448,9 @@ function subProductCount(subId) {
                             </td>
                             <td>
                                 <span class="badge" :class="p.sale_mode === 'weight' ? 'badge-weight' : 'badge-unit'">
-                                    {{ p.sale_mode === 'weight' ? '⚖️ Por kilo' : '📦 Por unidad' }}
+                                    <Scale v-if="p.sale_mode === 'weight'" :size="12" style="vertical-align:middle;margin-right:3px;" />
+                                    <Package v-else :size="12" style="vertical-align:middle;margin-right:3px;" />
+                                    {{ p.sale_mode === 'weight' ? 'Por kilo' : 'Por unidad' }}
                                 </span>
                             </td>
                             <td class="price-cell">{{ priceDisplay(p) }}</td>
@@ -470,13 +473,14 @@ function subProductCount(subId) {
                                 </span>
                             </td>
                             <td class="actions-cell">
-                                <button class="btn-icon" title="Editar" @click="openEdit(p)">✏️</button>
+                                <button class="btn-icon" title="Editar" @click="openEdit(p)"><Pencil :size="14" /></button>
                                 <button
                                     class="btn-icon"
                                     :title="p.active ? 'Desactivar' : 'Activar'"
                                     @click="toggleActive(p)"
                                 >
-                                    {{ p.active ? '🔴' : '🟢' }}
+                                    <ToggleRight v-if="p.active" :size="16" class="toggle-on" />
+                                    <ToggleLeft v-else :size="16" class="toggle-off" />
                                 </button>
                             </td>
                         </tr>
@@ -495,14 +499,14 @@ function subProductCount(subId) {
                         <span class="cat-name">{{ cat.name }}</span>
                         <span class="badge badge-sub cat-count">{{ catProductCount(cat.id) }} productos</span>
                         <div class="cat-actions">
-                            <button class="btn-icon" title="Editar" @click="openEditCat(cat)">✏️</button>
+                            <button class="btn-icon" title="Editar" @click="openEditCat(cat)"><Pencil :size="14" /></button>
                             <button
                                 class="btn-icon"
                                 title="Eliminar"
                                 :disabled="catProductCount(cat.id) > 0"
                                 :class="{ 'btn-disabled': catProductCount(cat.id) > 0 }"
                                 @click="destroyCategory(cat)"
-                            >🗑️</button>
+                            ><Trash2 :size="14" /></button>
                             <button class="btn-icon btn-add-sub" title="Nueva subcategoría" @click="openNewSub(cat)">＋ Sub</button>
                         </div>
                     </div>
@@ -513,14 +517,14 @@ function subProductCount(subId) {
                             <span class="sub-name">{{ sub.name }}</span>
                             <span class="badge badge-sub sub-count">{{ subProductCount(sub.id) }} productos</span>
                             <div class="cat-actions">
-                                <button class="btn-icon" title="Editar" @click="openEditSub(sub)">✏️</button>
+                                <button class="btn-icon" title="Editar" @click="openEditSub(sub)"><Pencil :size="14" /></button>
                                 <button
                                     class="btn-icon"
                                     title="Eliminar"
                                     :disabled="subProductCount(sub.id) > 0"
                                     :class="{ 'btn-disabled': subProductCount(sub.id) > 0 }"
                                     @click="destroySubcat(sub)"
-                                >🗑️</button>
+                                ><Trash2 :size="14" /></button>
                             </div>
                         </div>
                     </div>
@@ -621,7 +625,7 @@ function subProductCount(subId) {
                                             :class="{ selected: form.sale_mode === 'weight' }"
                                         >
                                             <input type="radio" value="weight" v-model="form.sale_mode" class="sr-only" />
-                                            <span class="mode-icon">⚖️</span>
+                                            <span class="mode-icon"><Scale :size="20" /></span>
                                             <span class="mode-text">
                                                 <strong>Por Kilo (kg)</strong>
                                                 <small>Carnes y pesados</small>
@@ -632,7 +636,7 @@ function subProductCount(subId) {
                                             :class="{ selected: form.sale_mode === 'unit' }"
                                         >
                                             <input type="radio" value="unit" v-model="form.sale_mode" class="sr-only" />
-                                            <span class="mode-icon">📦</span>
+                                            <span class="mode-icon"><Package :size="20" /></span>
                                             <span class="mode-text">
                                                 <strong>Por Unidad (und)</strong>
                                                 <small>Productos individuales</small>
@@ -723,8 +727,8 @@ function subProductCount(subId) {
                             <input v-model="catForm.name" class="field-input" type="text" placeholder="Ej: Res" required />
                             <p v-if="catForm.errors.name" class="field-error">{{ catForm.errors.name }}</p>
 
-                            <label class="field-label">Icono (emoji)</label>
-                            <input v-model="catForm.icon" class="field-input" type="text" placeholder="🥩" maxlength="4" />
+                            <label class="field-label">Icono (opcional)</label>
+                            <input v-model="catForm.icon" class="field-input" type="text" placeholder="ej. RS" maxlength="4" />
 
                             <label class="field-label">Color</label>
                             <div class="color-row">
@@ -996,6 +1000,9 @@ function subProductCount(subId) {
     transition: background 0.15s;
 }
 .btn-icon:hover { background: var(--bg-base); }
+.btn-icon { display: inline-flex; align-items: center; justify-content: center; }
+.toggle-on  { color: var(--brand); }
+.toggle-off { color: var(--text-muted); }
 
 /* ─── Buttons ────────────────────────────────────────────────────────────── */
 .btn-primary {
@@ -1155,8 +1162,8 @@ function subProductCount(subId) {
     gap: 0.35rem;
 }
 .field-label--cost::before {
-    content: '🔒';
-    font-size: 0.65rem;
+    content: '●';
+    font-size: 0.5rem;
 }
 .field-input--cost {
     border-color: color-mix(in srgb, #B45309 40%, var(--border));

@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue';
 import AppLayout  from '@/Layouts/AppLayout.vue';
 import HelpModal  from '@/Components/HelpModal.vue';
+import { Warehouse, Scissors, Factory, CheckCircle2, Package, Printer } from 'lucide-vue-next';
 
 const props = defineProps({
     activas:          { type: Array,  default: () => [] },
@@ -209,25 +210,21 @@ const showHelp = ref(false);
 
 const helpSteps = [
     {
-        icon: '📥',
         title: 'Registrar entrada',
         body: 'Cuando llega una pieza entera (canal de res, canal de cerdo, caja de pollos), regístrala con el peso exacto en kg, el costo en dólares y el proveedor.',
         tip: 'Usa Descripción para identificar la pieza: "Media canal #1 — García". Si entran dos canales el mismo día, podrás saber exactamente cuál es cuál.',
     },
     {
-        icon: '🔪',
         title: 'Surtir a vitrina',
         body: 'Cuando sacas la pieza de bóveda para cortarla, ponla en la balanza y anota el peso real. Haz clic en Surtir e ingresa ese peso. El sistema descuenta los kg de la entrada y calcula la merma de almacenamiento solo.',
         tip: 'La merma es automática: si la pieza tenía 50 kg disponibles y la balanza marca 48 kg al sacarla, el sistema registra 2 kg de merma de almacenamiento. Tú no calculas nada.',
     },
     {
-        icon: '🏭',
         title: 'Despiece en Fábrica',
         body: 'Si la pieza requiere despiece (res, cerdo, pollo), después de surtir verás un aviso con el botón "Ir a Fábrica". Allí documentas cuántos kg quedaron en cada corte (Premium, Primera, Costilla, etc.).',
         tip: 'Lo que no documentes en cortes se registra como merma de despiece. Es normal: huesos, grasa descartada, sangre.',
     },
     {
-        icon: '✅',
         title: 'Cerrar entrada',
         body: 'Cuando una pieza está completamente procesada y no queda nada en bóveda, ciérrala. Pasa al Historial con trazabilidad completa: cuánto entró, cuánto se surtió y cuánto mermó en total.',
     },
@@ -349,7 +346,7 @@ async function deactivateProduct(product) {
             <!-- Header -->
             <div class="page-header">
                 <div class="header-left">
-                    <span class="header-icon">🏚️</span>
+                    <span class="header-icon"><Warehouse :size="28" /></span>
                     <div>
                         <h1 class="page-title">Bóveda</h1>
                         <p class="page-sub">Control de canales y piezas enteras</p>
@@ -383,7 +380,7 @@ async function deactivateProduct(product) {
             <!-- Alerta despiece pendiente -->
             <Transition name="fl">
                 <div v-if="despiecePendiente" class="despiece-alert">
-                    <span class="despiece-alert__icon">🔪</span>
+                    <span class="despiece-alert__icon"><Scissors :size="20" /></span>
                     <div class="despiece-alert__body">
                         <strong>Despiece pendiente:</strong>
                         {{ despiecePendiente.product_type }} — {{ Number(despiecePendiente.kg_surtir).toFixed(3) }} kg enviados a vitrina.
@@ -411,7 +408,7 @@ async function deactivateProduct(product) {
             <!-- Tabla Activas -->
             <div v-if="tab === 'activas'">
                 <div v-if="!activas.length" class="empty-state">
-                    <div class="empty-icon">📭</div>
+                    <div class="empty-icon"><Package :size="36" /></div>
                     <p>No hay entradas activas en bóveda.</p>
                 </div>
                 <div v-else class="table-wrap">
@@ -454,7 +451,7 @@ async function deactivateProduct(product) {
                                         target="_blank"
                                         class="btn-sm btn-plantilla"
                                         title="Imprimir planilla de despiece"
-                                    >🖨 Planilla</a>
+                                    ><Printer :size="13" style="vertical-align:middle;margin-right:4px;" />Planilla</a>
                                     <button
                                         class="btn-sm btn-close"
                                         :disabled="closing === e.id"
@@ -470,7 +467,7 @@ async function deactivateProduct(product) {
             <!-- Historial -->
             <div v-if="tab === 'historial'">
                 <div v-if="!historial.length" class="empty-state">
-                    <div class="empty-icon">📭</div>
+                    <div class="empty-icon"><Package :size="36" /></div>
                     <p>Sin entradas cerradas aún.</p>
                 </div>
                 <div v-else class="table-wrap">
@@ -510,7 +507,7 @@ async function deactivateProduct(product) {
                     <button class="btn-brand" @click="openNewProduct">+ Agregar producto</button>
                 </div>
                 <div v-if="!localBovedaProducts.length" class="empty-state">
-                    <div class="empty-icon">📦</div>
+                    <div class="empty-icon"><Package :size="36" /></div>
                     <p>No hay productos bóveda. Agrega el primero.</p>
                 </div>
                 <div v-else class="table-wrap">

@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { Link } from '@inertiajs/vue3'
+import { Lock, Search, AlertTriangle, Wrench, AlertCircle } from 'lucide-vue-next'
 
 const props = defineProps({
     status: { type: Number, required: true },
@@ -8,44 +9,19 @@ const props = defineProps({
 
 const info = computed(() => {
     const map = {
-        403: {
-            icon: '🔒',
-            titulo: 'Acceso restringido',
-            mensaje: 'No tienes permiso para ver esta página. Si crees que es un error, comunícate con el administrador de tu sucursal.',
-            cta: null,
-        },
-        404: {
-            icon: '🔍',
-            titulo: 'Página no encontrada',
-            mensaje: 'La dirección que buscas no existe o fue movida.',
-            cta: null,
-        },
-        500: {
-            icon: '⚠️',
-            titulo: 'Error del servidor',
-            mensaje: 'Algo salió mal en el servidor. Intenta de nuevo en unos momentos.',
-            cta: null,
-        },
-        503: {
-            icon: '🔧',
-            titulo: 'En mantenimiento',
-            mensaje: 'El sistema está en mantenimiento. Vuelve pronto.',
-            cta: null,
-        },
+        403: { icon: Lock,          titulo: 'Acceso restringido',   mensaje: 'No tienes permiso para ver esta página. Si crees que es un error, comunícate con el administrador de tu sucursal.' },
+        404: { icon: Search,        titulo: 'Página no encontrada', mensaje: 'La dirección que buscas no existe o fue movida.' },
+        500: { icon: AlertTriangle, titulo: 'Error del servidor',   mensaje: 'Algo salió mal en el servidor. Intenta de nuevo en unos momentos.' },
+        503: { icon: Wrench,        titulo: 'En mantenimiento',     mensaje: 'El sistema está en mantenimiento. Vuelve pronto.' },
     }
-    return map[props.status] ?? {
-        icon: '❗',
-        titulo: `Error ${props.status}`,
-        mensaje: 'Ocurrió un error inesperado.',
-        cta: null,
-    }
+    return map[props.status] ?? { icon: AlertCircle, titulo: `Error ${props.status}`, mensaje: 'Ocurrió un error inesperado.' }
 })
 </script>
 
 <template>
     <div class="error-page">
         <div class="error-card">
-            <span class="error-icon">{{ info.icon }}</span>
+            <span class="error-icon"><component :is="info.icon" :size="48" /></span>
             <span class="error-code">{{ status }}</span>
             <h1 class="error-title">{{ info.titulo }}</h1>
             <p class="error-msg">{{ info.mensaje }}</p>
@@ -82,8 +58,10 @@ const info = computed(() => {
 }
 
 .error-icon {
-    font-size: 3rem;
-    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
 }
 
 .error-code {

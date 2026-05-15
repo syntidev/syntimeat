@@ -2,6 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue'
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import axios from 'axios'
+import { Receipt, BarChart2, AlertTriangle, CheckCircle, Package, Check } from 'lucide-vue-next'
 
 // ─── Props iniciales desde Inertia ────────────────────────────────────────────
 const props = defineProps({
@@ -160,7 +161,7 @@ onUnmounted(() => clearInterval(clockTimer))
                 <div class="kpi-side">
 
                     <div class="kpi-stat kpi-stat--tickets">
-                        <span class="kpi-stat-icon">🧾</span>
+                        <span class="kpi-stat-icon"><Receipt :size="22" /></span>
                         <div class="kpi-stat-body">
                             <span class="kpi-stat-label">Tickets emitidos</span>
                             <span class="kpi-stat-val">{{ Math.round(animCount) }}</span>
@@ -169,7 +170,7 @@ onUnmounted(() => clearInterval(clockTimer))
                     </div>
 
                     <div class="kpi-stat kpi-stat--avg">
-                        <span class="kpi-stat-icon">📊</span>
+                        <span class="kpi-stat-icon"><BarChart2 :size="22" /></span>
                         <div class="kpi-stat-body">
                             <span class="kpi-stat-label">Ticket promedio</span>
                             <span class="kpi-stat-val kpi-stat-val--sm">{{ fmtUsd(d.ventas_hoy.count ? d.ventas_hoy.total_usd / d.ventas_hoy.count : 0) }}</span>
@@ -178,7 +179,10 @@ onUnmounted(() => clearInterval(clockTimer))
                     </div>
 
                     <div class="kpi-stat" :class="d.pedidos_pendientes > 0 ? 'kpi-stat--warn' : 'kpi-stat--ok'">
-                        <span class="kpi-stat-icon">{{ d.pedidos_pendientes > 0 ? '⚠️' : '✅' }}</span>
+                        <span class="kpi-stat-icon">
+                            <AlertTriangle v-if="d.pedidos_pendientes > 0" :size="22" />
+                            <CheckCircle v-else :size="22" />
+                        </span>
                         <div class="kpi-stat-body">
                             <span class="kpi-stat-label">Pedidos pendientes</span>
                             <span class="kpi-stat-val">{{ Math.round(animPedidos) }}</span>
@@ -227,7 +231,7 @@ onUnmounted(() => clearInterval(clockTimer))
                         </div>
                     </div>
                     <div v-else class="empty-state">
-                        <span class="empty-icon">📦</span>
+                        <span class="empty-icon"><Package :size="32" /></span>
                         <span>Sin ventas registradas hoy</span>
                     </div>
                 </div>
@@ -258,7 +262,7 @@ onUnmounted(() => clearInterval(clockTimer))
                         </div>
                     </div>
                     <div v-else class="empty-ok">
-                        <span class="ok-icon">✓</span>
+                        <span class="ok-icon"><Check :size="24" /></span>
                         <span>Todo el inventario en orden</span>
                     </div>
                 </div>

@@ -3,6 +3,7 @@ import AppLayout from '@/Layouts/AppLayout.vue'
 import { ref, reactive, computed, watch, onMounted, useTemplateRef } from 'vue'
 import { animate } from 'motion'
 import axios from 'axios'
+import { DollarSign, TrendingUp, Receipt, Scale, Lock } from 'lucide-vue-next'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 const props = defineProps({
@@ -245,7 +246,7 @@ function fmtDia(d) { return d ? new Date(d + 'T00:00:00').toLocaleDateString('es
                         <span class="chip-dot" />
                         {{ b.name }}
                         <span v-if="b.city" class="chip-city">{{ b.city }}</span>
-                        <span v-if="!isSelected(b.id) && selectedIds.length >= max_branches">🔒</span>
+                        <Lock v-if="!isSelected(b.id) && selectedIds.length >= max_branches" :size="12" />
                     </button>
                 </div>
             </div>
@@ -255,13 +256,13 @@ function fmtDia(d) { return d ? new Date(d + 'T00:00:00').toLocaleDateString('es
             <!-- ── KPIs ────────────────────────────────────────────────────── -->
             <section class="kpi-grid">
                 <div class="kpi-card kpi-card--hero anim-in">
-                    <span class="kpi-icon">💰</span>
+                    <span class="kpi-icon"><DollarSign :size="24" /></span>
                     <span class="kpi-label">Ventas Totales</span>
                     <span class="kpi-value">{{ fmtUsd(kpi.vendido_usd) }}</span>
                     <span class="kpi-foot">{{ fmtBs(totals.vendido_bs) }} al cliente</span>
                 </div>
                 <div class="kpi-card anim-in">
-                    <span class="kpi-icon">📈</span>
+                    <span class="kpi-icon"><TrendingUp :size="24" /></span>
                     <span class="kpi-label">Utilidad Bruta</span>
                     <span class="kpi-value" :class="kpi.utilidad_usd >= 0 ? 'pos' : 'neg'">
                         {{ fmtUsd(kpi.utilidad_usd) }}
@@ -269,13 +270,13 @@ function fmtDia(d) { return d ? new Date(d + 'T00:00:00').toLocaleDateString('es
                     <span class="kpi-foot">Margen {{ kpi.margen }}%</span>
                 </div>
                 <div class="kpi-card anim-in">
-                    <span class="kpi-icon">🧾</span>
+                    <span class="kpi-icon"><Receipt :size="24" /></span>
                     <span class="kpi-label">Ticket Promedio</span>
                     <span class="kpi-value">{{ fmtUsd(kpi.ticket_usd) }}</span>
                     <span class="kpi-foot">{{ fmtNum(kpi.ventas_count) }} transacciones</span>
                 </div>
                 <div class="kpi-card anim-in">
-                    <span class="kpi-icon">⚖️</span>
+                    <span class="kpi-icon"><Scale :size="24" /></span>
                     <span class="kpi-label">Volumen</span>
                     <span class="kpi-value">{{ fmtKg(kpi.kg) }}</span>
                     <span class="kpi-foot">peso despachado</span>
@@ -505,7 +506,7 @@ function fmtDia(d) { return d ? new Date(d + 'T00:00:00').toLocaleDateString('es
         <Transition name="modal-fade">
             <div v-if="limitModal" class="modal-backdrop">
                 <div class="modal-box">
-                    <span class="modal-icon">🔒</span>
+                    <span class="modal-icon"><Lock :size="32" /></span>
                     <h3 class="modal-title">Límite del plan alcanzado</h3>
                     <p class="modal-text">
                         Tu plan permite consolidar hasta <strong>{{ max_branches }} sucursales</strong> a la vez.
@@ -679,7 +680,7 @@ function fmtDia(d) { return d ? new Date(d + 'T00:00:00').toLocaleDateString('es
 .kpi-card--hero .kpi-label,
 .kpi-card--hero .kpi-value,
 .kpi-card--hero .kpi-foot { color: #fff; }
-.kpi-icon { font-size: 1.6rem; line-height: 1; flex-shrink: 0; }
+.kpi-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .kpi-label {
     font-size: 0.68rem; font-weight: 700; color: var(--text-muted);
     text-transform: uppercase; letter-spacing: 0.04em;
@@ -846,7 +847,7 @@ function fmtDia(d) { return d ? new Date(d + 'T00:00:00').toLocaleDateString('es
     text-align: center;
     display: flex; flex-direction: column; gap: 0.65rem; align-items: center;
 }
-.modal-icon  { font-size: 2.2rem; }
+.modal-icon  { display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
 .modal-title { font-size: 1.1rem; font-weight: 800; color: var(--text-primary); margin: 0; }
 .modal-text  { font-size: 0.86rem; color: var(--text-muted); line-height: 1.55; margin: 0 0 0.3rem; }
 .modal-text strong { color: var(--text-primary); }

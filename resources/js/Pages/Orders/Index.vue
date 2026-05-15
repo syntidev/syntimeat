@@ -2,6 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue'
 import { ref, computed, reactive } from 'vue'
 import axios from 'axios'
+import { FileText, Truck, Home } from 'lucide-vue-next'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 const props = defineProps({
@@ -447,7 +448,7 @@ function methodName(id) {
                             </div>
                         </div>
 
-                        <p v-if="order.notes" class="order-notes">📝 {{ order.notes }}</p>
+                        <p v-if="order.notes" class="order-notes"><FileText :size="13" class="notes-icon" />{{ order.notes }}</p>
                     </div>
                 </div>
                 <div v-else class="empty-state">No hay pedidos activos.</div>
@@ -547,10 +548,10 @@ function methodName(id) {
                             <!-- Tipo -->
                             <div class="type-toggle">
                                 <button class="toggle-btn" :class="{ 'toggle-active': newForm.client_type === 'external' }" @click="newForm.client_type = 'external'">
-                                    🚚 Delivery / Encargo
+                                    <Truck :size="14" style="vertical-align:middle;margin-right:5px;" />Delivery / Encargo
                                 </button>
                                 <button class="toggle-btn" :class="{ 'toggle-active': newForm.client_type === 'internal' }" @click="newForm.client_type = 'internal'">
-                                    🏠 Consumo Interno
+                                    <Home :size="14" style="vertical-align:middle;margin-right:5px;" />Consumo Interno
                                 </button>
                             </div>
 
@@ -1002,7 +1003,8 @@ function methodName(id) {
 }
 .btn-dispatch:hover { background: rgba(99,102,241,0.2); }
 .btn-dispatch:disabled { opacity: 0.5; cursor: not-allowed; }
-.order-notes { font-size: 0.78rem; color: var(--text-muted); }
+.order-notes { font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; gap: 5px; }
+.notes-icon  { flex-shrink: 0; }
 
 /* ─── Cobros Pendientes ───────────────────────────────────────────────────── */
 .cobros-list { display: flex; flex-direction: column; gap: 0.75rem; }
