@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\InventoryEntry;
 use App\Models\Product;
 use App\Models\Subcategory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -37,6 +39,25 @@ class CatalogController extends Controller
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
+
+        $stockIn = InventoryEntry::where('business_id', $businessId)
+            ->selectRaw('product_id, SUM(net_kg) as total_net')
+            ->groupBy('product_id')
+            ->pluck('total_net', 'product_id');
+
+        $stockOut = DB::table('sale_items')
+            ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
+            ->where('sales.business_id', $businessId)
+            ->where('sales.status', 'paid')
+            ->selectRaw('sale_items.product_id, SUM(sale_items.quantity_value) as total_sold')
+            ->groupBy('sale_items.product_id')
+            ->pluck('total_sold', 'product_id');
+
+        $products->each(function (Product $product) use ($stockIn, $stockOut): void {
+            $net                    = (float) ($stockIn[$product->id]  ?? 0);
+            $sold                   = (float) ($stockOut[$product->id] ?? 0);
+            $product->current_stock = round($net - $sold, 3);
+        });
 
         return Inertia::render('Catalog/Index', [
             'categories' => $categories,

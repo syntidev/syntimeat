@@ -193,7 +193,13 @@ function addToCart() {
 function removeFromCart(idx) { cart.value.splice(idx, 1); }
 
 const cartTotalUsd = computed(() => cart.value.reduce((s, i) => s + i.subtotal_usd, 0));
-const cartTotalBs  = computed(() => cartTotalUsd.value * props.todayRate);
+const cartTotalBs  = computed(() =>
+    cart.value.reduce((sum, item) =>
+        sum + (item.input_type === 'weight'
+            ? (item.amount_bs ?? 0)
+            : item.subtotal_usd * props.todayRate),
+    0)
+);
 const cartCount    = computed(() => cart.value.reduce((s, i) => s + i.quantity_value, 0));
 
 // ─── Carrito mobile drawer ────────────────────────────────────────────────────
@@ -357,7 +363,7 @@ function confirmPay() {
                 if (!data.sale) throw new Error('Sin venta');
                 successTicket.value   = data.sale.ticket_number;
                 successTotal.value    = cartTotalBs.value;
-                successItems.value    = cart.value.map(i => ({ ...i, subtotal_bs: i.subtotal_usd * props.todayRate }));
+                successItems.value    = cart.value.map(i => ({ ...i, subtotal_bs: i.input_type === 'weight' ? (i.amount_bs ?? 0) : i.subtotal_usd * props.todayRate }));
                 successPayments.value = [];
                 successDate.value     = new Date().toLocaleString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
                 successClient.value   = { name: clientName.value.trim(), phone: clientPhone.value.trim() };
@@ -382,7 +388,7 @@ function confirmPay() {
                 if (!data.sale) throw new Error('Sin venta');
                 successTicket.value   = data.sale.ticket_number;
                 successTotal.value    = cartTotalBs.value;
-                successItems.value    = cart.value.map(i => ({ ...i, subtotal_bs: i.subtotal_usd * props.todayRate }));
+                successItems.value    = cart.value.map(i => ({ ...i, subtotal_bs: i.input_type === 'weight' ? (i.amount_bs ?? 0) : i.subtotal_usd * props.todayRate }));
                 successPayments.value = [];
                 successDate.value     = new Date().toLocaleString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
                 successClient.value   = { name: clientName.value.trim(), phone: clientPhone.value.trim() };
@@ -411,7 +417,7 @@ function confirmPay() {
     .then((ticket) => {
         successTicket.value   = ticket;
         successTotal.value    = cartTotalBs.value;
-        successItems.value    = cart.value.map(i => ({ ...i, subtotal_bs: i.subtotal_usd * props.todayRate }));
+        successItems.value    = cart.value.map(i => ({ ...i, subtotal_bs: i.input_type === 'weight' ? (i.amount_bs ?? 0) : i.subtotal_usd * props.todayRate }));
         successPayments.value = payments.value.map(p => ({
             ...p,
             method_label: pmtMethodName(p.payment_method_id),
@@ -946,7 +952,7 @@ function productImageUrl(product) {
                         <div class="pay-items-scroll">
                             <div v-for="(item, idx) in cart" :key="idx" class="pay-item-row">
                                 <span class="pay-item-name">{{ item.product_name }} <em class="pay-item-qty">× {{ fmtQty(item.quantity_value, item.sale_mode) }}</em></span>
-                                <span class="pay-item-amount">{{ fmtBs(item.subtotal_usd * todayRate) }} Bs.</span>
+                                <span class="pay-item-amount">{{ fmtBs(item.input_type === 'weight' ? (item.amount_bs ?? 0) : item.subtotal_usd * todayRate) }} Bs.</span>
                             </div>
                         </div>
 

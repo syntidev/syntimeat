@@ -140,6 +140,7 @@ class SaleController extends Controller
         }
 
         $totalUsd      = 0.0;
+        $totalBs       = 0.0;
         $itemsToCreate = [];
 
         foreach ($data['items'] as $item) {
@@ -151,19 +152,23 @@ class SaleController extends Controller
             if ($inputType === 'weight') {
                 // Support both: amount_bs (new paradigm) and quantity_value (legacy)
                 if (!empty($item['amount_bs'])) {
-                    $amountBs = (float) $item['amount_bs'];
-                    $qty      = ($priceKg > 0 && $rate > 0) ? round($amountBs / ($priceKg * $rate), 3) : 0.0;
-                    $subtotal = $rate > 0 ? $amountBs / $rate : 0.0;
+                    $amountBs   = (float) $item['amount_bs'];
+                    $qty        = ($priceKg > 0 && $rate > 0) ? round($amountBs / ($priceKg * $rate), 3) : 0.0;
+                    $subtotal   = $rate > 0 ? $amountBs / $rate : 0.0;
+                    $subtotalBs = $amountBs; // Bs. exactos del cajero — sin reconvertir
                 } else {
-                    $qty      = (float) ($item['quantity_value'] ?? 0);
-                    $subtotal = $qty * $priceKg;
+                    $qty        = (float) ($item['quantity_value'] ?? 0);
+                    $subtotal   = $qty * $priceKg;
+                    $subtotalBs = round($subtotal * $rate, 2);
                 }
             } else {
-                $qty      = (float) ($item['quantity_value'] ?? 0);
-                $subtotal = $qty * $priceUnit;
+                $qty        = (float) ($item['quantity_value'] ?? 0);
+                $subtotal   = $qty * $priceUnit;
+                $subtotalBs = round($subtotal * $rate, 2);
             }
 
             $totalUsd += $subtotal;
+            $totalBs  += $subtotalBs;
 
             $itemsToCreate[] = [
                 'product_id'         => $product->id,
@@ -174,7 +179,7 @@ class SaleController extends Controller
                 'price_per_kg_usd'   => $priceKg,
                 'price_per_unit_usd' => $priceUnit,
                 'subtotal_usd'       => round($subtotal, 2),
-                'subtotal_bs'        => round($subtotal * $rate, 2),
+                'subtotal_bs'        => $subtotalBs,
                 'rate_used'          => $rate,
                 'discount_usd'       => 0,
             ];
@@ -192,9 +197,8 @@ class SaleController extends Controller
                 ->first();
 
             $sale = DB::transaction(function () use (
-                $businessId, $user, $ticketNumber, $totalUsd, $itemsToCreate, $channel, $rate, $cashRegister
+                $businessId, $user, $ticketNumber, $totalUsd, $totalBs, $itemsToCreate, $channel, $rate, $cashRegister
             ) {
-                $totalBs = round($totalUsd * $rate, 2);
 
                 $sale = Sale::create([
                     'business_id'     => $businessId,
@@ -251,12 +255,13 @@ class SaleController extends Controller
 
         $status  = $origin === 'delivery' ? 'pending' : 'open';
 
-        $sale = DB::transaction(function () use ($businessId, $user, $ticketNumber, $totalUsd, $itemsToCreate, $origin, $channel, $status) {
+        $sale = DB::transaction(function () use ($businessId, $user, $ticketNumber, $totalUsd, $totalBs, $itemsToCreate, $origin, $channel, $status) {
             $sale = Sale::create([
                 'business_id'   => $businessId,
                 'ticket_number' => $ticketNumber,
                 'status'        => $status,
                 'total_usd'     => round($totalUsd, 2),
+                'total_bs'      => round($totalBs, 2),
                 'cashier_id'    => $user->id,
                 'origin'        => $origin,
                 'channel'       => $channel,
@@ -303,9 +308,8 @@ class SaleController extends Controller
             'client_phone'                      => ['nullable', 'string', 'max:30'],
         ]);
 
-        $rate     = $this->rates->getTodayRate();
-        $totalUsd = (float) $sale->total_usd;
-        $totalBs  = round($totalUsd * $rate, 2);
+        $rate    = $this->rates->getTodayRate();
+        $totalBs = (float) $sale->total_bs;
 
         // Validar métodos de pago del negocio y calcular suma
         $methodIds = array_column($data['payments'], 'payment_method_id');
@@ -344,7 +348,7 @@ class SaleController extends Controller
         $firstMethod = $methods[$data['payments'][0]['payment_method_id']];
 
         DB::transaction(function () use (
-            $sale, $rate, $totalBs, $totalUsd, $changeBs, $changeUsd,
+            $sale, $rate, $totalBs, $changeBs, $changeUsd,
             $firstMethod, $data, $methods, $businessId, $user, $cashRegister, $clientId
         ) {
             $sale->update([
@@ -398,7 +402,7 @@ class SaleController extends Controller
                 'model_id'    => $sale->id,
                 'new_values'  => [
                     'ticket_number'  => $sale->ticket_number,
-                    'total_usd'      => $totalUsd,
+                    'total_usd'      => (float) $sale->total_usd,
                     'total_bs'       => $totalBs,
                     'rate_used'      => $rate,
                     'payments_count' => count($data['payments']),

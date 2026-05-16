@@ -231,3 +231,11 @@ Flujo:
 - Tarea clara   → @executor directamente
 - Post-impl     → @reviewer
 - Bug           → @debugger
+
+
+### ICONOS — ESTÁNDAR OBLIGATORIO
+- NUNCA emojis en UI — prohibido absolutamente
+- NUNCA FontAwesome, Bootstrap Icons ni librerías externas
+- SIEMPRE Lucide Vue: import { IconName } from 'lucide-vue-next'
+- Tamaño estándar: :size="20" para inline, :size="24" para títulos
+- Color: siempre heredado del CSS var — nunca hardcodeado
