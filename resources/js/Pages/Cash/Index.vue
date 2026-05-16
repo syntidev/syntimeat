@@ -1,5 +1,6 @@
 <script setup>
-import AppLayout from '@/Layouts/AppLayout.vue';
+import AppLayout  from '@/Layouts/AppLayout.vue';
+import HelpModal  from '@/Components/HelpModal.vue';
 import { ref, computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 
@@ -41,6 +42,42 @@ function submitMovement() {
         onSuccess: () => { movModal.value = false; movForm.reset(); movForm.type = 'out'; },
     });
 }
+
+// ─── Ayuda ────────────────────────────────────────────────────────────────────
+const showHelp = ref(false);
+
+const helpSteps = [
+    {
+        title: 'Abrir la caja',
+        body:  'Cada día el cajero abre su caja registrando el efectivo inicial disponible. Este monto es el punto de partida para el cuadre del día.',
+        tip:   'Abre la caja antes de ir al Punto de Venta — sin caja abierta no puedes registrar ventas.',
+    },
+    {
+        title: 'Movimientos y cortes',
+        body:  'Durante el día puedes registrar entradas o salidas de efectivo (cambio, retiros, ingresos). El corte de turno te permite contar el efectivo a mitad del día sin cerrar la caja.',
+        tip:   'Usa el corte de turno cuando cambia el cajero a mitad del día — la caja sigue abierta para el turno siguiente.',
+    },
+    {
+        title: 'Cierre del día',
+        body:  'Al final del día cuenta el efectivo físico, ingrésalo en el sistema y confirma el cierre. El sistema calcula la diferencia entre lo esperado y lo contado.',
+        tip:   'El cierre es irreversible. Asegúrate de que todas las ventas del día estén registradas antes de cerrar.',
+    },
+];
+
+const helpFaqs = [
+    {
+        q: '¿Puedo abrir varias cajas el mismo día?',
+        a: 'Sí. Si hay varios cajeros, cada uno abre su propia caja. Cada caja lleva su propio registro independiente.',
+    },
+    {
+        q: '¿Qué pasa si hay diferencia en el cierre?',
+        a: 'El sistema la registra como diferencia positiva o negativa. El administrador puede verla en el historial de cierres.',
+    },
+    {
+        q: '¿Puedo reabrir una caja cerrada?',
+        a: 'No. Una vez cerrada la caja no se puede reabrir. Si necesitas registrar algo, abre una nueva caja.',
+    },
+];
 
 // ─── Modal Corte ──────────────────────────────────────────────────────────────
 const corteModal = ref(false);
@@ -110,6 +147,7 @@ function submitCorte() {
                 <div class="cash-tabs">
                     <button class="cash-tab" :class="{ active: activeTab === 'day' }" @click="activeTab = 'day'">Caja del Día</button>
                     <button class="cash-tab" :class="{ active: activeTab === 'history' }" @click="activeTab = 'history'">Historial</button>
+                    <button class="cash-tab cash-tab--help" @click="showHelp = true" title="Ayuda">?</button>
                 </div>
                 <div class="cash-actions">
                     <button class="btn btn-ghost" @click="movModal = true">+ Movimiento</button>
@@ -372,6 +410,15 @@ function submitCorte() {
             </div>
         </Teleport>
 
+        <!-- Panel de ayuda ───────────────────────────────────────────────── -->
+        <HelpModal
+            :show="showHelp"
+            title="Caja — Cómo funciona"
+            :steps="helpSteps"
+            :faqs="helpFaqs"
+            @close="showHelp = false"
+        />
+
     </AppLayout>
 </template>
 
@@ -442,6 +489,23 @@ function submitCorte() {
     transition: color 0.15s, border-color 0.15s;
 }
 .cash-tab.active { color: var(--brand); border-bottom-color: var(--brand); }
+.cash-tab--help {
+    margin-left: auto;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    border: 1.5px solid var(--border);
+    color: var(--text-muted);
+    align-self: center;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.cash-tab--help:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
 .cash-actions { display: flex; gap: 0.5rem; }
 
 /* ─── Info bar ───────────────────────────────────────────────────────────────── */

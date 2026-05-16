@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import AppLogo from '@/Components/AppLogo.vue';
-import { Lock, AlertTriangle, FileText, Store, Bike, Check } from '@lucide/vue';
+import { Lock, AlertTriangle, FileText, Store, Bike, Check, Filter } from '@lucide/vue';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 const props = defineProps({
@@ -64,21 +64,60 @@ function removeTicket(idx) {
     activeTicket.value = Math.min(activeTicket.value, tickets.value.length - 1);
 }
 
-// ─── Filtro de categorías ─────────────────────────────────────────────────────
+// ─── Filtro de categorías + búsqueda ─────────────────────────────────────────
 const selectedCat = ref(null);
-const filteredProducts = computed(() =>
-    selectedCat.value === null
+const search      = ref('');
+const catPage     = ref(1);
+const PAGE_SIZE   = 20;
+
+// Helper: producto tiene stock disponible (null = sin seguimiento = OK)
+function hasStock(p) {
+    const s = stockFor(p);
+    return s === null || s > 0;
+}
+
+// Toggle "Solo con stock" — ON por defecto, persiste en sesión
+const onlyInStock = ref(true);
+
+// Base: todos los productos o filtrado por categoría
+// El toggle controla si se ocultan los sin stock
+const categoryProductsAll = computed(() => {
+    const base = selectedCat.value === null
         ? props.products
-        : props.products.filter(p => p.category_id === selectedCat.value)
+        : props.products.filter(p => p.category_id === selectedCat.value);
+    return onlyInStock.value ? base.filter(hasStock) : base;
+});
+
+// Búsqueda: siempre todos los productos, ignora el toggle
+// Con stock primero → sin stock al final, max 20
+const searchResults = computed(() => {
+    const q = search.value.trim().toLowerCase();
+    if (!q) return categoryProductsAll.value;
+    const matched = props.products.filter(p => p.name.toLowerCase().includes(q));
+    const inStock  = matched.filter(hasStock);
+    const noStock  = matched.filter(p => !hasStock(p));
+    return [...inStock, ...noStock].slice(0, 20);
+});
+
+// Paginación (solo aplica cuando NO hay búsqueda activa)
+const categoryProducts = computed(() =>
+    categoryProductsAll.value.slice(0, catPage.value * PAGE_SIZE)
+);
+const hasMoreCategory = computed(() =>
+    categoryProducts.value.length < categoryProductsAll.value.length
 );
 
-// ─── Búsqueda ─────────────────────────────────────────────────────────────────
-const search = ref('');
-const displayedProducts = computed(() => {
-    const q = search.value.trim().toLowerCase();
-    if (!q) return filteredProducts.value;
-    return filteredProducts.value.filter(p => p.name.toLowerCase().includes(q));
-});
+// Lo que se muestra: búsqueda si hay query, paginado si no
+const displayedProducts = computed(() =>
+    search.value.trim() ? searchResults.value : categoryProducts.value
+);
+
+function selectCat(id) {
+    selectedCat.value = id;
+    catPage.value     = 1;
+    search.value      = '';
+}
+function loadMore() { catPage.value++; }
 
 // ─── Precio en Bs ─────────────────────────────────────────────────────────────
 function priceBs(product) {
@@ -643,15 +682,15 @@ function productImageUrl(product) {
                             class="tab"
                             :class="{ active: selectedCat === null }"
                             :style="selectedCat === null ? { color: 'var(--brand)', borderBottomColor: 'var(--brand)' } : {}"
-                            @click="selectedCat = null"
+                            @click="selectCat(null)"
                         >Todas</button>
                         <button
-                            v-for="cat in categories"
+                            v-for="cat in categories.filter(c => c.name !== 'Bóveda' && c.macro_category !== 'BOVEDA')"
                             :key="cat.id"
                             class="tab"
                             :class="{ active: selectedCat === cat.id }"
                             :style="selectedCat === cat.id ? { color: cat.color, borderBottomColor: cat.color } : {}"
-                            @click="selectedCat = cat.id"
+                            @click="selectCat(cat.id)"
                         >
                             <span class="tab-dot" :style="{ background: cat.color }" />
                             {{ cat.name }}
@@ -659,16 +698,48 @@ function productImageUrl(product) {
                     </div>
                 </div>
 
+                <!-- Búsqueda + toggle -->
                 <div class="search-row">
-                    <input v-model="search" type="search" class="search-input" placeholder="Buscar producto…" />
+                    <div class="search-wrap">
+                        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                        </svg>
+                        <input
+                            v-model="search"
+                            type="search"
+                            class="search-input"
+                            placeholder="Busca un producto para agregarlo al ticket…"
+                            autocomplete="off"
+                        />
+                        <button v-if="search" class="search-clear" @click="search = ''" title="Limpiar">×</button>
+                    </div>
+
+                    <!-- Toggle Solo con stock -->
+                    <button
+                        class="stock-toggle"
+                        :class="{ 'stock-toggle--on': onlyInStock }"
+                        @click="onlyInStock = !onlyInStock"
+                        :title="onlyInStock ? 'Mostrando solo con stock — clic para ver todos' : 'Mostrando todos — clic para filtrar por stock'"
+                    >
+                        <Filter :size="13" />
+                        <span>Solo con stock</span>
+                        <span class="stock-toggle__dot" />
+                    </button>
                 </div>
 
                 <div class="grid-wrap">
-                    <div class="product-grid" :key="selectedCat">
+                    <!-- Contador solo cuando hay búsqueda activa -->
+                    <p v-if="search.trim()" class="search-count">
+                        {{ searchResults.length }} resultado{{ searchResults.length !== 1 ? 's' : '' }}
+                        <span v-if="searchResults.length === 20"> (máx. 20)</span>
+                    </p>
+
+                    <div class="product-grid" :key="`${selectedCat}-${catPage}`">
                         <button
                             v-for="(product, i) in displayedProducts"
                             :key="product.id"
                             class="product-card"
+                            :class="{ 'product-card--no-stock': !hasStock(product) }"
                             :style="{
                                 borderTopColor: catColor(product),
                                 '--glow': catColor(product) + '55',
@@ -689,11 +760,9 @@ function productImageUrl(product) {
                                         <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
                                     </svg>
                                 </div>
-                                <!-- Categoría encima de la imagen -->
                                 <span class="p-cat-pill" :style="{ background: catColor(product) + '22', color: catColor(product) }">
                                     {{ product.subcategory?.name ?? product.category?.name ?? '' }}
                                 </span>
-                                <!-- Badge stock encima de imagen -->
                                 <span v-if="stockStatus(product) === 'empty'" class="p-stock-pill p-stock-empty">Sin stock</span>
                                 <span v-else-if="stockStatus(product) === 'low'" class="p-stock-pill p-stock-low">Stock bajo</span>
                             </div>
@@ -710,7 +779,14 @@ function productImageUrl(product) {
                             </div>
                         </button>
 
-                        <p v-if="!displayedProducts.length" class="empty-msg">Sin productos en esta categoría.</p>
+                        <p v-if="!displayedProducts.length" class="empty-msg">Sin resultados.</p>
+                    </div>
+
+                    <!-- Cargar más (solo modo categoría) -->
+                    <div v-if="hasMoreCategory && search.trim().length < 2" class="load-more-wrap">
+                        <button class="btn-load-more" @click="loadMore">
+                            Cargar más ({{ categoryProductsAll.length - categoryProducts.length }} restantes)
+                        </button>
                     </div>
                 </div>
             </section>
@@ -1388,15 +1464,129 @@ function productImageUrl(product) {
 .tab-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .tab.active .tab-dot { box-shadow: 0 0 6px currentColor; }
 
-.search-row { padding: 10px 20px 6px; flex-shrink: 0; }
-.search-input {
-    width: 100%; padding: 7px 12px;
-    border: 1px solid var(--border); border-radius: 8px;
-    background: var(--bg-base); color: var(--text-primary);
-    font-size: 13px; outline: none; font-family: inherit;
+.search-row  { padding: 10px 20px 8px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }
+.search-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
 }
-.search-input:focus { border-color: var(--brand); }
+.search-icon {
+    position: absolute;
+    left: 12px;
+    color: var(--text-muted);
+    pointer-events: none;
+    flex-shrink: 0;
+}
+.search-input {
+    width: 100%;
+    padding: 10px 36px 10px 38px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.search-input:focus {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 15%, transparent);
+}
 .search-input::placeholder { color: var(--text-muted); }
+.search-clear {
+    position: absolute;
+    right: 10px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+.search-clear:hover { color: var(--text-primary); }
+
+/* ── Toggle Solo con stock ── */
+.stock-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    align-self: flex-start;
+    padding: 4px 10px 4px 8px;
+    border-radius: 20px;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.stock-toggle__dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: background 0.15s;
+    flex-shrink: 0;
+}
+.stock-toggle--on {
+    border-color: var(--brand);
+    color: var(--brand);
+    background: color-mix(in srgb, var(--brand) 8%, transparent);
+}
+.stock-toggle--on .stock-toggle__dot { background: var(--brand); }
+
+/* ── Estado inicial vacío ── */
+.pos-empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 3rem 2rem;
+    text-align: center;
+}
+.pos-empty-icon { color: var(--border); }
+.pos-empty-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin: 0;
+}
+.pos-empty-hint {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    opacity: 0.7;
+    margin: 0;
+}
+
+/* ── Contador búsqueda ── */
+.search-count {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    padding: 0 2px 8px;
+    margin: 0;
+}
+
+/* ── Cargar más ── */
+.load-more-wrap { display: flex; justify-content: center; padding: 16px 0 8px; }
+.btn-load-more {
+    padding: 8px 20px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.83rem;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: border-color 0.15s, color 0.15s;
+}
+.btn-load-more:hover { border-color: var(--brand); color: var(--brand); }
 
 .grid-wrap {
     flex: 1; overflow-y: auto; padding: 10px 20px 20px;
@@ -1418,6 +1608,11 @@ function productImageUrl(product) {
     transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.15s;
     animation: cardIn 0.28s ease both;
     font-family: inherit;
+}
+.product-card--no-stock {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 .product-card::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(145deg, rgba(255,255,255,0.025) 0%, transparent 55%); }
 .product-card::after { content: '+'; position: absolute; top: 8px; right: 10px; font-size: 16px; font-weight: 300; color: var(--text-muted); opacity: 0; transition: opacity 0.15s, transform 0.18s cubic-bezier(0.34,1.56,0.64,1); transform: scale(0.7) rotate(20deg); }

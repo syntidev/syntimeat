@@ -31,7 +31,7 @@ class CatalogSeederChaguaramas extends Seeder
         $catCharc     = $this->cat($bid, 'Charcutería',   '#06B6D4', 4, 'CHARCUTERIA');
         $catTrastes   = $this->cat($bid, 'Trastes',       '#F97316', 5, 'TRASTES');
         $catEmbutidos = $this->cat($bid, 'Embutidos',     '#F59E0B', 6, 'EMBUTIDOS');
-        $catDespensa  = $this->cat($bid, 'Despensa',      '#10B981', 7, 'DESPENSA');
+        $catViveres  = $this->cat($bid, 'Víveres',      '#10B981', 7, 'DESPENSA');
 
         // ─── BÓVEDA ───────────────────────────────────────────────────────────
 
@@ -53,93 +53,94 @@ class CatalogSeederChaguaramas extends Seeder
 
         // ─── RES (vitrina, weight) ────────────────────────────────────────────
 
+        // [nombre => precio_usd]
         $resItems = [
-            'Premium',
-            'Primera',
-            'Segunda',
-            'Costilla',
-            'Hueso Redondo',
-            'Hueso Rojo',
-            'Rabo',
-            'Recortes de Res',
-            'Chorizo Criollo',
+            'Premium'        => 12.00,
+            'Primera'        =>  8.00,
+            'Segunda'        =>  6.00,
+            'Costilla'       =>  5.00,
+            'Hueso Redondo'  =>  2.00,
+            'Hueso Rojo'     =>  1.50,
+            'Rabo'           =>  4.00,
+            'Recortes de Res'=>  3.00,
+            'Chorizo Criollo'=>  7.00,
         ];
 
-        foreach ($resItems as $i => $nombre) {
+        foreach ($resItems as $nombre => $precio) {
             $fabricable = $nombre === 'Chorizo Criollo';
-            $this->producto($bid, $branchId, $catRes->id, $nombre, 'weight', 'kg', 'vitrina', $i, $fabricable);
+            $this->producto($bid, $branchId, $catRes->id, $nombre, 'weight', 'kg', 'vitrina', array_search($nombre, array_keys($resItems)), $fabricable, $precio);
         }
 
         // ─── POLLO (vitrina, weight) ──────────────────────────────────────────
 
         $polloItems = [
-            'Pollo Entero Tipo A',
-            'Pollo Entero Tipo B',
-            'Pollo Picado',
-            'Muslo',
-            'Pechuga',
-            'Ala',
-            'Molleja',
-            'Hígado de Pollo',
-            'Patas',
+            'Pollo Entero Tipo A' => 4.00,
+            'Pollo Entero Tipo B' => 3.50,
+            'Pollo Picado'        => 2.00,
+            'Muslo'               => 2.00,
+            'Pechuga'             => 2.00,
+            'Ala'                 => 2.00,
+            'Molleja'             => 2.00,
+            'Hígado de Pollo'     => 2.00,
+            'Patas'               => 2.00,
         ];
 
-        foreach ($polloItems as $i => $nombre) {
-            $this->producto($bid, $branchId, $catPollo->id, $nombre, 'weight', 'kg', 'vitrina', $i);
+        foreach ($polloItems as $nombre => $precio) {
+            $this->producto($bid, $branchId, $catPollo->id, $nombre, 'weight', 'kg', 'vitrina', array_search($nombre, array_keys($polloItems)), false, $precio);
         }
 
         // ─── CERDO (vitrina, weight) ──────────────────────────────────────────
 
         $cerdoItems = [
-            'Chuleta de Cerdo',
-            'Costilla de Cerdo',
-            'Recorte de Cerdo',
+            'Chuleta de Cerdo'  => 6.00,
+            'Costilla de Cerdo' => 5.00,
+            'Recorte de Cerdo'  => 2.00,
         ];
 
-        foreach ($cerdoItems as $i => $nombre) {
-            $this->producto($bid, $branchId, $catCerdo->id, $nombre, 'weight', 'kg', 'vitrina', $i);
+        foreach ($cerdoItems as $nombre => $precio) {
+            $this->producto($bid, $branchId, $catCerdo->id, $nombre, 'weight', 'kg', 'vitrina', array_search($nombre, array_keys($cerdoItems)), false, $precio);
         }
 
         // ─── CHARCUTERÍA (vitrina, weight) ────────────────────────────────────
 
         $charcItems = [
-            'Jamón de Pierna',
-            'Queso Amarillo',
-            'Mortadela',
-            'Jamón de Espalda',
+            'Jamón de Pierna' => 2.00,
+            'Queso Amarillo'  => 2.00,
+            'Mortadela'       => 2.00,
+            'Jamón de Espalda'=> 2.00,
         ];
 
-        foreach ($charcItems as $i => $nombre) {
-            $this->producto($bid, $branchId, $catCharc->id, $nombre, 'weight', 'kg', 'vitrina', $i);
+        foreach ($charcItems as $nombre => $precio) {
+            $this->producto($bid, $branchId, $catCharc->id, $nombre, 'weight', 'kg', 'vitrina', array_search($nombre, array_keys($charcItems)), false, $precio);
         }
 
         // ─── TRASTES (vitrina, weight) ────────────────────────────────────────
 
         $trastes = [
-            'Hígado de Res',
-            'Lengua de Res',
-            'Corazón de Res',
-            'Bofe',
-            'Riñón',
-            'Pajarilla',
-            'Mondongo',
-            'Pata de Res',
-            'Chinchurria',
+            'Hígado de Res'  => 2.00,
+            'Lengua de Res'  => 2.00,
+            'Corazón de Res' => 2.00,
+            'Bofe'           => 2.00,
+            'Riñón'          => 2.00,
+            'Pajarilla'      => 2.00,
+            'Mondongo'       => 2.00,
+            'Pata de Res'    => 2.00,
+            'Chinchurria'    => 2.00,
         ];
 
-        foreach ($trastes as $i => $nombre) {
-            $this->producto($bid, $branchId, $catTrastes->id, $nombre, 'weight', 'kg', 'vitrina', $i);
+        foreach ($trastes as $nombre => $precio) {
+            $this->producto($bid, $branchId, $catTrastes->id, $nombre, 'weight', 'kg', 'vitrina', array_search($nombre, array_keys($trastes)), false, $precio);
         }
 
         // ─── EMBUTIDOS (vitrina, unit) ────────────────────────────────────────
 
         $embutidos = [
-            'Chorizo Nacional',
-            'Salchichón',
+            'Chorizo Nacional' => 2.00,
+            'Salchichón'       => 2.00,
         ];
 
-        foreach ($embutidos as $i => $nombre) {
-            $this->producto($bid, $branchId, $catEmbutidos->id, $nombre, 'unit', 'und', 'vitrina', $i);
+        foreach ($embutidos as $nombre => $precio) {
+            $this->producto($bid, $branchId, $catEmbutidos->id, $nombre, 'unit', 'und', 'vitrina', array_search($nombre, array_keys($embutidos)), false, $precio);
         }
 
         // ─── DESPENSA (despensa, unit) ────────────────────────────────────────
@@ -152,7 +153,7 @@ class CatalogSeederChaguaramas extends Seeder
         ];
 
         foreach ($despensa as $i => $nombre) {
-            $this->producto($bid, $branchId, $catDespensa->id, $nombre, 'unit', 'und', 'despensa', $i);
+            $this->producto($bid, $branchId, $catViveres->id, $nombre, 'unit', 'und', 'despensa', $i);
         }
 
         // ─── Actualizar macro_category en registros existentes ───────────────
@@ -165,7 +166,6 @@ class CatalogSeederChaguaramas extends Seeder
             'Charcutería' => 'CHARCUTERIA',
             'Trastes'     => 'TRASTES',
             'Embutidos'   => 'EMBUTIDOS',
-            'Despensa'    => 'DESPENSA',
             'Víveres'     => 'VIVERES',
         ];
 
@@ -200,6 +200,7 @@ class CatalogSeederChaguaramas extends Seeder
         string $location,
         int $sortOrder,
         bool $fabricable = false,
+        float $price = 2.00,
     ): Product {
         return Product::updateOrCreate(
             ['business_id' => $bid, 'name' => $name],
@@ -209,8 +210,8 @@ class CatalogSeederChaguaramas extends Seeder
                 'sale_mode'          => $saleMode,
                 'base_unit_label'    => $unitLabel,
                 'location'           => $location,
-                'price_per_kg_usd'   => $saleMode === 'weight' ? 0 : null,
-                'price_per_unit_usd' => $saleMode === 'unit'   ? 0 : null,
+                'price_per_kg_usd'   => $saleMode === 'weight' ? $price : null,
+                'price_per_unit_usd' => $saleMode === 'unit'   ? $price : null,
                 'fraction_allowed'   => $saleMode === 'weight',
                 'fabricable'         => $fabricable,
                 'active'             => true,
