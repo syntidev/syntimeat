@@ -84,7 +84,15 @@ function submitCorte() {
         <!-- Sin caja abierta ─────────────────────────────────────────────── -->
         <div v-if="!cashRegister" class="no-cash-wrap">
             <div class="no-cash-card">
-                <div class="no-cash-icon">🏧</div>
+                <div class="no-cash-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="6" width="20" height="14" rx="2"/>
+                        <path d="M2 10h20"/>
+                        <circle cx="12" cy="15" r="2"/>
+                        <path d="M6 15h.01M18 15h.01"/>
+                    </svg>
+                </div>
                 <h2 class="no-cash-title">No hay caja abierta</h2>
                 <p class="no-cash-hint">
                     Debes abrir la caja para registrar ventas.
@@ -389,7 +397,8 @@ function submitCorte() {
     align-items: center;
     gap: 1rem;
 }
-.no-cash-icon  { font-size: 3rem; }
+.no-cash-icon       { width: 3rem; height: 3rem; color: var(--brand); }
+.no-cash-icon svg   { width: 100%; height: 100%; }
 .no-cash-title { font-size: 1.4rem; font-weight: 800; color: var(--text-primary); }
 .no-cash-hint  { font-size: 0.88rem; color: var(--text-muted); }
 .no-cash-rate  { font-size: 0.85rem; color: var(--text-muted); }

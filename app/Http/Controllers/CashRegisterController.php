@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
 use App\Models\BovedaEntry;
+use App\Models\CashMovement;
 use App\Models\CashRegister;
 use App\Services\DollarRateService;
 use Illuminate\Http\RedirectResponse;
@@ -140,11 +141,51 @@ class CashRegisterController extends Controller
         return redirect()->route('cash.index');
     }
 
-    // ─── Cerrar caja (delega a confirmClose) ─────────────────────────────────
+    // ─── Corte de turno (NO cierra la caja) ──────────────────────────────────
 
-    public function close(Request $request, CashRegister $cashRegister): RedirectResponse
+    public function close(Request $request, CashRegister $register): RedirectResponse
     {
-        return $this->confirmClose($request, $cashRegister);
+        $user       = Auth::user();
+        $businessId = $user->business->id;
+
+        abort_unless($register->business_id === $businessId, 403);
+        abort_unless($register->closed_at === null, 422, 'La caja ya está cerrada.');
+
+        $data = $request->validate([
+            'counted_cash_bs' => ['required', 'numeric', 'min:0'],
+            'notes'           => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $rate      = $this->rates->getTodayRate();
+        $countedBs = (float) $data['counted_cash_bs'];
+        $countedUsd = $rate > 0 ? round($countedBs / $rate, 4) : 0.0;
+
+        $concept = 'Corte de turno'
+            . ($data['notes'] ? ': ' . $data['notes'] : '');
+
+        DB::transaction(function () use ($register, $user, $businessId, $countedUsd, $countedBs, $concept, $rate) {
+            $register->movements()->create([
+                'type'       => 'corte',
+                'amount_usd' => $countedUsd,
+                'concept'    => $concept,
+                'created_by' => $user->id,
+            ]);
+
+            ActivityLog::create([
+                'business_id' => $businessId,
+                'user_id'     => $user->id,
+                'action'      => 'cash.corte_turno',
+                'model_type'  => CashRegister::class,
+                'model_id'    => $register->id,
+                'new_values'  => [
+                    'counted_bs'  => $countedBs,
+                    'counted_usd' => round($countedUsd, 2),
+                    'rate'        => $rate,
+                ],
+            ]);
+        });
+
+        return redirect()->route('cash.index');
     }
 
     // ─── Vista Cierre del Día ─────────────────────────────────────────────────
