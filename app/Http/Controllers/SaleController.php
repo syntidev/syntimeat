@@ -561,14 +561,14 @@ class SaleController extends Controller
                 'client_name'  => $s->client_name,
                 'client_phone' => $s->client_phone,
                 'total_usd'    => (float) $s->total_usd,
-                'total_bs'     => round((float) $s->total_usd * $rate, 2),
+                'total_bs'     => (float) $s->total_bs,
                 'cashier_name' => $s->cashier?->name ?? '—',
                 'created_at'   => $s->created_at?->toDateTimeString(),
                 'items'        => $s->items->map(fn ($i) => [
                     'product_name'   => $i->product_name,
                     'quantity_value' => (float) $i->quantity_value,
                     'unit_label'     => $i->unit_label,
-                    'subtotal_bs'    => round((float) $i->subtotal_usd * $rate, 2),
+                    'subtotal_bs'    => (float) $i->subtotal_bs,
                 ])->values(),
             ])
             ->values();

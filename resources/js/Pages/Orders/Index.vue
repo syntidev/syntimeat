@@ -324,7 +324,11 @@ async function submitPendCollect() {
     saving.value           = true
     pendCollectError.value = ''
     try {
-        await axios.patch(route('sales.collect-pending', pendCollectSale.value.id), {
+        const isDelivery   = pendCollectSale.value?.sale_type === 'delivery'
+        const collectRoute = isDelivery
+            ? route('sales.delivery-confirm', pendCollectSale.value.id)
+            : route('sales.collect-pending',  pendCollectSale.value.id)
+        await axios.patch(collectRoute, {
             payments: pendPayments.value.map(p => ({
                 payment_method_id: p.payment_method_id,
                 amount_bs:         p.amount_bs,
@@ -696,7 +700,7 @@ function methodName(id) {
                             </select>
                             <input v-model="newPmtAmountBs" class="field-input pay-amount-input" type="number" step="0.01" placeholder="Monto Bs." />
                             <button class="btn-sm" @click="fillRest" title="Completar restante">↓</button>
-                            <button class="btn-brand btn-sm" @click="addPayment">+ Agregar</button>
+                            <button class="btn-brand btn-sm" @click="addPayment" :disabled="paidBs >= collectTotalBs">+ Agregar</button>
                         </div>
 
                         <input v-model="newPmtRef" class="field-input mt-1" placeholder="Referencia (opcional)" />
@@ -800,7 +804,7 @@ function methodName(id) {
                             </select>
                             <input v-model="pendPmtAmountBs" class="field-input pay-amount-input" type="number" step="0.01" placeholder="Monto Bs." />
                             <button class="btn-sm" @click="fillPendRest" title="Completar restante">↓</button>
-                            <button class="btn-brand btn-sm" @click="addPendPayment">+ Agregar</button>
+                            <button class="btn-brand btn-sm" @click="addPendPayment" :disabled="pendPaidBs >= pendTotalBs">+ Agregar</button>
                         </div>
 
                         <input v-model="pendPmtRef" class="field-input mt-1" placeholder="Referencia (opcional)" />

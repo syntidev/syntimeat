@@ -418,7 +418,10 @@ class OrderController extends Controller
         ]);
 
         $rate    = $this->rates->getTodayRate();
-        $totalBs = round((float) $sale->total_usd * $rate, 2);
+        // Usar total_bs guardado; fallback a recálculo si la venta es legacy (null)
+        $totalBs = $sale->total_bs !== null
+            ? (float) $sale->total_bs
+            : round((float) $sale->total_usd * $rate, 2);
 
         $methodIds = array_column($data['payments'], 'payment_method_id');
         $methods   = PaymentMethod::whereIn('id', $methodIds)
@@ -438,16 +441,19 @@ class OrderController extends Controller
             );
         }
 
+        $changeBs  = round($sumPaidBs - $totalBs, 2);
+        $changeUsd = $rate > 0 ? round($changeBs / $rate, 2) : 0.0;
+
         $firstMethod = $methods[$data['payments'][0]['payment_method_id']];
 
-        DB::transaction(function () use ($sale, $rate, $totalBs, $firstMethod, $data, $businessId, $user, $cashRegister) {
+        DB::transaction(function () use ($sale, $rate, $totalBs, $changeUsd, $firstMethod, $data, $businessId, $user, $cashRegister) {
             $sale->update([
                 'payment_status'      => 'paid',
                 'rate_used'           => $rate,
                 'total_bs'            => $totalBs,
                 'payment_method'      => substr($firstMethod->name, 0, 30),
                 'amount_received_usd' => $rate > 0 ? round(array_sum(array_column($data['payments'], 'amount_bs')) / $rate, 2) : 0.0,
-                'change_usd'          => 0,
+                'change_usd'          => $changeUsd,
                 'sold_at'             => now(),
                 'cash_register_id'    => $cashRegister->id,
             ]);
@@ -566,7 +572,7 @@ class OrderController extends Controller
         ]);
 
         $rate    = $this->rates->getTodayRate();
-        $totalBs = round((float) $sale->total_usd * $rate, 2);
+        $totalBs = (float) $sale->total_bs;   // leer el Bs. guardado al momento de crear la venta
 
         $methodIds = array_column($data['payments'], 'payment_method_id');
         $methods   = PaymentMethod::whereIn('id', $methodIds)
@@ -697,7 +703,7 @@ class OrderController extends Controller
             'origin'        => $sale->origin,
             'sale_type'     => $saleType,
             'total_usd'     => (float) $sale->total_usd,
-            'total_bs'      => round((float) $sale->total_usd * $rate, 2),
+            'total_bs'      => (float) $sale->total_bs,
             'cashier_name'  => $sale->cashier?->name ?? '—',
             'created_at'    => $sale->created_at?->toDateTimeString(),
             'order_id'      => $sale->order_id,
@@ -706,7 +712,7 @@ class OrderController extends Controller
                 'input_type'     => $i->input_type,
                 'quantity_value' => (float) $i->quantity_value,
                 'unit_label'     => $i->unit_label,
-                'subtotal_bs'    => round((float) $i->subtotal_usd * $rate, 2),
+                'subtotal_bs'    => (float) $i->subtotal_bs,
             ])->values()->toArray(),
         ];
     }
@@ -723,7 +729,7 @@ class OrderController extends Controller
             'client_name'    => $sale->client_name,
             'client_phone'   => $sale->client_phone,
             'total_usd'      => (float) $sale->total_usd,
-            'total_bs'       => round((float) $sale->total_usd * $rate, 2),
+            'total_bs'       => (float) $sale->total_bs,
             'cashier_name'   => $sale->cashier?->name ?? '—',
             'created_at'     => $sale->created_at?->toDateTimeString(),
             'items'          => $sale->items->map(fn ($i) => [
@@ -732,7 +738,7 @@ class OrderController extends Controller
                 'quantity_value' => (float) $i->quantity_value,
                 'unit_label'     => $i->unit_label,
                 'subtotal_usd'   => (float) $i->subtotal_usd,
-                'subtotal_bs'    => round((float) $i->subtotal_usd * $rate, 2),
+                'subtotal_bs'    => (float) $i->subtotal_bs,
             ])->values()->toArray(),
         ];
     }
