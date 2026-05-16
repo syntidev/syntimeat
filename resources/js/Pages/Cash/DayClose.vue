@@ -143,8 +143,8 @@ function submitClose() {
                                     <td class="dc-time">{{ fmtTime(mov.created_at) }}</td>
                                     <td>{{ mov.concept }}</td>
                                     <td>
-                                        <span :class="['dc-badge', mov.type === 'in' ? 'dc-badge--in' : 'dc-badge--out']">
-                                            {{ mov.type === 'in' ? 'Entrada' : 'Salida' }}
+                                        <span :class="['dc-badge', mov.type === 'corte' ? 'dc-badge--corte' : mov.type === 'in' ? 'dc-badge--in' : 'dc-badge--out']">
+                                            {{ mov.type === 'corte' ? 'Corte' : mov.type === 'in' ? 'Entrada' : 'Salida' }}
                                         </span>
                                     </td>
                                     <td class="text-right">{{ fmtBs(mov.amount_bs) }}</td>
@@ -240,7 +240,7 @@ function submitClose() {
 
                         <div class="dc-cuadre-row">
                             <span>Apertura</span>
-                            <strong>{{ fmtBs((cashRegister?.opening_amount_usd ?? 0) * todayRate) }}</strong>
+                            <strong>{{ fmtBs(cashRegister?.opening_amount_bs ?? 0) }}</strong>
                         </div>
                         <div class="dc-cuadre-row">
                             <span>Ventas cobradas</span>
@@ -358,8 +358,9 @@ function submitClose() {
 
 /* Badges */
 .dc-badge      { display: inline-block; padding: .125rem .5rem; border-radius: 999px; font-size: .75rem; font-weight: 600; }
-.dc-badge--in  { background: color-mix(in srgb, var(--color-success, #22c55e) 15%, transparent); color: var(--color-success, #22c55e); }
-.dc-badge--out { background: color-mix(in srgb, var(--color-danger, #ef4444) 15%, transparent); color: var(--color-danger, #ef4444); }
+.dc-badge--in    { background: color-mix(in srgb, var(--color-success, #22c55e) 15%, transparent); color: var(--color-success, #22c55e); }
+.dc-badge--out   { background: color-mix(in srgb, var(--color-danger, #ef4444) 15%, transparent); color: var(--color-danger, #ef4444); }
+.dc-badge--corte { background: color-mix(in srgb, var(--brand) 15%, transparent); color: var(--brand); }
 
 /* Cuadre */
 .dc-cuadre       { position: sticky; top: 1rem; }

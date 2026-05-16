@@ -167,6 +167,7 @@ class CashRegisterController extends Controller
             $register->movements()->create([
                 'type'       => 'corte',
                 'amount_usd' => $countedUsd,
+                'amount_bs'  => $countedBs,
                 'concept'    => $concept,
                 'created_by' => $user->id,
             ]);
@@ -351,7 +352,7 @@ class CashRegisterController extends Controller
                 'id'         => $m->id,
                 'type'       => $m->type,
                 'amount_usd' => (float) $m->amount_usd,
-                'amount_bs'  => round((float) $m->amount_usd * $rate, 2),
+                'amount_bs'  => (float) ($m->amount_bs ?? round((float) $m->amount_usd * $rate, 2)),
                 'concept'    => $m->concept,
                 'creator'    => $m->creator?->name,
                 'created_at' => $m->created_at,
@@ -443,13 +444,15 @@ class CashRegisterController extends Controller
         ]);
 
         $rate      = $this->rates->getTodayRate();
+        $amountBs  = (float) $data['amount_bs'];
         $amountUsd = $rate > 0
-            ? round((float) $data['amount_bs'] / $rate, 4)
+            ? round($amountBs / $rate, 4)
             : 0.0;
 
         $cashRegister->movements()->create([
             'type'       => $data['type'],
             'amount_usd' => $amountUsd,
+            'amount_bs'  => $amountBs,
             'concept'    => $data['concept'],
             'created_by' => $user->id,
         ]);

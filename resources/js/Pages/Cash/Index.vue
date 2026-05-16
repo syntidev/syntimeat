@@ -126,7 +126,7 @@ function submitCorte() {
                     <span class="ci-sep">|</span>
                     <span class="ci-label">Abierta: {{ fmtTime(cashRegister.opened_at) }}</span>
                     <span class="ci-sep">|</span>
-                    <span class="ci-label">Apertura: {{ fmtBs((cashRegister.opening_amount_usd ?? 0) * todayRate) }}</span>
+                    <span class="ci-label">Apertura: {{ fmtBs(cashRegister.opening_amount_bs ?? 0) }}</span>
                     <span class="ci-sep">|</span>
                     <span class="ci-label">Tasa: {{ fmtBs(todayRate) }}/USD</span>
                 </div>
@@ -170,13 +170,13 @@ function submitCorte() {
                             <tr v-for="mov in cashRegister.movements" :key="mov.id">
                                 <td class="muted">{{ fmtTime(mov.created_at) }}</td>
                                 <td>
-                                    <span class="badge" :class="mov.type === 'in' ? 'badge-in' : 'badge-out'">
-                                        {{ mov.type === 'in' ? 'Ingreso' : 'Retiro' }}
+                                    <span class="badge" :class="mov.type === 'corte' ? 'badge-corte' : mov.type === 'in' ? 'badge-in' : 'badge-out'">
+                                        {{ mov.type === 'corte' ? 'Corte' : mov.type === 'in' ? 'Ingreso' : 'Retiro' }}
                                     </span>
                                 </td>
                                 <td>{{ mov.concept }}</td>
                                 <td class="text-right" :class="mov.type === 'in' ? 'green' : 'red'">
-                                    {{ mov.type === 'out' ? '−' : '+' }}{{ fmtBs((mov.amount_usd ?? 0) * todayRate) }}
+                                    {{ mov.type === 'out' ? '−' : '+' }}{{ fmtBs(mov.amount_bs ?? 0) }}
                                 </td>
                             </tr>
                         </tbody>
@@ -510,8 +510,9 @@ function submitCorte() {
     font-size: 0.72rem;
     font-weight: 600;
 }
-.badge-in  { background: rgba(22,163,74,0.15); color: #16a34a; }
-.badge-out { background: rgba(239,68,68,0.12); color: #ef4444; }
+.badge-in    { background: rgba(22,163,74,0.15); color: #16a34a; }
+.badge-out   { background: rgba(239,68,68,0.12); color: #ef4444; }
+.badge-corte { background: color-mix(in srgb, var(--brand) 15%, transparent); color: var(--brand); }
 
 /* ─── Corte summary ──────────────────────────────────────────────────────────── */
 .corte-summary {

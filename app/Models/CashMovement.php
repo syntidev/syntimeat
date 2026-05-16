@@ -13,6 +13,7 @@ class CashMovement extends Model
         'cash_register_id',
         'type',
         'amount_usd',
+        'amount_bs',
         'concept',
         'created_by',
     ];
@@ -21,6 +22,7 @@ class CashMovement extends Model
     {
         return [
             'amount_usd' => 'decimal:2',
+            'amount_bs'  => 'decimal:2',
         ];
     }
 

@@ -10,6 +10,7 @@ use App\Models\Business;
 use App\Models\Category;
 use App\Models\Product;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class CatalogSeederChaguaramas extends Seeder
 {
@@ -23,14 +24,14 @@ class CatalogSeederChaguaramas extends Seeder
 
         // ─── Categorías ───────────────────────────────────────────────────────
 
-        $catBoveda    = $this->cat($bid, 'Bóveda',       '#64748B', 0);
-        $catRes       = $this->cat($bid, 'Res',           '#EF4444', 1);
-        $catPollo     = $this->cat($bid, 'Pollo',         '#2563EB', 2);
-        $catCerdo     = $this->cat($bid, 'Cerdo',         '#8B5CF6', 3);
-        $catCharc     = $this->cat($bid, 'Charcutería',   '#06B6D4', 4);
-        $catTrastes   = $this->cat($bid, 'Trastes',       '#F97316', 5);
-        $catEmbutidos = $this->cat($bid, 'Embutidos',     '#F59E0B', 6);
-        $catDespensa  = $this->cat($bid, 'Despensa',      '#10B981', 7);
+        $catBoveda    = $this->cat($bid, 'Bóveda',       '#64748B', 0, 'BOVEDA');
+        $catRes       = $this->cat($bid, 'Res',           '#EF4444', 1, 'RES');
+        $catPollo     = $this->cat($bid, 'Pollo',         '#2563EB', 2, 'POLLO');
+        $catCerdo     = $this->cat($bid, 'Cerdo',         '#8B5CF6', 3, 'CERDO');
+        $catCharc     = $this->cat($bid, 'Charcutería',   '#06B6D4', 4, 'CHARCUTERIA');
+        $catTrastes   = $this->cat($bid, 'Trastes',       '#F97316', 5, 'TRASTES');
+        $catEmbutidos = $this->cat($bid, 'Embutidos',     '#F59E0B', 6, 'EMBUTIDOS');
+        $catDespensa  = $this->cat($bid, 'Despensa',      '#10B981', 7, 'DESPENSA');
 
         // ─── BÓVEDA ───────────────────────────────────────────────────────────
 
@@ -154,17 +155,38 @@ class CatalogSeederChaguaramas extends Seeder
             $this->producto($bid, $branchId, $catDespensa->id, $nombre, 'unit', 'und', 'despensa', $i);
         }
 
+        // ─── Actualizar macro_category en registros existentes ───────────────
+
+        $macroMap = [
+            'Bóveda'      => 'BOVEDA',
+            'Res'         => 'RES',
+            'Pollo'       => 'POLLO',
+            'Cerdo'       => 'CERDO',
+            'Charcutería' => 'CHARCUTERIA',
+            'Trastes'     => 'TRASTES',
+            'Embutidos'   => 'EMBUTIDOS',
+            'Despensa'    => 'DESPENSA',
+            'Víveres'     => 'VIVERES',
+        ];
+
+        foreach ($macroMap as $name => $macro) {
+            DB::table('categories')
+                ->where('business_id', $bid)
+                ->where('name', $name)
+                ->update(['macro_category' => $macro]);
+        }
+
         $total = Product::where('business_id', $bid)->count();
         $this->command->info("✅ Catálogo listo — {$total} productos registrados.");
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
-    private function cat(int $bid, string $name, string $color, int $order): Category
+    private function cat(int $bid, string $name, string $color, int $order, string $macro): Category
     {
-        return Category::firstOrCreate(
+        return Category::updateOrCreate(
             ['business_id' => $bid, 'name' => $name],
-            ['color' => $color, 'sort_order' => $order, 'active' => true],
+            ['color' => $color, 'sort_order' => $order, 'active' => true, 'macro_category' => $macro],
         );
     }
 
