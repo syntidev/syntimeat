@@ -38,7 +38,7 @@ const showModal = ref(false);
 
 function submitClose() {
     form.post(route('cash.confirm-close', { register: props.cashRegister?.id }), {
-        onSuccess: () => { showModal.value = false; },
+        onSuccess: () => { showModal.value = false; router.visit(route('cash.index')); },
     });
 }
 </script>

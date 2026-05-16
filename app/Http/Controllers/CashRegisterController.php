@@ -206,9 +206,12 @@ class CashRegisterController extends Controller
         $movIn  = (float) $cashRegister->movements->where('type', 'in')->sum('amount_usd');
         $movOut = (float) $cashRegister->movements->where('type', 'out')->sum('amount_usd');
 
-        $openingUsd  = (float) $cashRegister->opening_amount_usd;
-        $expectedUsd = round($openingUsd + $movIn - $movOut, 2);
-        $expectedBs  = round($expectedUsd * $rate, 2);
+        $openingBs   = (float) $cashRegister->opening_amount_bs;
+        $movInBs     = round($movIn * $rate, 2);
+        $movOutBs    = round($movOut * $rate, 2);
+        $ventasBs    = round($sales->sum('total_bs'), 2);
+        $expectedBs  = round($openingBs + $ventasBs + $movInBs - $movOutBs, 2);
+        $expectedUsd = $rate > 0 ? round($expectedBs / $rate, 2) : 0.0;
 
         // ── Utilidad por Bóveda ───────────────────────────────────────────────
         // Ventas del día por categoría — usando inventory_entries con boveda_entry_id
@@ -339,9 +342,15 @@ class CashRegisterController extends Controller
         $movInBs  = (float) $cashRegister->movements()->where('type', 'in')->sum('amount_usd') * $rate;
         $movOutBs = (float) $cashRegister->movements()->where('type', 'out')->sum('amount_usd') * $rate;
 
+        $ventasBs = (float) DB::table('sale_payments')
+            ->join('sales', 'sales.id', '=', 'sale_payments.sale_id')
+            ->where('sales.cash_register_id', $cashRegister->id)
+            ->where('sales.status', 'paid')
+            ->sum('sale_payments.amount_bs');
+
         // Usar opening_amount_bs guardado — no reconvertir
         $openingBs     = (float) $cashRegister->opening_amount_bs;
-        $expectedBs    = round($openingBs + $movInBs - $movOutBs, 2);
+        $expectedBs    = round($openingBs + $ventasBs + $movInBs - $movOutBs, 2);
         $expectedUsd   = $rate > 0 ? round($expectedBs / $rate, 2) : 0.0;
         $countedUsd    = $rate > 0 ? round((float) $data['counted_cash_bs'] / $rate, 2) : 0.0;
         $differenceUsd = round($countedUsd - $expectedUsd, 2);
