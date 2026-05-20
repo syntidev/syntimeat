@@ -174,17 +174,30 @@ class BovedaController extends Controller
             ->where('name', $entry->product_type)
             ->first();
 
-        $requiresDespiece = $bovedaProductType?->requires_despiece ?? true;
-        $vitrinaProductId = $bovedaProductType?->vitrina_product_id;
+        $requiresDespiece = (bool) ($bovedaProductType?->requires_despiece ?? true);
 
-        DB::transaction(function () use ($entry, $kg, $merma, $businessId, $userId, $requiresDespiece, $vitrinaProductId): void {
+        $vitrinaProduct = null;
+        if (! $requiresDespiece) {
+            $keyword        = explode(' ', $entry->product_type)[0];
+            $vitrinaProduct = Product::where('business_id', $businessId)
+                ->where('location', 'vitrina')
+                ->where('name', 'like', '%' . $keyword . '%')
+                ->first();
+
+            if ($vitrinaProduct === null) {
+                return response()->json([
+                    'error' => 'No existe producto en vitrina para ' . $entry->product_type . '. Créalo primero en Catálogo.',
+                ], 422);
+            }
+        }
+
+        DB::transaction(function () use ($entry, $kg, $merma, $businessId, $userId, $requiresDespiece, $vitrinaProduct): void {
             $entry->increment('kg_surtido_vitrina', $kg);
             if ($merma > 0) {
                 $entry->increment('waste_kg', $merma);
             }
 
             if ($requiresDespiece) {
-                // Registra salida de bóveda para que Despiece lo procese
                 $bovedaProduct = Product::where('business_id', $businessId)
                     ->where('location', 'boveda')
                     ->where('name', $entry->product_type)
@@ -203,19 +216,19 @@ class BovedaController extends Controller
                         'created_by'      => $userId,
                     ]);
                 }
-            } elseif ($vitrinaProductId !== null) {
-                // Producto terminado: suma directamente al stock de vitrina
+            } else {
                 InventoryEntry::create([
                     'business_id'     => $businessId,
-                    'product_id'      => $vitrinaProductId,
+                    'product_id'      => $vitrinaProduct->id,
                     'boveda_entry_id' => $entry->id,
                     'quantity_kg'     => $kg,
                     'waste_kg'        => 0,
                     'location'        => 'vitrina',
-                    'notes'           => 'Ingreso directo desde bóveda (entrada #' . $entry->id . ')',
+                    'notes'           => 'Surtido directo desde bóveda — ' . $entry->product_type . ' (entrada #' . $entry->id . ')',
                     'entered_at'      => now(),
                     'created_by'      => $userId,
                 ]);
+                $entry->update(['despiece_completado_at' => now()]);
             }
 
             ActivityLog::create([

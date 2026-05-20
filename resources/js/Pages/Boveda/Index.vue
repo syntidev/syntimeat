@@ -1,5 +1,6 @@
 ﻿<script setup>
 import { ref, computed, onMounted } from 'vue';
+import { router } from '@inertiajs/vue3';
 import AppLayout  from '@/Layouts/AppLayout.vue';
 import HelpModal  from '@/Components/HelpModal.vue';
 import { Warehouse, Scissors, Factory, CheckCircle2, Package, Printer } from '@lucide/vue';
@@ -97,7 +98,7 @@ async function saveEntrada() {
         if (!res.ok) throw new Error('Error al guardar');
         showEntradaModal.value = false;
         showFlash('Entrada registrada.');
-        setTimeout(() => location.reload(), 600);
+        router.reload({ only: ['activas', 'historial', 'kpis'] });
     } catch (e) {
         alert(e?.message ?? 'Error al guardar');
     } finally {
@@ -155,13 +156,13 @@ async function saveSurtir() {
         const body = await res.json();
         showSurtirModal.value = false;
         if (body.requires_despiece) {
-            sessionStorage.setItem(DESPIECE_KEY, JSON.stringify({
+            despiecePendiente.value = {
                 product_type: body.product_type,
                 kg_surtir:    body.kg_surtir,
-            }));
+            };
         }
         showFlash('Surtido registrado.');
-        setTimeout(() => location.reload(), 600);
+        router.reload({ only: ['activas', 'historial', 'kpis'] });
     } catch (e) {
         alert(e?.message ?? 'Error al surtir');
     } finally {
@@ -186,7 +187,7 @@ async function closeEntry(entry) {
         });
         if (!res.ok) throw new Error('Error al cerrar');
         showFlash('Entrada cerrada.');
-        setTimeout(() => location.reload(), 600);
+        router.reload({ only: ['activas', 'historial', 'kpis'] });
     } catch (e) {
         alert(e?.message ?? 'Error al cerrar');
     } finally {
