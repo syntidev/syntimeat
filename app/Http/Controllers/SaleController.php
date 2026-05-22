@@ -637,7 +637,7 @@ class SaleController extends Controller
         ]);
 
         DB::transaction(function () use ($sale, $user, $request): void {
-            foreach ($sale->saleItems()->get() as $item) {
+            foreach ($sale->items()->get() as $item) {
                 InventoryEntry::create([
                     'business_id' => $sale->business_id,
                     'product_id'  => $item->product_id,
