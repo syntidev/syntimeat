@@ -611,6 +611,19 @@ class SaleController extends Controller
         ]);
 
         DB::transaction(function () use ($sale, $user, $request): void {
+            foreach ($sale->saleItems as $item) {
+                InventoryEntry::create([
+                    'business_id' => $sale->business_id,
+                    'product_id'  => $item->product_id,
+                    'quantity_kg' => $item->quantity_value,
+                    'location'    => 'vitrina',
+                    'waste_kg'    => 0,
+                    'entered_at'  => now(),
+                    'notes'       => 'Reversión anulación #' . $sale->ticket_number,
+                    'created_by'  => $user->id,
+                ]);
+            }
+
             $sale->update([
                 'status'              => 'cancelled',
                 'cancelled_at'        => now(),
