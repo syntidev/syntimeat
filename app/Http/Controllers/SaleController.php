@@ -194,7 +194,8 @@ class SaleController extends Controller
             }
             $stockDisponible = InventoryEntry::where('business_id', $businessId)
                 ->where('product_id', $item['product_id'])
-                ->sum('quantity_kg');
+                ->selectRaw('SUM(quantity_kg - waste_kg) as total')
+                ->value('total');
 
             $vendido = DB::table('sale_items')
                 ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
