@@ -189,6 +189,7 @@ class SettingsController extends Controller
             'name'        => $data['name'],
             'business_id' => $business->id,
             'branch_id'   => $data['branch_id'] ?? $user->branch_id,
+            'opened_at'   => null,
         ]);
 
         return back()->with('success', 'Caja registradora creada.');

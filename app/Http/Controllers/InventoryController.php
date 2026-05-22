@@ -114,6 +114,10 @@ class InventoryController extends Controller
             ->where('business_id', $businessId)
             ->firstOrFail();
 
+        if ($product->location === 'boveda') {
+            return back()->withErrors(['product_id' => 'Productos bóveda no se pueden agregar al inventario directamente.']);
+        }
+
         $isUnit  = $product->sale_mode === 'unit';
         $wasteKg = $isUnit ? 0.0 : (float) ($data['waste_kg'] ?? 0);
 
