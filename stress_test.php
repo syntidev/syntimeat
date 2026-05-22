@@ -2267,111 +2267,204 @@ section('FASE 14 — Contingencia (importSales)');
 
 $contingencyCtrl = app(\App\Http\Controllers\ContingencyController::class);
 
-// Necesitamos un product_id real del negocio para el CSV
+/**
+ * Construye un XLSX real con PhpSpreadsheet y devuelve un UploadedFile.
+ *
+ * Usa setValueExplicit(TYPE_STRING) para las celdas de cabecera, garantizando
+ * que HeadingRowExtractor::extract() reciba el string exacto y no null/vacío.
+ * Si un header es leído como empty(), HeadingRowFormatter devuelve el índice
+ * numérico (0,1,2...) en vez del nombre, rompiendo la validación de columnas.
+ *
+ * Columnas requeridas por importSales():
+ *   hora, product_id, quantity_value, input_type, price_bs, total_bs, payment_method
+ * Opcionales:
+ *   product_name
+ *
+ * @param  string  $filename  Nombre del archivo (debe terminar en .xlsx)
+ * @param  array   $headers   Cabeceras — fila 1 del XLSX
+ * @param  array   $rows      Filas de datos — fila 2+ del XLSX
+ * @return array{path: string, file: \Illuminate\Http\UploadedFile}
+ */
+function buildXlsxUpload(string $filename, array $headers, array $rows): array
+{
+    $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+    $sheet       = $spreadsheet->getActiveSheet();
+
+    // ── Fila 1: cabeceras como TYPE_STRING explícito ──────────────────────
+    // setValueExplicit previene auto-detección de tipo; garantiza que
+    // Cell::getValue() devuelva el string exacto al leer con WithHeadingRow.
+    foreach (array_values($headers) as $colIdx => $heading) {
+        $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx + 1);
+        $sheet->getCell($colLetter . '1')
+              ->setValueExplicit(
+                  (string) $heading,
+                  \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING
+              );
+    }
+
+    // ── Filas 2+: datos con tipos automáticos ────────────────────────────
+    foreach (array_values($rows) as $rowIdx => $rowData) {
+        foreach (array_values($rowData) as $colIdx => $value) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx + 1);
+            $cellRef   = $colLetter . ($rowIdx + 2);
+            // Strings explícitos para evitar que PhpSpreadsheet interprete
+            // '08:30' como hora o 'Efectivo Bs.' como fórmula
+            if (is_string($value)) {
+                $sheet->getCell($cellRef)
+                      ->setValueExplicit($value, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            } else {
+                $sheet->setCellValue($cellRef, $value);
+            }
+        }
+    }
+
+    $tmpPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $filename;
+    $writer  = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+    $writer->save($tmpPath);
+    $spreadsheet->disconnectWorksheets();
+    unset($spreadsheet);
+
+    $uploadedFile = new \Illuminate\Http\UploadedFile(
+        $tmpPath,
+        $filename,
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        null,
+        true    // test mode: bypasses isValid() OS check
+    );
+
+    return ['path' => $tmpPath, 'file' => $uploadedFile];
+}
+
+// Necesitamos un product_id real del negocio para el XLSX
 $productForCsv = \App\Models\Product::where('business_id', $businessId)
     ->where('active', true)
     ->where('location', '!=', 'boveda')
     ->where('sale_mode', 'weight')
     ->first();
 
-// 14.1 — Importar CSV válido con una venta
+// 14.1 — Importar XLSX válido con una venta
 if ($productForCsv) {
+    $tmpXlsxValid = null;
     try {
-        $csvValid = "hora,product_id,product_name,quantity_value,input_type,price_bs,total_bs,payment_method\n";
-        $csvValid .= "08:30,{$productForCsv->id},{$productForCsv->name},1.500,weight,150.00,225.00,Efectivo Bs.\n";
-
-        $tmpCsvValid = sys_get_temp_dir() . '/st_contingencia_valid_' . uniqid() . '.csv';
-        file_put_contents($tmpCsvValid, $csvValid);
-
-        $uploadedFile = new \Illuminate\Http\UploadedFile(
-            $tmpCsvValid, 'st_ventas.csv', 'text/csv', null, true
+        // Columnas en el orden exacto que usa downloadTemplate() del controller
+        // Required: hora, product_id, quantity_value, input_type, price_bs, total_bs, payment_method
+        // Optional: product_name (incluido para que el SaleItem tenga nombre legible)
+        $xlsxData = buildXlsxUpload(
+            'st_ventas_valid_' . uniqid() . '.xlsx',
+            ['hora', 'product_id', 'product_name', 'quantity_value',
+             'input_type', 'price_bs', 'total_bs', 'payment_method'],
+            [
+                [
+                    '08:30',                       // hora — matches /^\d{1,2}:\d{2}/
+                    (int) $productForCsv->id,      // product_id — integer > 0, existe en negocio
+                    (string) $productForCsv->name, // product_name — opcional, para el SaleItem
+                    1.500,                         // quantity_value — float > 0
+                    'weight',                      // input_type — activa deducción de inventario
+                    150.00,                        // price_bs — precio unitario Bs
+                    225.00,                        // total_bs — total de la venta en Bs
+                    'Efectivo Bs.',                // payment_method — string libre
+                ],
+            ]
         );
+        $tmpXlsxValid = $xlsxData['path'];
 
         $cntSaleBefore14 = Sale::where('business_id', $businessId)->count();
 
         $importReq = makeReq('/contingencia/importar-ventas', 'POST', []);
-        $importReq->files->set('file', $uploadedFile);
+        $importReq->files->set('file', $xlsxData['file']);
 
         $resp14 = $contingencyCtrl->importSales($importReq);
         $body14 = json_decode($resp14->getContent(), true);
 
-        if (@unlink($tmpCsvValid)) { /* temp eliminado */ }
+        if ($tmpXlsxValid && file_exists($tmpXlsxValid)) {
+            @unlink($tmpXlsxValid);
+        }
 
         if ($resp14->getStatusCode() === 200 && isset($body14['imported'])) {
             $cntSaleAfter14 = Sale::where('business_id', $businessId)->count();
             if ($cntSaleAfter14 > $cntSaleBefore14) {
-                pass('Importar CSV ventas válido',
-                    'JsonResponse {imported, warnings, total} + Sale creada',
-                    "total={$body14['total']} importada(s) | warnings=" . count($body14['warnings']) . ' | sale count ' . $cntSaleBefore14 . '→' . $cntSaleAfter14 . ' ✓');
+                pass('Importar XLSX ventas válido',
+                    'JsonResponse {imported, warnings, total} + Sale creada en DB',
+                    "total={$body14['total']} | warnings=" . count($body14['warnings'])
+                    . ' | sales ' . $cntSaleBefore14 . '→' . $cntSaleAfter14 . ' ✓');
             } else {
-                fail('Importar CSV ventas válido',
-                    'Sale creada en DB',
-                    "HTTP 200 OK pero sale count sin cambio: {$cntSaleBefore14}→{$cntSaleAfter14} | body=" . json_encode($body14));
+                fail('Importar XLSX ventas válido',
+                    'Sale creada en DB (count++)',
+                    "HTTP 200 pero sale count sin cambio: {$cntSaleBefore14}→{$cntSaleAfter14}"
+                    . ' | body=' . json_encode($body14));
             }
         } else {
-            fail('Importar CSV ventas válido',
+            fail('Importar XLSX ventas válido',
                 'HTTP 200 + {imported, warnings, total}',
                 "HTTP={$resp14->getStatusCode()} | body=" . json_encode($body14));
         }
     } catch (ValidationException $e) {
+        if ($tmpXlsxValid && file_exists($tmpXlsxValid)) @unlink($tmpXlsxValid);
         $msgs = array_merge(...array_values($e->errors()));
-        fail('Importar CSV ventas válido', 'HTTP 200 + datos importados', 'ValidationError: ' . implode(' | ', $msgs));
+        fail('Importar XLSX ventas válido', 'HTTP 200 + datos importados',
+            'ValidationError: ' . implode(' | ', $msgs));
     } catch (\Throwable $e) {
-        fail('Importar CSV ventas válido', 'HTTP 200 + datos importados', get_class($e) . ': ' . $e->getMessage());
+        if ($tmpXlsxValid && file_exists($tmpXlsxValid)) @unlink($tmpXlsxValid);
+        fail('Importar XLSX ventas válido', 'HTTP 200 + datos importados',
+            get_class($e) . ': ' . $e->getMessage());
     }
 } else {
-    fail('Importar CSV ventas válido', 'Producto activo encontrado para test', 'No hay productos weight activos fuera de bóveda');
+    fail('Importar XLSX ventas válido',
+        'Producto weight activo encontrado para test',
+        'No hay productos weight activos fuera de bóveda en este negocio');
 }
 
-// 14.2 — CSV malformado (columna requerida faltante) debe retornar 422
+// 14.2 — XLSX malformado (columnas incorrectas) debe retornar HTTP 422
+$tmpXlsxBad = null;
 try {
-    $csvBad = "producto,cantidad,precio\n";
-    $csvBad .= "Carne Molida,1.5,150\n";
-
-    $tmpCsvBad = sys_get_temp_dir() . '/st_contingencia_bad_' . uniqid() . '.csv';
-    file_put_contents($tmpCsvBad, $csvBad);
-
-    $uploadedFileBad = new \Illuminate\Http\UploadedFile(
-        $tmpCsvBad, 'st_ventas_mal.csv', 'text/csv', null, true
+    $xlsxBadData = buildXlsxUpload(
+        'st_ventas_bad_' . uniqid() . '.xlsx',
+        ['producto', 'cantidad', 'precio'],          // faltan hora, product_id, input_type, etc.
+        [['Carne Molida', 1.5, 150]]
     );
+    $tmpXlsxBad = $xlsxBadData['path'];
 
     $importReqBad = makeReq('/contingencia/importar-ventas', 'POST', []);
-    $importReqBad->files->set('file', $uploadedFileBad);
+    $importReqBad->files->set('file', $xlsxBadData['file']);
 
     $resp14b = $contingencyCtrl->importSales($importReqBad);
     $body14b = json_decode($resp14b->getContent(), true);
 
-    if (@unlink($tmpCsvBad)) { /* temp eliminado */ }
+    if ($tmpXlsxBad && file_exists($tmpXlsxBad)) @unlink($tmpXlsxBad);
 
     if ($resp14b->getStatusCode() === 422 && isset($body14b['error'])) {
-        pass('CSV malformado rechazado limpiamente',
+        pass('XLSX malformado rechazado limpiamente',
             'HTTP 422 + {error: "Columna requerida faltante: ..."}',
             "HTTP=422 | error={$body14b['error']} ✓");
     } else {
-        fail('CSV malformado rechazado limpiamente',
-            'HTTP 422 + mensaje de error',
+        fail('XLSX malformado rechazado limpiamente',
+            'HTTP 422 + mensaje error de columna',
             "HTTP={$resp14b->getStatusCode()} | body=" . json_encode($body14b));
     }
 } catch (ValidationException $e) {
-    // La validación del campo 'file' no aplica aquí (sí hay file), pero puede pasar
-    pass('CSV malformado rechazado limpiamente',
+    if ($tmpXlsxBad && file_exists($tmpXlsxBad)) @unlink($tmpXlsxBad);
+    pass('XLSX malformado rechazado limpiamente',
         'HTTP 422 o ValidationException',
         'ValidationException: ' . implode(' | ', array_merge(...array_values($e->errors()))));
 } catch (\Throwable $e) {
-    fail('CSV malformado rechazado limpiamente', 'HTTP 422 limpio', get_class($e) . ': ' . $e->getMessage());
+    if ($tmpXlsxBad && file_exists($tmpXlsxBad)) @unlink($tmpXlsxBad);
+    fail('XLSX malformado rechazado limpiamente', 'HTTP 422 limpio',
+        get_class($e) . ': ' . $e->getMessage());
 }
 
 // 14.3 — Sin archivo debe lanzar ValidationException (file required)
 try {
     $importReqNoFile = makeReq('/contingencia/importar-ventas', 'POST', []);
     $resp14c = $contingencyCtrl->importSales($importReqNoFile);
-    fail('Importar sin archivo rechazado', 'ValidationException (file required)', 'Aceptado sin error — BUG');
+    fail('Importar sin archivo rechazado', 'ValidationException (file required)',
+        'Aceptado sin error — BUG');
 } catch (ValidationException $e) {
     pass('Importar sin archivo rechazado',
         'ValidationException (file required)',
         'Rechazado: ' . implode(' | ', array_merge(...array_values($e->errors()))));
 } catch (\Throwable $e) {
-    fail('Importar sin archivo rechazado', 'ValidationException', get_class($e) . ': ' . $e->getMessage());
+    fail('Importar sin archivo rechazado', 'ValidationException',
+        get_class($e) . ': ' . $e->getMessage());
 }
 
 // ─── FASE 15 — Dashboard/Panel Empresarial ────────────────────────────────────
