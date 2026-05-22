@@ -57,6 +57,7 @@ class BovedaController extends Controller
             ->get(['id', 'name']);
 
         $kgDisponibleTotal = BovedaEntry::active()->where('business_id', $businessId)
+            ->whereRaw('kg_entrada - kg_surtido_vitrina - waste_kg > 0')
             ->sum(DB::raw('kg_entrada - kg_surtido_vitrina - waste_kg'));
 
         $costoActivoTotal = BovedaEntry::active()->where('business_id', $businessId)

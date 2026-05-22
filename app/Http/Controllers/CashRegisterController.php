@@ -127,7 +127,7 @@ class CashRegisterController extends Controller
             ? round((float) $data['opening_amount_bs'] / $rate, 2)
             : 0.0;
 
-        CashRegister::create([
+        $register = CashRegister::create([
             'business_id'        => $businessId,
             'branch_id'          => $branchId,
             'name'               => 'Caja ' . now()->format('d/m/Y'),
@@ -136,6 +136,15 @@ class CashRegisterController extends Controller
             'opening_amount_bs'  => (float) $data['opening_amount_bs'],
             'rate_at_opening'    => $rate,
             'opened_by'          => $user->id,
+        ]);
+
+        ActivityLog::create([
+            'business_id' => $businessId,
+            'user_id'     => $user->id,
+            'action'      => 'caja.apertura',
+            'model_type'  => CashRegister::class,
+            'model_id'    => $register->id,
+            'new_values'  => ['monto_apertura' => $data['opening_amount_bs']],
         ]);
 
         return redirect()->route('cash.index');
@@ -456,6 +465,19 @@ class CashRegisterController extends Controller
             'amount_bs'  => $amountBs,
             'concept'    => $data['concept'],
             'created_by' => $user->id,
+        ]);
+
+        ActivityLog::create([
+            'business_id' => $businessId,
+            'user_id'     => $user->id,
+            'action'      => 'caja.movimiento',
+            'model_type'  => CashRegister::class,
+            'model_id'    => $cashRegister->id,
+            'new_values'  => [
+                'tipo'   => $data['type'],
+                'monto'  => $data['amount_bs'],
+                'motivo' => $data['concept'],
+            ],
         ]);
 
         return redirect()->route('cash.index');
