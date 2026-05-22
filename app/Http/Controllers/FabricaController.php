@@ -138,12 +138,29 @@ class FabricaController extends Controller
                 ];
             });
 
+        $despieceHistorial = BovedaEntry::where('business_id', $businessId)
+            ->whereNotNull('despiece_completado_at')
+            ->orderByDesc('despiece_completado_at')
+            ->limit(50)
+            ->get()
+            ->map(fn ($e) => [
+                'id'                     => $e->id,
+                'product_type'           => $e->product_type,
+                'description'            => $e->description,
+                'kg_entrada'             => (float) $e->kg_entrada,
+                'kg_surtido'             => (float) $e->kg_surtido_vitrina,
+                'waste_kg'               => (float) $e->waste_kg,
+                'supplier'               => $e->supplier,
+                'despiece_completado_at' => $e->despiece_completado_at?->format('d/m/Y H:i'),
+            ]);
+
         return Inertia::render('Fabrica/Index', [
             'fabricables'       => $fabricables,
             'ingredientes'      => $ingredientes,
             'stockMap'          => $stockMap,
             'historial'         => $historial,
             'despiecePendiente' => $despiecePendiente,
+            'despieceHistorial' => $despieceHistorial,
         ]);
     }
 

@@ -11,6 +11,7 @@ const props = defineProps({
     stockMap:          { type: Object, default: () => ({}) },
     historial:         { type: Array,  default: () => [] },
     despiecePendiente: { type: Array,  default: () => [] },
+    despieceHistorial: { type: Array,  default: () => [] },
 });
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -392,6 +393,36 @@ async function submitDespiece(entry) {
 
             <!-- ── Tab: Historial ─────────────────────────────────────────── -->
             <div v-else-if="tab === 'historial'" class="fab-card">
+                <div v-if="despieceHistorial.length > 0" class="mb-6">
+                  <h3 class="text-sm font-semibold text-gray-400 uppercase mb-3">
+                    Despieces completados
+                  </h3>
+                  <table class="w-full text-sm">
+                    <thead>
+                      <tr class="text-left text-gray-500 border-b border-gray-700">
+                        <th class="pb-2">Fecha</th>
+                        <th class="pb-2">Tipo</th>
+                        <th class="pb-2">Descripción</th>
+                        <th class="pb-2 text-right">Kg entrada</th>
+                        <th class="pb-2 text-right">Kg surtido</th>
+                        <th class="pb-2 text-right">Merma</th>
+                        <th class="pb-2">Proveedor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="d in despieceHistorial" :key="d.id"
+                          class="border-b border-gray-800">
+                        <td class="py-2">{{ d.despiece_completado_at }}</td>
+                        <td class="py-2">{{ d.product_type }}</td>
+                        <td class="py-2 text-gray-400">{{ d.description }}</td>
+                        <td class="py-2 text-right">{{ d.kg_entrada }} kg</td>
+                        <td class="py-2 text-right">{{ d.kg_surtido }} kg</td>
+                        <td class="py-2 text-right text-red-400 pr-4">{{ d.waste_kg }} kg</td>
+                        <td class="py-2 text-gray-400 pl-2">{{ d.supplier }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
                 <p v-if="!historial.length" class="fab-empty">Sin lotes registrados.</p>
                 <table v-else class="fab-table">
                     <thead>
