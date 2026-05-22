@@ -213,6 +213,35 @@ class FabricaController extends Controller
             abort_unless(in_array($pid, $validIds, true), 403, 'Ingrediente no pertenece al negocio.');
         }
 
+        // Verificar stock suficiente para cada ingrediente
+        $stockIn = InventoryEntry::where('business_id', $businessId)
+            ->whereIn('product_id', $inputIds)
+            ->selectRaw('product_id, SUM(net_kg) as total_net')
+            ->groupBy('product_id')
+            ->pluck('total_net', 'product_id');
+
+        $stockOut = DB::table('sale_items')
+            ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
+            ->where('sales.business_id', $businessId)
+            ->where('sales.status', 'paid')
+            ->whereIn('sale_items.product_id', $inputIds)
+            ->selectRaw('sale_items.product_id, SUM(sale_items.quantity_value) as total_sold')
+            ->groupBy('sale_items.product_id')
+            ->pluck('total_sold', 'product_id');
+
+        $productNames = Product::whereIn('id', $inputIds)->pluck('name', 'id');
+
+        foreach ($data['inputs'] as $input) {
+            $pid        = $input['product_id'];
+            $disponible = round((float) ($stockIn[$pid] ?? 0) - (float) ($stockOut[$pid] ?? 0), 3);
+            if ((float) $input['quantity_kg'] > $disponible) {
+                return back()->withErrors([
+                    'inputs' => 'Stock insuficiente para ' . ($productNames[$pid] ?? 'producto #' . $pid) .
+                                '. Disponible: ' . $disponible . ' kg',
+                ]);
+            }
+        }
+
         $totalCostUsd = collect($data['inputs'])->sum(fn ($i) => (float) ($i['cost_usd'] ?? 0));
 
         DB::transaction(function () use ($data, $user, $businessId, $totalCostUsd, $inputIds): void {
