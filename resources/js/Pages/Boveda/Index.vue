@@ -1,5 +1,5 @@
 ﻿<script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import AppLayout  from '@/Layouts/AppLayout.vue';
 import HelpModal  from '@/Components/HelpModal.vue';
@@ -173,6 +173,15 @@ async function saveSurtir() {
 const excedeLimite = computed(() => {
     if (!surtirEntry.value) return false;
     return parseFloat(surtirForm.value.peso_real || 0) > surtirEntry.value.kg_disponible;
+});
+
+watch(() => surtirForm.value.peso_real, (val) => {
+    const disponible = surtirEntry.value?.kg_disponible;
+    if (!disponible) return;
+    const diff = Math.abs(parseFloat(val) - parseFloat(disponible));
+    if (diff <= 0.5 && diff > 0) {
+        surtirForm.value.peso_real = parseFloat(disponible);
+    }
 });
 
 // ─── Cerrar entrada ───────────────────────────────────────────────────────────
@@ -635,16 +644,23 @@ async function deactivateProduct(product) {
                         <div class="form-grid">
                             <div class="form-field full">
                                 <label>Peso en balanza al sacar (kg)</label>
-                                <input
-                                    v-model="surtirForm.peso_real"
-                                    type="number"
-                                    class="form-input"
-                                    :class="{ 'input-error': excedeLimite }"
-                                    min="0.001"
-                                    step="0.001"
-                                    placeholder="0.000"
-                                    autofocus
-                                />
+                                <div class="input-row">
+                                    <input
+                                        v-model="surtirForm.peso_real"
+                                        type="number"
+                                        class="form-input"
+                                        :class="{ 'input-error': excedeLimite }"
+                                        min="0.001"
+                                        step="0.001"
+                                        placeholder="0.000"
+                                        autofocus
+                                    />
+                                    <button
+                                        type="button"
+                                        class="text-xs text-brand underline ml-2"
+                                        @click="surtirForm.peso_real = surtirEntry.kg_disponible"
+                                    >Máximo</button>
+                                </div>
                                 <span v-if="excedeLimite" class="field-err">
                                     Supera el disponible ({{ fmtKg(surtirEntry?.kg_disponible) }})
                                 </span>
