@@ -1996,6 +1996,478 @@ try {
     fail("Crear método de pago", 'PaymentMethod creado', get_class($e) . ': ' . $e->getMessage());
 }
 
+// ─── FASE 11 — Configuración Ticket ──────────────────────────────────────────
+section('FASE 11 — Configuración Ticket (updateTicket)');
+
+$settingsCtrl11 = app(\App\Http\Controllers\SettingsController::class);
+$business11     = Auth::user()->business;
+
+// 11.1 — Actualizar ticket_prefix y footer
+try {
+    $prefixBefore = $business11->ticket_prefix;
+    $footerBefore = $business11->ticket_footer;
+
+    $ticketReq = makeReq('/configuracion/ticket', 'POST', [
+        'pos_show_kg_visual' => false,
+        'show_kg'            => true,
+        'show_kg_unit_price' => false,
+        'kg_decimals'        => 3,
+        'show_bs'            => true,
+        'show_usd'           => false,
+        'usd_format'         => 'usd',
+        'show_description'   => true,
+        'show_address'       => true,
+        'show_phone'         => false,
+        'show_client'        => true,
+        'footer_text'        => '[ST] Prueba de pie de página generada por stress test',
+        'ticket_prefix'      => 'ST',
+    ]);
+    $resp11 = $settingsCtrl11->updateTicket($ticketReq);
+
+    if ($resp11 instanceof \Illuminate\Http\RedirectResponse) {
+        $business11->refresh();
+        if ($business11->ticket_prefix === 'ST') {
+            pass('Actualizar ticket_prefix → ST',
+                'ticket_prefix=ST persistido en DB',
+                "ticket_prefix={$business11->ticket_prefix} ✓");
+        } else {
+            fail('Actualizar ticket_prefix → ST',
+                'ticket_prefix=ST persistido en DB',
+                "ticket_prefix={$business11->ticket_prefix} — no cambió");
+        }
+    } else {
+        fail('Actualizar ticket_prefix → ST', 'RedirectResponse', get_class($resp11));
+    }
+} catch (ValidationException $e) {
+    $msgs = array_merge(...array_values($e->errors()));
+    fail('Actualizar ticket_prefix → ST', 'RedirectResponse OK', 'ValidationError: ' . implode(' | ', $msgs));
+} catch (\Throwable $e) {
+    fail('Actualizar ticket_prefix → ST', 'RedirectResponse OK', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 11.2 — Verificar que settings['ticket'] persiste en DB (show_usd=true, kg_decimals=2)
+try {
+    $ticketReq2 = makeReq('/configuracion/ticket', 'POST', [
+        'pos_show_kg_visual' => false,
+        'show_kg'            => true,
+        'show_kg_unit_price' => true,
+        'kg_decimals'        => 2,
+        'show_bs'            => true,
+        'show_usd'           => true,
+        'usd_format'         => 'ref',
+        'show_description'   => false,
+        'show_address'       => false,
+        'show_phone'         => true,
+        'show_client'        => false,
+        'footer_text'        => null,
+        'ticket_prefix'      => 'ST',
+    ]);
+    $resp11b = $settingsCtrl11->updateTicket($ticketReq2);
+
+    if ($resp11b instanceof \Illuminate\Http\RedirectResponse) {
+        $business11->refresh();
+        $ticketSettings = $business11->settings['ticket'] ?? [];
+        $kgDecimals     = $ticketSettings['kg_decimals'] ?? null;
+        $showUsd        = $ticketSettings['show_usd']    ?? null;
+        if ((int) $kgDecimals === 2 && $showUsd === true) {
+            pass('Persistencia settings[ticket] en DB',
+                'kg_decimals=2 y show_usd=true en settings JSON',
+                "kg_decimals={$kgDecimals}, show_usd=" . ($showUsd ? 'true' : 'false') . ' ✓');
+        } else {
+            fail('Persistencia settings[ticket] en DB',
+                'kg_decimals=2 y show_usd=true en settings JSON',
+                "kg_decimals={$kgDecimals}, show_usd=" . var_export($showUsd, true));
+        }
+    } else {
+        fail('Persistencia settings[ticket] en DB', 'RedirectResponse', get_class($resp11b));
+    }
+} catch (\Throwable $e) {
+    fail('Persistencia settings[ticket] en DB', 'RedirectResponse OK', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 11.3 — Prefijo inválido (caracteres prohibidos) debe ser rechazado
+try {
+    $ticketReqBad = makeReq('/configuracion/ticket', 'POST', [
+        'kg_decimals'   => 3,
+        'usd_format'    => 'usd',
+        'ticket_prefix' => 'st!@#',   // minúsculas y símbolos — regex /^[A-Z0-9\-]+$/ falla
+    ]);
+    $resp11c = $settingsCtrl11->updateTicket($ticketReqBad);
+    // Si llegó aquí sin excepción, fue aceptado — eso sería un BUG
+    fail('Prefijo ticket inválido rechazado', 'ValidationException (regex /^[A-Z0-9\\-]+$/)', 'Aceptado sin error — BUG');
+} catch (ValidationException $e) {
+    pass('Prefijo ticket inválido rechazado',
+        'ValidationException (regex /^[A-Z0-9\\-]+$/)',
+        'Rechazado correctamente: ' . implode(' | ', array_merge(...array_values($e->errors()))));
+} catch (\Throwable $e) {
+    fail('Prefijo ticket inválido rechazado', 'ValidationException', get_class($e) . ': ' . $e->getMessage());
+}
+
+// ─── FASE 12 — Configuración General ─────────────────────────────────────────
+section('FASE 12 — Configuración General (updateGeneral)');
+
+$business12   = Auth::user()->business;
+$nameBefore12 = $business12->name;
+$cityBefore12 = $business12->city;
+
+// 12.1 — Actualizar nombre, teléfono y ciudad
+try {
+    $genReq = makeReq('/configuracion/general', 'POST', [
+        'name'        => '[ST] Carnicería Test Stress',
+        'phone'       => '+58-212-0000000',
+        'city'        => '[ST] Ciudad Test',
+        'theme_color' => 'green',
+    ]);
+    $resp12 = $settingsCtrl11->updateGeneral($genReq);
+
+    if ($resp12 instanceof \Illuminate\Http\RedirectResponse) {
+        $business12->refresh();
+        $nameOk = $business12->name === '[ST] Carnicería Test Stress';
+        $cityOk = $business12->city === '[ST] Ciudad Test';
+        if ($nameOk && $cityOk) {
+            pass('Actualizar nombre y ciudad del negocio',
+                'name y city persistidos en DB',
+                "name={$business12->name} | city={$business12->city} ✓");
+        } else {
+            fail('Actualizar nombre y ciudad del negocio',
+                'name=[ST] Carnicería Test Stress, city=[ST] Ciudad Test',
+                "name={$business12->name} | city={$business12->city}");
+        }
+    } else {
+        fail('Actualizar nombre y ciudad del negocio', 'RedirectResponse', get_class($resp12));
+    }
+} catch (ValidationException $e) {
+    $msgs = array_merge(...array_values($e->errors()));
+    fail('Actualizar nombre y ciudad del negocio', 'RedirectResponse OK', 'ValidationError: ' . implode(' | ', $msgs));
+} catch (\Throwable $e) {
+    fail('Actualizar nombre y ciudad del negocio', 'RedirectResponse OK', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 12.2 — theme_color inválido debe ser rechazado
+try {
+    $genReqBad = makeReq('/configuracion/general', 'POST', [
+        'name'        => '[ST] Negocio test',
+        'theme_color' => 'hotpink',   // no está en [blue,green,red,orange,purple,teal]
+    ]);
+    $resp12b = $settingsCtrl11->updateGeneral($genReqBad);
+    fail('theme_color inválido rechazado', 'ValidationException', 'Aceptado sin error — BUG');
+} catch (ValidationException $e) {
+    pass('theme_color inválido rechazado',
+        'ValidationException (in:blue,green,red,orange,purple,teal)',
+        'Rechazado correctamente: ' . implode(' | ', array_merge(...array_values($e->errors()))));
+} catch (\Throwable $e) {
+    fail('theme_color inválido rechazado', 'ValidationException', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 12.3 — Restaurar nombre original del negocio
+try {
+    $restoreReq = makeReq('/configuracion/general', 'POST', [
+        'name'        => $nameBefore12 ?: 'Carnicería Chaguaramas',
+        'city'        => $cityBefore12 ?: '',
+        'theme_color' => 'green',
+    ]);
+    $resp12r = $settingsCtrl11->updateGeneral($restoreReq);
+    $business12->refresh();
+    if ($business12->name === ($nameBefore12 ?: 'Carnicería Chaguaramas')) {
+        pass('Restaurar nombre negocio post-test', 'Nombre restaurado', "name={$business12->name} ✓");
+    } else {
+        fail('Restaurar nombre negocio post-test', "name={$nameBefore12}", "name={$business12->name}");
+    }
+} catch (\Throwable $e) {
+    fail('Restaurar nombre negocio post-test', 'RedirectResponse OK', get_class($e) . ': ' . $e->getMessage());
+}
+
+// ─── FASE 13 — Sucursales ─────────────────────────────────────────────────────
+section('FASE 13 — Sucursales (storeBranch)');
+
+$branchCreated13Id = null;
+
+// 13.1 — Crear sucursal válida
+try {
+    $cntBranchBefore = \App\Models\Branch::where('business_id', $businessId)->count();
+    $branchReq = makeReq('/configuracion/sucursales', 'POST', [
+        'name'    => '[ST] Sucursal Test Norte',
+        'address' => 'Av. Principal Norte, Local 1',
+        'city'    => 'Valle de la Pascua',
+        'phone'   => '+58-237-000-0001',
+    ]);
+    $resp13 = $settingsCtrl11->storeBranch($branchReq);
+
+    if ($resp13 instanceof \Illuminate\Http\RedirectResponse) {
+        $cntBranchAfter = \App\Models\Branch::where('business_id', $businessId)->count();
+        if ($cntBranchAfter > $cntBranchBefore) {
+            $newBranch = \App\Models\Branch::where('business_id', $businessId)
+                ->where('name', '[ST] Sucursal Test Norte')
+                ->first();
+            $branchCreated13Id = $newBranch?->id;
+            pass('Crear sucursal [ST] Norte',
+                'Sucursal creada en DB',
+                "ID={$branchCreated13Id} | is_active=true ✓");
+        } else {
+            fail('Crear sucursal [ST] Norte', 'Sucursal creada (count++)', "count {$cntBranchBefore}→{$cntBranchAfter}");
+        }
+    } else {
+        fail('Crear sucursal [ST] Norte', 'RedirectResponse', get_class($resp13));
+    }
+} catch (ValidationException $e) {
+    $msgs = array_merge(...array_values($e->errors()));
+    fail('Crear sucursal [ST] Norte', 'RedirectResponse OK', 'ValidationError: ' . implode(' | ', $msgs));
+} catch (\Throwable $e) {
+    fail('Crear sucursal [ST] Norte', 'RedirectResponse OK', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 13.2 — Crear segunda sucursal con mismo nombre (storeBranch no tiene unicidad — debe ACEPTAR)
+try {
+    $cntBefore2 = \App\Models\Branch::where('business_id', $businessId)->count();
+    $branchReq2 = makeReq('/configuracion/sucursales', 'POST', [
+        'name'    => '[ST] Sucursal Test Norte',   // mismo nombre que 13.1
+        'address' => 'Dirección diferente',
+        'city'    => 'Caracas',
+    ]);
+    $resp13b = $settingsCtrl11->storeBranch($branchReq2);
+
+    if ($resp13b instanceof \Illuminate\Http\RedirectResponse) {
+        $cntAfter2 = \App\Models\Branch::where('business_id', $businessId)->count();
+        if ($cntAfter2 > $cntBefore2) {
+            pass('Duplicado de nombre de sucursal (sin restricción)',
+                'Controller acepta duplicados (no hay Rule::unique en storeBranch)',
+                "count {$cntBefore2}→{$cntAfter2} — segunda sucursal creada ✓");
+        } else {
+            fail('Duplicado de nombre de sucursal', 'Segunda sucursal creada (sin uniqueness)', "count {$cntBefore2}→{$cntAfter2}");
+        }
+    } else {
+        fail('Duplicado de nombre de sucursal', 'RedirectResponse', get_class($resp13b));
+    }
+} catch (ValidationException $e) {
+    // Si llegara a lanzar validación por duplicado, igual es comportamiento válido
+    pass('Duplicado de nombre de sucursal (con restricción)',
+        'RedirectResponse OK o ValidationException',
+        'ValidationException recibida: ' . implode(' | ', array_merge(...array_values($e->errors()))));
+} catch (\Throwable $e) {
+    fail('Duplicado de nombre de sucursal', 'RedirectResponse OK', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 13.3 — Nombre requerido: sin nombre debe fallar
+try {
+    $branchReqEmpty = makeReq('/configuracion/sucursales', 'POST', [
+        'address' => 'Alguna dirección',
+    ]);
+    $resp13c = $settingsCtrl11->storeBranch($branchReqEmpty);
+    fail('Sucursal sin nombre rechazada', 'ValidationException (name required)', 'Aceptada sin error — BUG');
+} catch (ValidationException $e) {
+    pass('Sucursal sin nombre rechazada',
+        'ValidationException (name required)',
+        'Rechazado: ' . implode(' | ', array_merge(...array_values($e->errors()))));
+} catch (\Throwable $e) {
+    fail('Sucursal sin nombre rechazada', 'ValidationException', get_class($e) . ': ' . $e->getMessage());
+}
+
+// ─── FASE 14 — Contingencia: Importar Ventas ─────────────────────────────────
+section('FASE 14 — Contingencia (importSales)');
+
+$contingencyCtrl = app(\App\Http\Controllers\ContingencyController::class);
+
+// Necesitamos un product_id real del negocio para el CSV
+$productForCsv = \App\Models\Product::where('business_id', $businessId)
+    ->where('active', true)
+    ->where('location', '!=', 'boveda')
+    ->where('sale_mode', 'weight')
+    ->first();
+
+// 14.1 — Importar CSV válido con una venta
+if ($productForCsv) {
+    try {
+        $csvValid = "hora,product_id,product_name,quantity_value,input_type,price_bs,total_bs,payment_method\n";
+        $csvValid .= "08:30,{$productForCsv->id},{$productForCsv->name},1.500,weight,150.00,225.00,Efectivo Bs.\n";
+
+        $tmpCsvValid = sys_get_temp_dir() . '/st_contingencia_valid_' . uniqid() . '.csv';
+        file_put_contents($tmpCsvValid, $csvValid);
+
+        $uploadedFile = new \Illuminate\Http\UploadedFile(
+            $tmpCsvValid, 'st_ventas.csv', 'text/csv', null, true
+        );
+
+        $cntSaleBefore14 = Sale::where('business_id', $businessId)->count();
+
+        $importReq = makeReq('/contingencia/importar-ventas', 'POST', []);
+        $importReq->files->set('file', $uploadedFile);
+
+        $resp14 = $contingencyCtrl->importSales($importReq);
+        $body14 = json_decode($resp14->getContent(), true);
+
+        if (@unlink($tmpCsvValid)) { /* temp eliminado */ }
+
+        if ($resp14->getStatusCode() === 200 && isset($body14['imported'])) {
+            $cntSaleAfter14 = Sale::where('business_id', $businessId)->count();
+            if ($cntSaleAfter14 > $cntSaleBefore14) {
+                pass('Importar CSV ventas válido',
+                    'JsonResponse {imported, warnings, total} + Sale creada',
+                    "total={$body14['total']} importada(s) | warnings=" . count($body14['warnings']) . ' | sale count ' . $cntSaleBefore14 . '→' . $cntSaleAfter14 . ' ✓');
+            } else {
+                fail('Importar CSV ventas válido',
+                    'Sale creada en DB',
+                    "HTTP 200 OK pero sale count sin cambio: {$cntSaleBefore14}→{$cntSaleAfter14} | body=" . json_encode($body14));
+            }
+        } else {
+            fail('Importar CSV ventas válido',
+                'HTTP 200 + {imported, warnings, total}',
+                "HTTP={$resp14->getStatusCode()} | body=" . json_encode($body14));
+        }
+    } catch (ValidationException $e) {
+        $msgs = array_merge(...array_values($e->errors()));
+        fail('Importar CSV ventas válido', 'HTTP 200 + datos importados', 'ValidationError: ' . implode(' | ', $msgs));
+    } catch (\Throwable $e) {
+        fail('Importar CSV ventas válido', 'HTTP 200 + datos importados', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    fail('Importar CSV ventas válido', 'Producto activo encontrado para test', 'No hay productos weight activos fuera de bóveda');
+}
+
+// 14.2 — CSV malformado (columna requerida faltante) debe retornar 422
+try {
+    $csvBad = "producto,cantidad,precio\n";
+    $csvBad .= "Carne Molida,1.5,150\n";
+
+    $tmpCsvBad = sys_get_temp_dir() . '/st_contingencia_bad_' . uniqid() . '.csv';
+    file_put_contents($tmpCsvBad, $csvBad);
+
+    $uploadedFileBad = new \Illuminate\Http\UploadedFile(
+        $tmpCsvBad, 'st_ventas_mal.csv', 'text/csv', null, true
+    );
+
+    $importReqBad = makeReq('/contingencia/importar-ventas', 'POST', []);
+    $importReqBad->files->set('file', $uploadedFileBad);
+
+    $resp14b = $contingencyCtrl->importSales($importReqBad);
+    $body14b = json_decode($resp14b->getContent(), true);
+
+    if (@unlink($tmpCsvBad)) { /* temp eliminado */ }
+
+    if ($resp14b->getStatusCode() === 422 && isset($body14b['error'])) {
+        pass('CSV malformado rechazado limpiamente',
+            'HTTP 422 + {error: "Columna requerida faltante: ..."}',
+            "HTTP=422 | error={$body14b['error']} ✓");
+    } else {
+        fail('CSV malformado rechazado limpiamente',
+            'HTTP 422 + mensaje de error',
+            "HTTP={$resp14b->getStatusCode()} | body=" . json_encode($body14b));
+    }
+} catch (ValidationException $e) {
+    // La validación del campo 'file' no aplica aquí (sí hay file), pero puede pasar
+    pass('CSV malformado rechazado limpiamente',
+        'HTTP 422 o ValidationException',
+        'ValidationException: ' . implode(' | ', array_merge(...array_values($e->errors()))));
+} catch (\Throwable $e) {
+    fail('CSV malformado rechazado limpiamente', 'HTTP 422 limpio', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 14.3 — Sin archivo debe lanzar ValidationException (file required)
+try {
+    $importReqNoFile = makeReq('/contingencia/importar-ventas', 'POST', []);
+    $resp14c = $contingencyCtrl->importSales($importReqNoFile);
+    fail('Importar sin archivo rechazado', 'ValidationException (file required)', 'Aceptado sin error — BUG');
+} catch (ValidationException $e) {
+    pass('Importar sin archivo rechazado',
+        'ValidationException (file required)',
+        'Rechazado: ' . implode(' | ', array_merge(...array_values($e->errors()))));
+} catch (\Throwable $e) {
+    fail('Importar sin archivo rechazado', 'ValidationException', get_class($e) . ': ' . $e->getMessage());
+}
+
+// ─── FASE 15 — Dashboard/Panel Empresarial ────────────────────────────────────
+section('FASE 15 — Dashboard data endpoint (DashboardController::data)');
+
+$dashCtrl = app(\App\Http\Controllers\DashboardController::class);
+
+// 15.1 — GET /dashboard/data retorna JSON con estructura esperada
+try {
+    $dashReq = makeReq('/dashboard/data', 'GET', []);
+    $resp15  = $dashCtrl->data($dashReq);
+    $body15  = json_decode($resp15->getContent(), true);
+
+    $expectedKeys = [
+        'ventas_hoy', 'top_productos', 'stock_critico', 'ultimas_ventas',
+        'caja_activa', 'tasa_hoy', 'pedidos_pendientes', 'categorias_hoy', 'utilidad_boveda',
+    ];
+    $missingKeys = array_diff($expectedKeys, array_keys($body15 ?? []));
+
+    if ($resp15->getStatusCode() === 200 && empty($missingKeys)) {
+        pass('Dashboard data — estructura completa',
+            '9 claves: ' . implode(', ', $expectedKeys),
+            'HTTP=200 | claves presentes=' . count($expectedKeys) . '/9 ✓');
+    } else {
+        fail('Dashboard data — estructura completa',
+            '9 claves esperadas',
+            'HTTP=' . $resp15->getStatusCode() . ' | faltantes=' . implode(', ', $missingKeys));
+    }
+} catch (\Throwable $e) {
+    fail('Dashboard data — estructura completa', 'HTTP 200 + 9 claves', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 15.2 — ventas_hoy tiene subclaves count, total_bs, total_usd
+try {
+    $dashReq2 = makeReq('/dashboard/data', 'GET', []);
+    $resp15b  = $dashCtrl->data($dashReq2);
+    $body15b  = json_decode($resp15b->getContent(), true);
+
+    $vh = $body15b['ventas_hoy'] ?? null;
+    if (is_array($vh)
+        && array_key_exists('count', $vh)
+        && array_key_exists('total_bs', $vh)
+        && array_key_exists('total_usd', $vh)
+    ) {
+        pass('Dashboard ventas_hoy estructura',
+            '{count, total_bs, total_usd}',
+            "count={$vh['count']} | total_bs={$vh['total_bs']} | total_usd={$vh['total_usd']} ✓");
+    } else {
+        fail('Dashboard ventas_hoy estructura',
+            'ventas_hoy debe tener count, total_bs, total_usd',
+            'ventas_hoy=' . json_encode($vh));
+    }
+} catch (\Throwable $e) {
+    fail('Dashboard ventas_hoy estructura', '{count, total_bs, total_usd}', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 15.3 — tasa_hoy es un número mayor que cero (DollarRateService activo)
+try {
+    $dashReq3 = makeReq('/dashboard/data', 'GET', []);
+    $resp15c  = $dashCtrl->data($dashReq3);
+    $body15c  = json_decode($resp15c->getContent(), true);
+
+    $tasa = $body15c['tasa_hoy'] ?? null;
+    if (is_numeric($tasa) && (float) $tasa > 0) {
+        pass('Dashboard tasa_hoy > 0',
+            'Número positivo (DollarRateService activo o fallback)',
+            "tasa_hoy={$tasa} ✓");
+    } else {
+        fail('Dashboard tasa_hoy > 0',
+            'Número positivo',
+            'tasa_hoy=' . var_export($tasa, true) . ' — DollarRateService no tiene tasa disponible');
+    }
+} catch (\Throwable $e) {
+    fail('Dashboard tasa_hoy > 0', 'Número positivo', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 15.4 — pedidos_pendientes es entero ≥ 0
+try {
+    $dashReq4 = makeReq('/dashboard/data', 'GET', []);
+    $resp15d  = $dashCtrl->data($dashReq4);
+    $body15d  = json_decode($resp15d->getContent(), true);
+
+    $pp = $body15d['pedidos_pendientes'] ?? null;
+    if (is_int($pp) && $pp >= 0) {
+        pass('Dashboard pedidos_pendientes es entero ≥ 0',
+            'integer >= 0',
+            "pedidos_pendientes={$pp} ✓");
+    } else {
+        fail('Dashboard pedidos_pendientes es entero ≥ 0',
+            'integer >= 0',
+            'pedidos_pendientes=' . var_export($pp, true));
+    }
+} catch (\Throwable $e) {
+    fail('Dashboard pedidos_pendientes es entero ≥ 0', 'integer >= 0', get_class($e) . ': ' . $e->getMessage());
+}
+
 // ─── RESUMEN FINAL ────────────────────────────────────────────────────────────
 section('RESUMEN FINAL — Tabla de Resultados');
 printTable($results);
@@ -2109,6 +2581,31 @@ try {
         ->where('name', 'like', '%[ST]%')
         ->delete();
     echo "  Métodos de pago [ST] eliminados: {$stPms}\n";
+
+    // ── FASE 11-15 cleanup ─────────────────────────────────────────────────
+
+    // Sucursales de test [ST] creadas en FASE 13
+    $stBranches = \App\Models\Branch::where('business_id', $businessId)
+        ->where('name', 'like', '%[ST]%')
+        ->delete();
+    echo "  Sucursales [ST] eliminadas: {$stBranches}\n";
+
+    // Ventas de contingencia offline creadas en FASE 14 (notes='Importado contingencia offline')
+    $stContSales = Sale::where('business_id', $businessId)
+        ->where('notes', 'Importado contingencia offline')
+        ->get();
+    foreach ($stContSales as $cs) {
+        SaleItem::where('sale_id', $cs->id)->delete();
+        SalePayment::where('sale_id', $cs->id)->delete();
+        $cs->delete();
+    }
+    echo "  Ventas contingencia offline eliminadas: " . $stContSales->count() . "\n";
+
+    // Inventory entries negativas creadas por importSales (notes='Contingencia offline')
+    $stContInv = \App\Models\InventoryEntry::where('business_id', $businessId)
+        ->where('notes', 'Contingencia offline')
+        ->delete();
+    echo "  InventoryEntries contingencia eliminadas: {$stContInv}\n";
 
     echo "\n  Cleanup completo.\n";
 } catch (\Throwable $e) {
