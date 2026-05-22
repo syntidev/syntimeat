@@ -148,7 +148,7 @@ class BovedaController extends Controller
         abort_if($entry->closed_at !== null, 422, 'Entrada ya cerrada.');
 
         $data = $request->validate([
-            'peso_real' => ['required', 'numeric', 'min:0.001'],
+            'peso_real' => ['required', 'numeric', 'min:0'],
         ]);
 
         $disponible = round(
@@ -157,6 +157,10 @@ class BovedaController extends Controller
         );
 
         $kg = round((float) $data['peso_real'], 3);
+
+        if ($kg <= 0 && $entry->kg_disponible > 0) {
+            return response()->json(['error' => 'Peso debe ser mayor a 0'], 422);
+        }
 
         if ($kg > $disponible) {
             return response()->json(
