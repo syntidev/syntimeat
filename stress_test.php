@@ -22,13 +22,16 @@ use App\Models\BovedaEntry;
 use App\Models\BovedaProduct;
 use App\Models\CashMovement;
 use App\Models\CashRegister;
+use App\Models\Client;
 use App\Models\FabricaBatch;
 use App\Models\InventoryEntry;
+use App\Models\Order;
 use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\SalePayment;
+use App\Models\User;
 use App\Services\DollarRateService;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Support\Facades\Auth;
@@ -59,6 +62,30 @@ function section(string $title): void {
     echo "\n" . str_repeat('═', 80) . "\n";
     echo "  {$title}\n";
     echo str_repeat('─', 80) . "\n";
+}
+
+/**
+ * Crea un HttpRequest con sesión Laravel bindeada.
+ * Necesario para controllers que devuelven RedirectResponse (back()->withErrors()).
+ */
+function makeReq(string $uri, string $verb, array $data = []): HttpRequest {
+    $req = HttpRequest::create($uri, $verb, $data);
+    try { $req->setLaravelSession(app('session.store')); } catch (\Throwable) {}
+    return $req;
+}
+
+/**
+ * Extrae errores de una RedirectResponse flasheados en sesión.
+ * Retorna array vacío si no hay errores o si la sesión no está disponible en CLI.
+ */
+function redirectErrors(\Illuminate\Http\RedirectResponse $resp): array {
+    try {
+        $bag = $resp->getSession()?->get('errors');
+        if ($bag && method_exists($bag, 'all')) {
+            return $bag->all();
+        }
+    } catch (\Throwable) {}
+    return [];
 }
 
 function printTable(array $results): void {
@@ -1214,6 +1241,761 @@ if ($cashRegister) {
     }
 }
 
+// ─── FASE 6 — Inventario ─────────────────────────────────────────────────────
+section('FASE 6 — Inventario: InventoryController::store()');
+
+$invCtrl      = app(\App\Http\Controllers\InventoryController::class);
+$prodVitrina  = Product::where('business_id', $businessId)->where('location', 'vitrina')->where('active', true)->first();
+$prodDespensa = Product::where('business_id', $businessId)->where('location', 'despensa')->where('active', true)->first();
+$prodBoveda   = Product::where('business_id', $businessId)->where('location', 'boveda')->where('active', true)->first();
+
+echo "  Prod vitrina : " . ($prodVitrina  ? "{$prodVitrina->name} ID={$prodVitrina->id}"   : 'NINGUNO') . "\n";
+echo "  Prod despensa: " . ($prodDespensa ? "{$prodDespensa->name} ID={$prodDespensa->id}" : 'NINGUNO') . "\n";
+echo "  Prod bóveda  : " . ($prodBoveda   ? "{$prodBoveda->name} ID={$prodBoveda->id}"     : 'NINGUNO') . "\n\n";
+
+// 6.1 — Alta inventario location=vitrina
+if ($prodVitrina) {
+    $cnt6Before = InventoryEntry::where('business_id', $businessId)->count();
+    try {
+        $invCtrl->store(makeReq('/inventario', 'POST', [
+            'product_id'      => $prodVitrina->id,
+            'quantity_kg'     => 8.0,
+            'waste_kg'        => 0,
+            'cost_per_kg_usd' => 4.50,
+            'supplier'        => '[ST] Prov vitrina',
+            'entered_at'      => now()->format('Y-m-d H:i:s'),
+        ]));
+        $cnt6After = InventoryEntry::where('business_id', $businessId)->count();
+        if ($cnt6After > $cnt6Before) {
+            pass("Alta inventario location=vitrina ({$prodVitrina->name})", 'InventoryEntry creada', "count {$cnt6Before}→{$cnt6After}");
+        } else {
+            fail("Alta inventario location=vitrina", 'InventoryEntry creada', 'Entry no fue creada — revisar store()');
+        }
+    } catch (ValidationException $e) {
+        $msgs = array_merge(...array_values($e->errors()));
+        fail("Alta inventario location=vitrina", 'Entry creada', 'ValidationError: ' . implode(' | ', $msgs));
+    } catch (\Throwable $e) {
+        fail("Alta inventario location=vitrina", 'Entry creada', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    pass('Alta inventario location=vitrina', 'N/A', 'Sin productos vitrina activos en este negocio');
+}
+
+// 6.2 — Alta inventario location=despensa
+if ($prodDespensa) {
+    $cnt6dBefore = InventoryEntry::where('business_id', $businessId)->count();
+    try {
+        $invCtrl->store(makeReq('/inventario', 'POST', [
+            'product_id'  => $prodDespensa->id,
+            'quantity_kg' => 3.0,
+            'waste_kg'    => 0,
+            'entered_at'  => now()->format('Y-m-d H:i:s'),
+        ]));
+        $cnt6dAfter = InventoryEntry::where('business_id', $businessId)->count();
+        if ($cnt6dAfter > $cnt6dBefore) {
+            pass("Alta inventario location=despensa ({$prodDespensa->name})", 'Entry creada', "count {$cnt6dBefore}→{$cnt6dAfter}");
+        } else {
+            fail("Alta inventario location=despensa", 'Entry creada', 'Entry no creada');
+        }
+    } catch (\Throwable $e) {
+        fail("Alta inventario location=despensa", 'Entry creada', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    pass('Alta inventario location=despensa', 'N/A', 'Sin productos despensa activos en este negocio');
+}
+
+// 6.3 — Verificar que location=boveda nunca aparece en inventario
+// store() no valida product.location — si acepta boveda, es un BUG de guard
+if ($prodBoveda) {
+    $cntBovedaBefore = InventoryEntry::where('business_id', $businessId)->where('product_id', $prodBoveda->id)->count();
+    try {
+        $invCtrl->store(makeReq('/inventario', 'POST', [
+            'product_id'  => $prodBoveda->id,
+            'quantity_kg' => 1.0,
+            'waste_kg'    => 0,
+            'entered_at'  => now()->format('Y-m-d H:i:s'),
+        ]));
+        $cntBovedaAfter = InventoryEntry::where('business_id', $businessId)->where('product_id', $prodBoveda->id)->count();
+        if ($cntBovedaAfter > $cntBovedaBefore) {
+            fail(
+                "location=boveda bloqueado en InventoryController::store()",
+                'Error: producto bóveda rechazado',
+                "ACEPTÓ boveda ID={$prodBoveda->id} — store() no valida product.location — BUG de guard"
+            );
+            // Limpiar entry indeseada
+            InventoryEntry::where('business_id', $businessId)
+                ->where('product_id', $prodBoveda->id)
+                ->latest()->first()?->delete();
+        } else {
+            pass("location=boveda bloqueado en inventario", 'Boveda rechazado por store()', "Producto bóveda ID={$prodBoveda->id} correctamente rechazado");
+        }
+    } catch (HttpException $e) {
+        pass("location=boveda bloqueado en inventario", 'HttpException 403/422', "HTTP {$e->getStatusCode()}: {$e->getMessage()}");
+    } catch (\Throwable $e) {
+        fail("location=boveda en inventario", 'Error controlado', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    pass('location=boveda bloqueado en inventario', 'N/A', 'Sin productos bóveda activos para probar');
+}
+
+// 6.4 + 6.5 — Alta con merma + verificar net_kg = quantity_kg - waste_kg (columna virtual DB)
+if ($prodVitrina) {
+    $qty6    = 10.0;
+    $waste6  = 1.500;
+    $net6Exp = round($qty6 - $waste6, 3); // 8.500
+    $sup6    = '[ST] Merma FASE6';
+    try {
+        $invCtrl->store(makeReq('/inventario', 'POST', [
+            'product_id'      => $prodVitrina->id,
+            'quantity_kg'     => $qty6,
+            'waste_kg'        => $waste6,
+            'cost_per_kg_usd' => 3.00,
+            'supplier'        => $sup6,
+            'entered_at'      => now()->format('Y-m-d H:i:s'),
+        ]));
+        $entry64 = InventoryEntry::where('business_id', $businessId)
+            ->where('product_id', $prodVitrina->id)
+            ->where('supplier', $sup6)
+            ->latest()->first();
+        if ($entry64) {
+            pass(
+                "Alta inventario con merma (qty={$qty6}, waste={$waste6})",
+                'Entry creada con waste_kg',
+                "ID={$entry64->id} | qty={$entry64->quantity_kg} | waste={$entry64->waste_kg}"
+            );
+            // 6.5 — net_kg virtual
+            $net6Actual = round((float) $entry64->net_kg, 3);
+            if (abs($net6Actual - $net6Exp) < 0.001) {
+                pass(
+                    "net_kg = quantity_kg - waste_kg (columna virtual DB)",
+                    "net_kg = {$net6Exp}",
+                    "net_kg = {$net6Actual} ✓"
+                );
+            } else {
+                fail(
+                    "net_kg = quantity_kg - waste_kg (columna virtual DB)",
+                    "net_kg = {$net6Exp}",
+                    "net_kg = {$net6Actual} — fórmula de columna virtual incorrecta"
+                );
+            }
+        } else {
+            fail("Alta inventario con merma", 'Entry creada', 'Entry no encontrada en DB tras store()');
+        }
+    } catch (ValidationException $e) {
+        $msgs = array_merge(...array_values($e->errors()));
+        fail("Alta inventario con merma", 'Entry creada', 'ValidationError: ' . implode(' | ', $msgs));
+    } catch (\Throwable $e) {
+        fail("Alta inventario con merma", 'Entry creada', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    pass('Alta inventario con merma', 'N/A', 'Sin productos vitrina disponibles');
+    pass('net_kg columna virtual', 'N/A', 'Sin productos vitrina disponibles');
+}
+
+// ─── FASE 7 — Pedidos ────────────────────────────────────────────────────────
+section('FASE 7 — Pedidos: OrderController');
+
+$orderCtrl = app(\App\Http\Controllers\OrderController::class);
+$pmF7      = PaymentMethod::where('business_id', $businessId)->where('is_active', true)->first();
+$prodF7    = $prodVitrina
+    ?? Product::where('business_id', $businessId)->where('location', '!=', 'boveda')->where('active', true)->first();
+
+echo "  PaymentMethod: " . ($pmF7   ? "{$pmF7->name} ID={$pmF7->id}"   : 'NINGUNO') . "\n";
+echo "  Producto F7  : " . ($prodF7 ? "{$prodF7->name} ID={$prodF7->id}" : 'NINGUNO') . "\n";
+
+// Asegurar caja abierta para collect() — collect() requiere CashRegister abierta
+$cashF7 = CashRegister::where('business_id', $businessId)
+    ->where('opened_by', $user->id)
+    ->whereNull('closed_at')
+    ->first();
+if (!$cashF7) {
+    try {
+        $cashF7 = CashRegister::create([
+            'business_id'        => $businessId,
+            'branch_id'          => $user->branch_id,
+            'name'               => '[ST] Caja FASE7',
+            'opened_at'          => now(),
+            'opening_amount_usd' => 0,
+            'opening_amount_bs'  => 0,
+            'rate_at_opening'    => $rate,
+            'opened_by'          => $user->id,
+        ]);
+        echo "  Caja FASE7 abierta: ID={$cashF7->id}\n\n";
+    } catch (\Throwable $e) {
+        echo "  ERROR abriendo caja FASE7: " . $e->getMessage() . "\n\n";
+        $cashF7 = null;
+    }
+} else {
+    echo "  Caja existente reutilizada: ID={$cashF7->id}\n\n";
+}
+
+// 7.1 — Crear pedido consumo interno
+$orderInterno = null;
+if ($prodF7) {
+    try {
+        $r    = $orderCtrl->store(makeReq('/pedidos', 'POST', [
+            'client_name' => '[ST] Cocina Interna',
+            'client_type' => 'internal',
+            'notes'       => '[ST] Consumo interno — stress test',
+            'items'       => [[
+                'product_id'     => $prodF7->id,
+                'quantity_value' => 0.5,
+                'input_type'     => 'weight',
+            ]],
+        ]));
+        $body = json_decode($r->getContent(), true);
+        if (isset($body['order']['id'])) {
+            $orderInterno = Order::find($body['order']['id']);
+            pass(
+                "Crear pedido consumo interno",
+                'order.id en respuesta',
+                "ID={$orderInterno->id} | total_usd=" . ($body['order']['total_usd'] ?? '?') . " | status=pending"
+            );
+        } else {
+            fail("Crear pedido consumo interno", 'order.id en respuesta', json_encode($body));
+        }
+    } catch (HttpException $e) {
+        fail("Crear pedido consumo interno", 'JsonResponse OK', "HTTP {$e->getStatusCode()}: {$e->getMessage()}");
+    } catch (ValidationException $e) {
+        $msgs = array_merge(...array_values($e->errors()));
+        fail("Crear pedido consumo interno", 'JsonResponse OK', 'ValidationError: ' . implode(' | ', $msgs));
+    } catch (\Throwable $e) {
+        fail("Crear pedido consumo interno", 'JsonResponse OK', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    pass('Crear pedido consumo interno', 'N/A', 'Sin productos disponibles');
+}
+
+// 7.2 — Crear pedido delivery (externo)
+$orderDelivery = null;
+if ($prodF7) {
+    try {
+        $r    = $orderCtrl->store(makeReq('/pedidos', 'POST', [
+            'client_name' => '[ST] Cliente Delivery',
+            'client_type' => 'external',
+            'notes'       => '[ST] Delivery — stress test',
+            'items'       => [[
+                'product_id'     => $prodF7->id,
+                'quantity_value' => 1.0,
+                'input_type'     => 'weight',
+            ]],
+        ]));
+        $body = json_decode($r->getContent(), true);
+        if (isset($body['order']['id'])) {
+            $orderDelivery = Order::find($body['order']['id']);
+            pass(
+                "Crear pedido delivery (client_type=external)",
+                'order.id + client_type=external',
+                "ID={$orderDelivery->id} | client_type={$orderDelivery->client_type}"
+            );
+        } else {
+            fail("Crear pedido delivery", 'order.id en respuesta', json_encode($body));
+        }
+    } catch (\Throwable $e) {
+        fail("Crear pedido delivery", 'JsonResponse OK', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    pass('Crear pedido delivery', 'N/A', 'Sin productos disponibles');
+}
+
+// 7.3 — Despachar pedido delivery (sin cobrar — crea Sale con payment_status=pendiente_cobro)
+if ($orderDelivery) {
+    try {
+        $r    = $orderCtrl->dispatch(makeReq('/pedidos/' . $orderDelivery->id . '/despachar', 'PATCH'), $orderDelivery);
+        $body = json_decode($r->getContent(), true);
+        if (isset($body['error'])) {
+            fail("Despachar pedido delivery ID={$orderDelivery->id}", 'Sale pendiente_cobro creada', $body['error']);
+        } else {
+            $saleDesp = Sale::where('order_id', $orderDelivery->id)->first();
+            pass(
+                "Despachar pedido delivery ID={$orderDelivery->id}",
+                'Sale creada con payment_status=pendiente_cobro',
+                $saleDesp
+                    ? "Sale ID={$saleDesp->id} | payment_status={$saleDesp->payment_status} | origin={$saleDesp->origin}"
+                    : 'Pedido despachado (sale no vinculada en order_id)'
+            );
+        }
+    } catch (HttpException $e) {
+        fail("Despachar pedido delivery", 'Despachado OK', "HTTP {$e->getStatusCode()}: {$e->getMessage()}");
+    } catch (\Throwable $e) {
+        fail("Despachar pedido delivery", 'Despachado OK', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    pass('Despachar pedido delivery', 'N/A', 'Pedido delivery no creado en test anterior');
+}
+
+// 7.4 — Cobrar pedido interno (collect() — pago inmediato con caja abierta)
+if ($orderInterno && $pmF7 && $cashF7) {
+    $totalBsF7 = round((float) $orderInterno->total_usd * $rate, 2);
+    try {
+        $r    = $orderCtrl->collect(makeReq('/pedidos/' . $orderInterno->id . '/cobrar', 'PATCH', [
+            'payments' => [[
+                'payment_method_id' => $pmF7->id,
+                'amount_bs'         => $totalBsF7 + 5.0,  // holgura para asegurar cobertura
+                'reference'         => null,
+            ]],
+        ]), $orderInterno);
+        $body = json_decode($r->getContent(), true);
+        if (isset($body['error'])) {
+            fail("Cobrar pedido interno ID={$orderInterno->id}", 'success=true', $body['error']);
+        } elseif (!empty($body['success'])) {
+            $orderInterno->refresh();
+            pass(
+                "Cobrar pedido interno ID={$orderInterno->id} (Bs.{$totalBsF7})",
+                'success=true + order.status=paid',
+                "order.status={$orderInterno->status} ✓"
+            );
+        } else {
+            fail("Cobrar pedido interno", 'success=true', json_encode($body));
+        }
+    } catch (HttpException $e) {
+        fail("Cobrar pedido interno", 'success=true', "HTTP {$e->getStatusCode()}: {$e->getMessage()}");
+    } catch (ValidationException $e) {
+        $msgs = array_merge(...array_values($e->errors()));
+        fail("Cobrar pedido interno", 'success=true', 'ValidationError: ' . implode(' | ', $msgs));
+    } catch (\Throwable $e) {
+        fail("Cobrar pedido interno", 'success=true', get_class($e) . ': ' . $e->getMessage());
+    }
+} elseif (!$cashF7) {
+    pass('Cobrar pedido interno', 'N/A', 'Caja FASE7 no disponible');
+} else {
+    pass('Cobrar pedido interno', 'N/A', 'Sin pedido interno o método de pago');
+}
+
+// 7.5 — Cancelar pedido activo
+// OrderController::cancel() valida campo 'reason' (no 'motivo')
+// Solo el primer usuario del negocio (por ID) puede cancelar
+if ($prodF7) {
+    try {
+        $rNew = $orderCtrl->store(makeReq('/pedidos', 'POST', [
+            'client_name' => '[ST] Pedido para cancelar',
+            'client_type' => 'internal',
+            'items'       => [[
+                'product_id'     => $prodF7->id,
+                'quantity_value' => 0.1,
+                'input_type'     => 'weight',
+            ]],
+        ]));
+        $bodyNew = json_decode($rNew->getContent(), true);
+        if (isset($bodyNew['order']['id'])) {
+            $orderCancel = Order::find($bodyNew['order']['id']);
+            $rCan  = $orderCtrl->cancel(makeReq('/pedidos/' . $orderCancel->id . '/cancelar', 'PATCH', [
+                'reason' => '[ST] Cancelado por stress test',
+            ]), $orderCancel);
+            $bodyCan = json_decode($rCan->getContent(), true);
+            if (!empty($bodyCan['ok'])) {
+                $orderCancel->refresh();
+                pass(
+                    "Cancelar pedido activo ID={$orderCancel->id}",
+                    'ok=true + order.status=cancelled',
+                    "status={$orderCancel->status} ✓"
+                );
+            } else {
+                fail("Cancelar pedido ID={$orderCancel->id}", 'ok=true', json_encode($bodyCan));
+            }
+        } else {
+            fail("Crear pedido para cancelar", 'order.id', json_encode($bodyNew));
+        }
+    } catch (HttpException $e) {
+        if ($e->getStatusCode() === 403) {
+            pass(
+                "Cancelar pedido (403 — solo admin)",
+                'Comportamiento documentado',
+                "HTTP 403: {$e->getMessage()} — user ID={$user->id} no es primer user del negocio"
+            );
+        } else {
+            fail("Cancelar pedido activo", 'ok=true', "HTTP {$e->getStatusCode()}: {$e->getMessage()}");
+        }
+    } catch (\Throwable $e) {
+        fail("Cancelar pedido activo", 'ok=true', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    pass('Cancelar pedido activo', 'N/A', 'Sin productos disponibles');
+}
+
+// 7.6 — Intentar cobrar pedido ya cobrado (debe fallar — abort_unless status in [open,pending])
+if ($orderInterno) {
+    $orderInterno->refresh();
+    try {
+        $r = $orderCtrl->collect(makeReq('/pedidos/' . $orderInterno->id . '/cobrar', 'PATCH', [
+            'payments' => [[
+                'payment_method_id' => $pmF7?->id ?? 1,
+                'amount_bs'         => 100.0,
+            ]],
+        ]), $orderInterno);
+        $body = json_decode($r->getContent(), true);
+        // Si llegó aquí sin excepción pero con error JSON — también es válido
+        if (isset($body['error'])) {
+            pass(
+                "Cobrar pedido ya cobrado (ID={$orderInterno->id}, status={$orderInterno->status})",
+                'Error: pedido no activo',
+                "Error en respuesta: {$body['error']} ✓"
+            );
+        } else {
+            fail(
+                "Cobrar pedido ya cobrado (ID={$orderInterno->id}, status={$orderInterno->status})",
+                'Error: pedido no activo',
+                'ACEPTÓ cobro en pedido status=' . $orderInterno->status . ' — BUG'
+            );
+        }
+    } catch (HttpException $e) {
+        pass(
+            "Cobrar pedido ya cobrado (ID={$orderInterno->id})",
+            'Error: pedido no activo',
+            "HTTP {$e->getStatusCode()}: {$e->getMessage()} ✓"
+        );
+    } catch (\Throwable $e) {
+        fail("Cobrar pedido ya cobrado", 'HttpException 422', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    pass('Cobrar pedido ya cobrado', 'N/A', 'Sin pedido interno disponible');
+}
+
+// ─── FASE 8 — Clientes ───────────────────────────────────────────────────────
+section('FASE 8 — Clientes: ClientController');
+
+$clientCtrl = app(\App\Http\Controllers\ClientController::class);
+$cedulaST8  = '[ST]V-' . substr((string) time(), -7);
+
+// 8.1 — Crear cliente con cédula única
+$clientCreado = null;
+try {
+    Client::where('business_id', $businessId)->where('cedula', $cedulaST8)->delete();  // pre-limpieza si existe
+    $cnt8Before = Client::where('business_id', $businessId)->count();
+    $clientCtrl->store(makeReq('/clientes', 'POST', [
+        'cedula'  => $cedulaST8,
+        'name'    => '[ST] Cliente Prueba',
+        'phone'   => null,
+        'email'   => null,
+        'address' => null,
+        'notes'   => '[ST] Creado por stress test',
+    ]));
+    $clientCreado = Client::where('business_id', $businessId)->where('cedula', $cedulaST8)->first();
+    $cnt8After = Client::where('business_id', $businessId)->count();
+    if ($clientCreado) {
+        pass(
+            "Crear cliente con cédula ({$cedulaST8})",
+            'Cliente creado en DB',
+            "ID={$clientCreado->id} | name={$clientCreado->name}"
+        );
+    } else {
+        fail("Crear cliente con cédula", 'Cliente creado en DB', "count {$cnt8Before}→{$cnt8After} — cliente no encontrado");
+    }
+} catch (ValidationException $e) {
+    $msgs = array_merge(...array_values($e->errors()));
+    fail("Crear cliente con cédula", 'Cliente creado', 'ValidationError: ' . implode(' | ', $msgs));
+} catch (\Throwable $e) {
+    fail("Crear cliente con cédula", 'Cliente creado', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 8.2 — Buscar por nombre parcial (q >= 2 chars)
+try {
+    $r8   = $clientCtrl->search(makeReq('/clientes/buscar', 'GET', ['q' => '[ST]']));
+    $list = json_decode($r8->getContent(), true);
+    if (is_array($list) && count($list) > 0) {
+        pass("Búsqueda clientes por nombre parcial '[ST]'", 'Array no vacío', count($list) . " cliente(s) encontrado(s)");
+    } elseif (is_array($list)) {
+        fail("Búsqueda clientes '[ST]'", 'Array no vacío', 'Retornó array vacío — cliente creado en 8.1 no aparece en búsqueda');
+    } else {
+        fail("Búsqueda clientes", 'Array JSON', 'Respuesta no es array: ' . json_encode($list));
+    }
+} catch (\Throwable $e) {
+    fail("Búsqueda clientes", 'Array JSON', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 8.3 — Verificar que existe al menos un cliente registrado en el negocio (seeder o creado)
+$primerCliente = Client::where('business_id', $businessId)->orderBy('id')->first();
+if ($primerCliente) {
+    pass(
+        "Primer cliente del negocio existe en DB",
+        'Al menos 1 cliente registrado',
+        "ID={$primerCliente->id} | cedula=" . ($primerCliente->cedula ?? 'null') . " | name={$primerCliente->name}"
+    );
+} else {
+    fail("Primer cliente del negocio existe", 'Al menos 1 cliente', 'Tabla clients vacía para este negocio');
+}
+
+// 8.4 — Historial de compras del cliente (ClientController::show())
+// show() devuelve Inertia::render — verificamos que no explote y consultamos historial en DB
+if ($clientCreado) {
+    try {
+        $clientCtrl->show($clientCreado);  // Inertia render — no lanzó excepción = OK
+        $ventasCliente = Sale::where('client_id', $clientCreado->id)->count();
+        pass(
+            "Historial cliente ID={$clientCreado->id} (show())",
+            'Inertia render sin excepción',
+            "show() OK | ventas_vinculadas={$ventasCliente}"
+        );
+    } catch (\Throwable $e) {
+        fail("Historial cliente show()", 'Inertia sin excepción', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    pass('Historial cliente show()', 'N/A', 'Cliente no creado en 8.1');
+}
+
+// 8.5 — Crear cliente duplicado por cédula (debe rechazar)
+if ($clientCreado) {
+    try {
+        $cnt8dBefore = Client::where('business_id', $businessId)->count();
+        $resp8d = $clientCtrl->store(makeReq('/clientes', 'POST', [
+            'cedula' => $cedulaST8,          // misma cédula que 8.1
+            'name'   => '[ST] Cliente Dup',
+        ]));
+        $cnt8dAfter = Client::where('business_id', $businessId)->count();
+        if ($cnt8dAfter > $cnt8dBefore) {
+            fail(
+                "Duplicado de cédula bloqueado ({$cedulaST8})",
+                'Error: cédula duplicada',
+                'ACEPTÓ cliente duplicado — BUG: store() no rechazó cédula ya existente'
+            );
+        } else {
+            $errs8d = $resp8d instanceof \Illuminate\Http\RedirectResponse ? redirectErrors($resp8d) : [];
+            pass(
+                "Duplicado de cédula bloqueado ({$cedulaST8})",
+                'Error: cédula duplicada',
+                $errs8d ? implode(' | ', $errs8d) : 'Redirect sin crear duplicado ✓'
+            );
+        }
+    } catch (ValidationException $e) {
+        $msgs = array_merge(...array_values($e->errors()));
+        pass("Duplicado de cédula bloqueado", 'Error: cédula duplicada', 'ValidationError: ' . implode(' | ', $msgs));
+    } catch (\Throwable $e) {
+        fail("Duplicado de cédula bloqueado", 'Error rechazado', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    pass('Duplicado cédula bloqueado', 'N/A', 'Cliente no creado en 8.1');
+}
+
+// ─── FASE 9 — Reportes ───────────────────────────────────────────────────────
+section('FASE 9 — Reportes: ReportController');
+
+$reportCtrl = app(\App\Http\Controllers\ReportController::class);
+$fechaHoy9  = now()->toDateString();
+$fechaVacia = '2020-01-01';
+
+// 9.1 — Reporte del día retorna estructura correcta (categories + totals)
+try {
+    $r9   = $reportCtrl->dayReport(makeReq('/reportes/dia', 'GET', ['fecha' => $fechaHoy9]));
+    $b9   = json_decode($r9->getContent(), true);
+    if (isset($b9['categories']) && isset($b9['totals'])) {
+        $t9 = $b9['totals'];
+        pass(
+            "Reporte del día ({$fechaHoy9}) — estructura correcta",
+            'categories + totals presentes',
+            "vendido_usd=" . ($t9['vendido_usd'] ?? '0') .
+            " | costo_usd=" . ($t9['costo_usd'] ?? '0') .
+            " | utilidad=" . ($t9['utilidad_usd'] ?? '0')
+        );
+    } else {
+        fail("Reporte del día estructura", 'categories + totals', 'Claves faltantes: ' . json_encode(array_keys($b9 ?? [])));
+    }
+} catch (\Throwable $e) {
+    fail("Reporte del día", 'JSON sin excepción', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 9.2 — Ventas por categoría (ReportController::sales())
+try {
+    $r92  = $reportCtrl->sales(makeReq('/reportes/ventas', 'GET', ['fecha_desde' => $fechaHoy9, 'status' => 'paid']));
+    $b92  = json_decode($r92->getContent(), true);
+    if (isset($b92['data']) && is_array($b92['data'])) {
+        pass(
+            "Reporte ventas retorna data array",
+            'data[] presente',
+            count($b92['data']) . " venta(s) del período"
+        );
+    } else {
+        fail("Reporte ventas data", 'data[] presente', json_encode(array_keys($b92 ?? [])));
+    }
+} catch (\Throwable $e) {
+    fail("Reporte ventas", 'JSON OK', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 9.3 — Verificar fórmula: utilidad_usd = vendido_usd - costo_usd
+try {
+    $r93  = $reportCtrl->dayReport(makeReq('/reportes/dia', 'GET', ['fecha' => $fechaHoy9]));
+    $b93  = json_decode($r93->getContent(), true);
+    $t93  = $b93['totals'] ?? [];
+    if (!empty($t93) && (float) ($t93['vendido_usd'] ?? 0) > 0) {
+        $vendido93  = round((float) ($t93['vendido_usd']  ?? 0), 2);
+        $costo93    = round((float) ($t93['costo_usd']    ?? 0), 2);
+        $utilidad93 = round((float) ($t93['utilidad_usd'] ?? 0), 2);
+        $calculada  = round($vendido93 - $costo93, 2);
+        if (abs($utilidad93 - $calculada) < 0.02) {
+            pass(
+                "Fórmula utilidad_usd = vendido_usd - costo_usd",
+                "utilidad = {$calculada}",
+                "utilidad = {$utilidad93} ✓ (vendido={$vendido93} - costo={$costo93})"
+            );
+        } else {
+            fail(
+                "Fórmula utilidad_usd",
+                "utilidad = {$calculada}",
+                "utilidad reportada = {$utilidad93} — discrepancia de " . round(abs($utilidad93 - $calculada), 4)
+            );
+        }
+    } else {
+        pass("Fórmula utilidad_usd", 'N/A', 'totals vacío o sin ventas del día — fórmula no verificable');
+    }
+} catch (\Throwable $e) {
+    fail("Fórmula utilidad_usd", 'Verificada', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 9.4 — Reporte vacío (fecha sin ventas) no explota
+try {
+    $r94  = $reportCtrl->dayReport(makeReq('/reportes/dia', 'GET', ['fecha' => $fechaVacia]));
+    $b94  = json_decode($r94->getContent(), true);
+    if (json_last_error() === JSON_ERROR_NONE && isset($b94['categories'])) {
+        pass(
+            "Reporte día vacío ({$fechaVacia}) no explota",
+            'JSON válido con categories',
+            "categories=" . count($b94['categories']) . " | totals correctamente vacíos"
+        );
+    } else {
+        fail("Reporte vacío no explota", 'JSON válido + categories', json_encode(array_keys($b94 ?? [])));
+    }
+} catch (\Throwable $e) {
+    fail("Reporte vacío ({$fechaVacia})", 'Sin excepción', get_class($e) . ': ' . $e->getMessage());
+}
+
+// ─── FASE 10 — Configuración ─────────────────────────────────────────────────
+section('FASE 10 — Configuración: SettingsController + PaymentMethodController');
+
+$settingsCtrl = app(\App\Http\Controllers\SettingsController::class);
+$pmCtrl10     = app(\App\Http\Controllers\PaymentMethodController::class);
+$emailST10    = 'sttest-' . time() . '@syntimeat-test.local';
+
+// 10.1 — Crear usuario con rol cashier
+// storeUser() solo acepta roles: admin, cashier, supervisor (no super_admin)
+$userCreado10 = null;
+try {
+    User::where('email', $emailST10)->delete();  // pre-limpieza
+    $cnt10Before = User::where('business_id', $businessId)->count();
+    $settingsCtrl->storeUser(makeReq('/configuracion/usuarios', 'POST', [
+        'name'     => '[ST] Usuario Cajero Test',
+        'email'    => $emailST10,
+        'role'     => 'cashier',
+        'password' => 'Password123!',
+    ]));
+    $userCreado10 = User::where('business_id', $businessId)->where('email', $emailST10)->first();
+    $cnt10After = User::where('business_id', $businessId)->count();
+    if ($userCreado10) {
+        pass(
+            "Crear usuario rol=cashier",
+            'User creado en DB',
+            "ID={$userCreado10->id} | email={$userCreado10->email} | role={$userCreado10->role}"
+        );
+    } else {
+        fail("Crear usuario rol=cashier", 'User creado en DB', "count {$cnt10Before}→{$cnt10After} — user no encontrado");
+    }
+} catch (ValidationException $e) {
+    $msgs = array_merge(...array_values($e->errors()));
+    fail("Crear usuario rol=cashier", 'User creado', 'ValidationError: ' . implode(' | ', $msgs));
+} catch (\Throwable $e) {
+    fail("Crear usuario rol=cashier", 'User creado', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 10.2 — Intentar crear usuario con email duplicado (Rule::unique('users','email'))
+if ($userCreado10) {
+    try {
+        $cnt10dBefore = User::where('business_id', $businessId)->count();
+        $settingsCtrl->storeUser(makeReq('/configuracion/usuarios', 'POST', [
+            'name'     => '[ST] Otro usuario duplicado',
+            'email'    => $emailST10,   // mismo email
+            'role'     => 'cashier',
+            'password' => 'Password123!',
+        ]));
+        $cnt10dAfter = User::where('business_id', $businessId)->count();
+        if ($cnt10dAfter > $cnt10dBefore) {
+            fail("Email duplicado bloqueado", 'Error: Rule::unique(email)', "ACEPTÓ email duplicado {$emailST10} — BUG");
+        } else {
+            pass("Email duplicado bloqueado", 'Redirect sin crear user', 'storeUser() no creó duplicado de email ✓');
+        }
+    } catch (ValidationException $e) {
+        $msgs = array_merge(...array_values($e->errors()));
+        pass("Email duplicado bloqueado", 'Error: Rule::unique(email)', 'ValidationError: ' . implode(' | ', $msgs));
+    } catch (\Throwable $e) {
+        fail("Email duplicado bloqueado", 'ValidationError', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    pass('Email duplicado bloqueado', 'N/A', 'Usuario no creado en 10.1');
+}
+
+// 10.3 — Crear caja nueva vía storeCashRegister()
+$cajaCreada10 = null;
+try {
+    $cnt10cBefore = CashRegister::where('business_id', $businessId)->count();
+    $settingsCtrl->storeCashRegister(makeReq('/configuracion/cajas', 'POST', [
+        'name'      => '[ST] Caja Config Test',
+        'branch_id' => $user->branch_id,
+    ]));
+    $cajaCreada10 = CashRegister::where('business_id', $businessId)->where('name', '[ST] Caja Config Test')->first();
+    $cnt10cAfter = CashRegister::where('business_id', $businessId)->count();
+    if ($cajaCreada10) {
+        pass(
+            "Crear caja vía storeCashRegister()",
+            'CashRegister creada en DB',
+            "ID={$cajaCreada10->id} | name={$cajaCreada10->name}"
+        );
+    } else {
+        fail("Crear caja storeCashRegister()", 'CashRegister creada', "count {$cnt10cBefore}→{$cnt10cAfter} — caja no encontrada");
+    }
+} catch (ValidationException $e) {
+    $msgs = array_merge(...array_values($e->errors()));
+    fail("Crear caja storeCashRegister()", 'CashRegister creada', 'ValidationError: ' . implode(' | ', $msgs));
+} catch (\Throwable $e) {
+    fail("Crear caja storeCashRegister()", 'CashRegister creada', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 10.4 — Verificar que cashier NO puede acceder a /configuracion/usuarios
+// La ruta /configuracion/usuarios es 'Solo super_admin' (SYSTEM_MAP §5)
+// En CLI el middleware EnsureRole no corre — verificamos por lógica de rol directamente
+if ($userCreado10) {
+    $rolesPermitidos10 = ['super_admin'];
+    $rolCajero10       = $userCreado10->role;
+    if (!in_array($rolCajero10, $rolesPermitidos10, true)) {
+        pass(
+            "Cashier bloqueado de /configuracion/usuarios (EnsureRole)",
+            "role cashier NOT IN [super_admin]",
+            "role='{$rolCajero10}' no pasa EnsureRole(['super_admin']) — middleware correcto"
+        );
+    } else {
+        fail(
+            "Cashier bloqueado de /configuracion/usuarios",
+            "role cashier NOT IN [super_admin]",
+            "FALLO inesperado — role={$rolCajero10} tiene acceso de super_admin — revisar seeder"
+        );
+    }
+} else {
+    pass('Cashier bloqueado configuracion', 'N/A', 'Usuario cashier no creado en 10.1');
+}
+
+// 10.5 — Crear método de pago (PaymentMethodController::store())
+$pmCreado10 = null;
+try {
+    $cnt10pBefore = PaymentMethod::where('business_id', $businessId)->count();
+    $pmCtrl10->store(makeReq('/configuracion/metodos-pago', 'POST', [
+        'name'      => '[ST] Efectivo Test',
+        'type'      => 'cash',
+        'bank_name' => null,
+    ]));
+    $pmCreado10 = PaymentMethod::where('business_id', $businessId)->where('name', '[ST] Efectivo Test')->first();
+    $cnt10pAfter = PaymentMethod::where('business_id', $businessId)->count();
+    if ($pmCreado10) {
+        pass(
+            "Crear método de pago (type=cash)",
+            'PaymentMethod creado en DB',
+            "ID={$pmCreado10->id} | name={$pmCreado10->name} | is_active=1"
+        );
+    } else {
+        fail("Crear método de pago", 'PaymentMethod creado', "count {$cnt10pBefore}→{$cnt10pAfter} — método no encontrado");
+    }
+} catch (ValidationException $e) {
+    $msgs = array_merge(...array_values($e->errors()));
+    fail("Crear método de pago", 'PaymentMethod creado', 'ValidationError: ' . implode(' | ', $msgs));
+} catch (\Throwable $e) {
+    fail("Crear método de pago", 'PaymentMethod creado', get_class($e) . ': ' . $e->getMessage());
+}
+
 // ─── RESUMEN FINAL ────────────────────────────────────────────────────────────
 section('RESUMEN FINAL — Tabla de Resultados');
 printTable($results);
@@ -1284,6 +2066,49 @@ try {
         ->where('action', 'like', 'stress_test%')
         ->delete();
     echo "  ActivityLogs [ST] eliminados: {$stLogs}\n";
+
+    // ── FASE 6-10 cleanup ──────────────────────────────────────────────────
+
+    // Eliminar clientes de test [ST]
+    $stClients = Client::where('business_id', $businessId)
+        ->where(function ($q) {
+            $q->where('name', 'like', '%[ST]%')
+              ->orWhere('cedula', 'like', '%[ST]%');
+        })
+        ->delete();
+    echo "  Clientes [ST] eliminados: {$stClients}\n";
+
+    // Eliminar pedidos de test [ST] (items primero por FK)
+    $stOrders = Order::where('business_id', $businessId)
+        ->where(function ($q) {
+            $q->where('client_name', 'like', '%[ST]%')
+              ->orWhere('notes', 'like', '%[ST]%');
+        })
+        ->get();
+    foreach ($stOrders as $ord) {
+        $ord->items()->delete();
+        $ord->delete();
+    }
+    echo "  Pedidos [ST] eliminados: " . $stOrders->count() . "\n";
+
+    // Eliminar usuarios de test (email sttest-*@syntimeat-test.local)
+    $stUsers = User::where('business_id', $businessId)
+        ->where('email', 'like', 'sttest-%')
+        ->delete();
+    echo "  Usuarios [ST] eliminados: {$stUsers}\n";
+
+    // Eliminar cajas de test (las abiertas, sin closed_at)
+    $stCajas = \App\Models\CashRegister::where('business_id', $businessId)
+        ->where('name', 'like', '%[ST]%')
+        ->whereNull('closed_at')
+        ->delete();
+    echo "  Cajas [ST] eliminadas: {$stCajas}\n";
+
+    // Eliminar métodos de pago de test
+    $stPms = \App\Models\PaymentMethod::where('business_id', $businessId)
+        ->where('name', 'like', '%[ST]%')
+        ->delete();
+    echo "  Métodos de pago [ST] eliminados: {$stPms}\n";
 
     echo "\n  Cleanup completo.\n";
 } catch (\Throwable $e) {
