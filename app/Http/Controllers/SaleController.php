@@ -187,6 +187,31 @@ class SaleController extends Controller
 
         $ticketNumber = $this->generateTicketNumber($businessId, $business->ticket_prefix ?? 'VEN');
 
+        // Validar stock suficiente antes de crear la venta
+        foreach ($itemsToCreate as $item) {
+            if ($item['input_type'] !== 'weight') {
+                continue;
+            }
+            $stockDisponible = InventoryEntry::where('business_id', $businessId)
+                ->where('product_id', $item['product_id'])
+                ->sum('quantity_kg');
+
+            $vendido = DB::table('sale_items')
+                ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
+                ->where('sales.business_id', $businessId)
+                ->where('sales.status', 'paid')
+                ->where('sale_items.product_id', $item['product_id'])
+                ->sum('sale_items.quantity_value');
+
+            $disponible = (float) $stockDisponible - (float) $vendido;
+
+            if ((float) $item['quantity_value'] > $disponible) {
+                return response()->json([
+                    'error' => 'Stock insuficiente para ese producto.',
+                ], 422);
+            }
+        }
+
         $origin  = $data['origin']  ?? 'onsite';
         $channel = $data['channel'] ?? 'physical';
 
@@ -611,7 +636,7 @@ class SaleController extends Controller
         ]);
 
         DB::transaction(function () use ($sale, $user, $request): void {
-            foreach ($sale->saleItems as $item) {
+            foreach ($sale->saleItems()->get() as $item) {
                 InventoryEntry::create([
                     'business_id' => $sale->business_id,
                     'product_id'  => $item->product_id,
