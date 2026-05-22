@@ -231,7 +231,7 @@ async function submitDespiece(entry) {
 
         despieceFlash.value   = `Despiece completado. Merma registrada: ${Number(data.merma).toFixed(3)} kg`;
         despiecePdfEntry.value = entry;
-        router.reload({ only: ['despiecePendiente', 'historial'] });
+        router.reload({ only: ['despiecePendiente', 'historial', 'despieceHistorial'] });
     } catch (err) {
         despieceErrors.value[entry.id] = err?.response?.data?.error ?? 'Error al guardar. Intenta de nuevo.';
     } finally {
