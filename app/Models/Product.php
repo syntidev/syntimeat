@@ -29,6 +29,7 @@ class Product extends Model
         'sort_order',
         'active',
         'fabricable',
+        'is_favorite',
     ];
 
     protected function casts(): array
@@ -41,6 +42,7 @@ class Product extends Model
             'min_stock'           => 'decimal:3',
             'sort_order'          => 'integer',
             'active'              => 'boolean',
+            'is_favorite'         => 'boolean',
         ];
     }
 

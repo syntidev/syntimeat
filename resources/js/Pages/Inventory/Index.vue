@@ -1,5 +1,6 @@
 ﻿<script setup>
 import AppLayout from '@/Layouts/AppLayout.vue'
+import HelpModal  from '@/Components/HelpModal.vue'
 import { ref, computed, watch } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 
@@ -206,6 +207,55 @@ function fmtUsd(val) {
     if (! val) return '—'
     return '$' + Number(val).toFixed(2)
 }
+
+// ─── Ayuda ────────────────────────────────────────────────────────────────────
+const showHelp = ref(false)
+
+const helpSteps = [
+    {
+        title: 'Ver el stock disponible',
+        body: 'Aquí ves todos los productos en vitrina y despensa con sus kg disponibles. La bóveda no aparece aquí.',
+        tip: 'El número en rojo significa que el producto está bajo el mínimo.',
+    },
+    {
+        title: 'Registrar entrada manual',
+        body: 'Si recibiste producto directo (sin pasar por bóveda), regístralo aquí con el peso y el costo.',
+        tip: 'Productos de despensa como abarrotes entran por aquí directamente.',
+    },
+    {
+        title: 'Stock crítico',
+        body: 'El badge rojo en el menú indica cuántos productos están por debajo del mínimo configurado.',
+        tip: 'El mínimo se configura en el Catálogo por producto.',
+    },
+    {
+        title: 'Historial de movimientos',
+        body: 'Cada entrada y salida queda registrada con fecha, usuario y cantidad.',
+        tip: 'Usa el historial para rastrear cualquier diferencia de inventario.',
+    },
+]
+
+const helpFaqs = [
+    {
+        q: '¿Por qué no veo los productos de bóveda aquí?',
+        a: 'La bóveda tiene su propio módulo. El inventario solo muestra vitrina y despensa.',
+    },
+    {
+        q: '¿Cómo bajo el stock?',
+        a: 'El stock baja automáticamente cuando se confirma una venta en el POS.',
+    },
+    {
+        q: '¿Qué es stock crítico?',
+        a: 'Cuando el stock disponible cae por debajo del mínimo configurado para ese producto.',
+    },
+    {
+        q: '¿Puedo corregir un stock mal ingresado?',
+        a: 'Registra una entrada negativa para corregir. Consulta al administrador.',
+    },
+    {
+        q: '¿Cada cuánto se actualiza?',
+        a: 'En tiempo real. Cada venta confirmada descuenta al instante.',
+    },
+]
 </script>
 
 <template>
@@ -271,6 +321,7 @@ function fmtUsd(val) {
                 <span class="filter-count">{{ filteredAndSorted.length }} producto{{ filteredAndSorted.length !== 1 ? 's' : '' }}</span>
 
                 <button class="btn btn-primary filter-cta" @click="openModal()">+ Nueva Entrada</button>
+                <button class="btn-help" @click="showHelp = true" title="Ayuda">?</button>
             </div>
 
             <!-- ── Tabla stock actual ─────────────────────────────────────────── -->
@@ -536,6 +587,15 @@ function fmtUsd(val) {
                 </div>
             </div>
         </Teleport>
+
+        <!-- ── Panel de ayuda ────────────────────────────────────────────── -->
+        <HelpModal
+            :show="showHelp"
+            title="Inventario — Cómo funciona"
+            :steps="helpSteps"
+            :faqs="helpFaqs"
+            @close="showHelp = false"
+        />
 
     </AppLayout>
 </template>
@@ -955,6 +1015,22 @@ function fmtUsd(val) {
 
 /* ─── Empty msg ──────────────────────────────────────────────────────────── */
 .empty-msg { text-align: center; color: var(--text-muted); padding: 1rem 0; font-size: 0.85rem; }
+
+/* ─── Botón ayuda ────────────────────────────────────────────────────────── */
+.btn-help {
+    border-radius: 50%;
+    width: 2rem; height: 2rem;
+    padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.btn-help:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
 
 /* ─── Mobile: card view ──────────────────────────────────────────────────── */
 /* Base (mobile): show cards, hide table */

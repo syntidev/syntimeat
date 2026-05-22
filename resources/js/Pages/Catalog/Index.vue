@@ -2,7 +2,8 @@
 import AppLayout from '@/Layouts/AppLayout.vue'
 import { ref, computed, markRaw } from 'vue'
 import { useForm, router } from '@inertiajs/vue3'
-import { Scale, Package, Pencil, ToggleLeft, ToggleRight, Trash2 } from '@lucide/vue'
+import { Scale, Package, Pencil, Star, ToggleLeft, ToggleRight, Trash2 } from '@lucide/vue'
+import HelpModal from '@/Components/HelpModal.vue'
 
 const props = defineProps({
     categories:  { type: Array,   default: () => [] },
@@ -188,6 +189,10 @@ function toggleActive(product) {
     }, { preserveScroll: true })
 }
 
+function toggleFavorite(product) {
+    router.patch(route('catalog.product.favorite', product.id), {}, { preserveScroll: true })
+}
+
 // ─── Stock utils ──────────────────────────────────────────────────────────────
 function stockStatus(product) {
     if (product.sale_mode !== 'weight') return 'unit'
@@ -342,6 +347,55 @@ function destroySubcat(sub) {
 function subProductCount(subId) {
     return props.products.filter(p => p.subcategory_id === subId).length
 }
+
+// ─── Ayuda ────────────────────────────────────────────────────────────────────
+const showHelp = ref(false)
+
+const helpSteps = [
+    {
+        title: 'Ver productos y categorías',
+        body: 'Aquí están todos los productos del negocio organizados por categoría. Res, Pollo, Cerdo, Charcutería, etc.',
+        tip: 'Los productos inactivos no aparecen en el POS.',
+    },
+    {
+        title: 'Crear un producto',
+        body: 'Agrega nombre, categoría, precio en USD y modo de venta (por kg o por unidad). El sistema convierte a Bs. automáticamente.',
+        tip: 'El precio se define en USD. El POS usa la tasa del día para cobrar en Bs.',
+    },
+    {
+        title: 'Editar precio',
+        body: 'Toca el producto y cambia el precio. El cambio aplica a partir de la próxima venta. Las ventas anteriores no se afectan.',
+        tip: 'Los precios históricos quedan guardados en cada ticket.',
+    },
+    {
+        title: 'Configurar stock mínimo',
+        body: 'Define cuántos kg mínimos debe tener el producto antes de aparecer en alerta crítica de inventario.',
+        tip: 'El badge rojo en Inventario usa este valor como referencia.',
+    },
+]
+
+const helpFaqs = [
+    {
+        q: '¿Puedo borrar un producto?',
+        a: 'No se borran, solo se desactivan. El historial de ventas se conserva.',
+    },
+    {
+        q: '¿El precio en USD se cobra así al cliente?',
+        a: 'No. El sistema multiplica por la tasa BCV del día y cobra en Bs.',
+    },
+    {
+        q: '¿Qué es modo de venta por kg vs. por unidad?',
+        a: 'Por kg: el cliente paga según el peso. Por unidad: precio fijo por pieza.',
+    },
+    {
+        q: '¿Puedo tener el mismo producto en varias categorías?',
+        a: 'No, cada producto pertenece a una sola categoría.',
+    },
+    {
+        q: '¿Qué es "fabricable"?',
+        a: 'Indica que el producto se produce en Fábrica a partir de materia prima de bóveda.',
+    },
+]
 </script>
 
 <template>
@@ -399,6 +453,7 @@ function subProductCount(subId) {
                     <span v-if="cat.icon" class="tab-icon">{{ cat.icon }}</span>
                     {{ cat.name }}
                 </button>
+                <button class="tab-btn tab-btn--help" @click="showHelp = true" title="Ayuda">?</button>
             </div>
 
             <!-- ─── Barra búsqueda catálogo ───────────────────────────────── -->
@@ -481,6 +536,13 @@ function subProductCount(subId) {
                                 >
                                     <ToggleRight v-if="p.active" :size="16" class="toggle-on" />
                                     <ToggleLeft v-else :size="16" class="toggle-off" />
+                                </button>
+                                <button
+                                    class="btn-icon"
+                                    :title="p.is_favorite ? 'Quitar de favoritos' : 'Marcar favorito'"
+                                    @click="toggleFavorite(p)"
+                                >
+                                    <Star :size="14" :class="p.is_favorite ? 'star-on' : 'star-off'" />
                                 </button>
                             </td>
                         </tr>
@@ -784,6 +846,16 @@ function subProductCount(subId) {
             </Teleport>
 
         </div>
+
+        <!-- ── Panel de ayuda ────────────────────────────────────────────── -->
+        <HelpModal
+            :show="showHelp"
+            title="Catálogo — Cómo funciona"
+            :steps="helpSteps"
+            :faqs="helpFaqs"
+            @close="showHelp = false"
+        />
+
     </AppLayout>
 </template>
 
@@ -933,6 +1005,21 @@ function subProductCount(subId) {
     font-weight: 700;
 }
 .tab-icon { font-size: 1rem; }
+.tab-btn--help {
+    margin-left: auto;
+    border-radius: 50%;
+    width: 2rem; height: 2rem;
+    padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.tab-btn--help:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
 
 /* ─── Table ──────────────────────────────────────────────────────────────── */
 .table-wrap {
@@ -1003,6 +1090,8 @@ function subProductCount(subId) {
 .btn-icon { display: inline-flex; align-items: center; justify-content: center; }
 .toggle-on  { color: var(--brand); }
 .toggle-off { color: var(--text-muted); }
+.star-on    { color: #f59e0b; fill: #f59e0b; }
+.star-off   { color: var(--text-muted); }
 
 /* ─── Buttons ────────────────────────────────────────────────────────────── */
 .btn-primary {

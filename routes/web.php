@@ -114,6 +114,7 @@ Route::middleware(['auth', 'verified', 'check.onboarding'])->group(function () {
         Route::post('/catalogo/subcategorias', [CatalogController::class, 'storeSubcategory'])->name('catalog.subcategory.store');
         Route::put('/catalogo/subcategorias/{subcategory}', [CatalogController::class, 'updateSubcategory'])->name('catalog.subcategory.update');
         Route::delete('/catalogo/subcategorias/{subcategory}', [CatalogController::class, 'destroySubcategory'])->name('catalog.subcategory.destroy');
+        Route::patch('/catalogo/productos/{product}/favorito', [CatalogController::class, 'toggleFavorite'])->name('catalog.product.favorite');
 
         // Fábrica
         Route::get('/fabrica',           [FabricaController::class, 'index'])->name('fabrica.index');

@@ -1,5 +1,6 @@
 ﻿<script setup>
 import AppLayout from '@/Layouts/AppLayout.vue'
+import HelpModal from '@/Components/HelpModal.vue'
 import { ref, reactive } from 'vue'
 import axios from 'axios'
 import { Printer, BarChart2, Package, Lightbulb, AlertTriangle, Check, FolderOpen } from '@lucide/vue'
@@ -67,6 +68,55 @@ async function uploadSales() {
 function onInvFile(e)   { invFile.value   = e.target.files[0] ?? null }
 function onSalesFile(e) { salesFile.value = e.target.files[0] ?? null }
 
+// ─── Ayuda ────────────────────────────────────────────────────────────────────
+const showHelp = ref(false)
+
+const helpSteps = [
+    {
+        title: '¿Cuándo usar contingencia?',
+        body: 'Cuando hay apagón o falla de internet y no puedes usar el sistema normal. Contingencia te permite seguir vendiendo en papel y registrarlo después.',
+        tip: 'Prepara las planillas impresas antes de que ocurra un apagón.',
+    },
+    {
+        title: 'Descargar planilla en PDF',
+        body: 'Descarga e imprime la planilla de ventas manual. Tiene los productos, precios del día y espacio para anotar.',
+        tip: 'Imprime varias copias y guárdalas en la caja.',
+    },
+    {
+        title: 'Descargar planilla en Excel',
+        body: 'Si tienes computadora sin internet, usa el Excel para registrar las ventas del día sin conexión.',
+        tip: 'El Excel calcula los totales automáticamente.',
+    },
+    {
+        title: 'Importar ventas post-apagón',
+        body: 'Cuando vuelva el sistema, importa el Excel con las ventas registradas. El sistema las procesa y actualiza el inventario.',
+        tip: 'Importa el mismo día para que los reportes cuadren correctamente.',
+    },
+]
+
+const helpFaqs = [
+    {
+        q: '¿El stock se descuenta con las ventas de contingencia?',
+        a: 'Sí, al importar el Excel el sistema descuenta el inventario.',
+    },
+    {
+        q: '¿Puedo importar ventas de días anteriores?',
+        a: 'Sí, pero indica la fecha correcta en el Excel para que los reportes cuadren.',
+    },
+    {
+        q: '¿Qué pasa si importo dos veces el mismo Excel?',
+        a: 'El sistema detecta duplicados. No importa dos veces el mismo archivo.',
+    },
+    {
+        q: '¿Las ventas importadas aparecen en Reportes?',
+        a: 'Sí, con una etiqueta que indica que fueron importadas por contingencia.',
+    },
+    {
+        q: '¿Necesito internet para descargar la planilla?',
+        a: 'Sí, descárgala antes del apagón y tenla lista impresa.',
+    },
+]
+
 function fmtBs(n) {
     return 'Bs. ' + Number(n ?? 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
@@ -84,6 +134,7 @@ function fmtKg(n) {
                 <div class="page-title-row">
                     <span class="icon-lightning">⚡</span>
                     <h1 class="page-title">Plan de Contingencia</h1>
+                    <button class="btn-help" @click="showHelp = true" title="Ayuda">?</button>
                 </div>
                 <p class="page-subtitle">
                     Protocolo para cortes eléctricos — sigue vendiendo sin sistema y recupera los datos al volver la luz.
@@ -303,6 +354,16 @@ function fmtKg(n) {
             </section>
 
         </div>
+
+        <!-- ── Panel de ayuda ────────────────────────────────────────────── -->
+        <HelpModal
+            :show="showHelp"
+            title="Contingencia — Cómo funciona"
+            :steps="helpSteps"
+            :faqs="helpFaqs"
+            @close="showHelp = false"
+        />
+
     </AppLayout>
 </template>
 
@@ -319,6 +380,22 @@ function fmtKg(n) {
 /* ─── Header ───────────────────────────────────────────────────────────────── */
 .page-header { display: flex; flex-direction: column; gap: 0.35rem; }
 .page-title-row { display: flex; align-items: center; gap: 0.6rem; }
+.btn-help {
+    margin-left: auto;
+    border-radius: 50%;
+    width: 2rem; height: 2rem;
+    padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+}
+.btn-help:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
 .icon-lightning { font-size: 1.6rem; }
 .page-title { font-size: 1.6rem; font-weight: 800; color: var(--text-primary); margin: 0; }
 .page-subtitle { color: var(--text-muted); font-size: 0.92rem; margin: 0; }

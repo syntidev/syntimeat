@@ -180,6 +180,15 @@ class CatalogController extends Controller
         return redirect()->route('catalog.index')->with('success', 'Producto eliminado.');
     }
 
+    public function toggleFavorite(Product $product): RedirectResponse
+    {
+        abort_unless($product->business_id === Auth::user()->business_id, 403);
+
+        $product->update(['is_favorite' => ! $product->is_favorite]);
+
+        return redirect()->route('catalog.index');
+    }
+
     public function storeCategory(Request $request): RedirectResponse
     {
         $validated = $request->validate([

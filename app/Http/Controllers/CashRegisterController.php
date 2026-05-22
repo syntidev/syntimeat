@@ -289,6 +289,7 @@ class CashRegisterController extends Controller
 
         $bovedaActiva = BovedaEntry::active()
             ->where('business_id', $businessId)
+            ->where('created_at', '>=', $cashRegister->opened_at)
             ->get()
             ->map(function (BovedaEntry $entry) use ($bovedaCategoryMap, $categoryStats): array {
                 $catName    = $bovedaCategoryMap->get($entry->id);

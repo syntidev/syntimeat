@@ -1,5 +1,6 @@
 <script setup>
-import AppLayout from '@/Layouts/AppLayout.vue'
+import AppLayout  from '@/Layouts/AppLayout.vue'
+import HelpModal  from '@/Components/HelpModal.vue'
 import { router, usePage } from '@inertiajs/vue3'
 import { ref, computed } from 'vue'
 
@@ -77,6 +78,54 @@ function submitVoid() {
     )
 }
 
+// ─── Ayuda ────────────────────────────────────────────────────────────────────
+const showHelp = ref(false)
+
+const helpSteps = [
+    {
+        title: 'Ver ventas del día',
+        body: 'Aquí aparecen todas las ventas cobradas en el turno actual. Cada fila es un ticket con su monto, método de pago y cajero.',
+        tip: 'Las ventas canceladas aparecen tachadas en rojo.',
+    },
+    {
+        title: 'Filtrar por método de pago',
+        body: 'Usa el filtro para ver solo las ventas en efectivo, Pago Móvil o punto. Útil para cuadrar cada método por separado.',
+        tip: 'El total al pie se actualiza según el filtro activo.',
+    },
+    {
+        title: 'Ver detalle de un ticket',
+        body: 'Toca cualquier venta para ver el desglose completo: productos, cantidades, montos y datos del cliente si aplica.',
+    },
+    {
+        title: 'Anular una venta',
+        body: 'Solo el administrador puede anular. Se requiere motivo. La anulación queda registrada en el historial.',
+        tip: 'Anular devuelve el stock al inventario automáticamente.',
+    },
+]
+
+const helpFaqs = [
+    {
+        q: '¿Por qué no veo una venta que acabo de hacer?',
+        a: 'Recarga la página. Si no aparece, puede estar en estado "abierto" todavía.',
+    },
+    {
+        q: '¿Puedo anular yo mismo una venta?',
+        a: 'No, solo el administrador puede anular con motivo obligatorio.',
+    },
+    {
+        q: '¿Las ventas de otros cajeros aparecen aquí?',
+        a: 'Sí, ves todas las ventas del día de tu sucursal.',
+    },
+    {
+        q: '¿El filtro cambia el total?',
+        a: 'Sí, el total al pie refleja solo las ventas filtradas.',
+    },
+    {
+        q: '¿Dónde están las ventas de días anteriores?',
+        a: 'En el módulo Reportes, con filtro por fecha.',
+    },
+]
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmtBs(v) {
     return new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v ?? 0)
@@ -107,7 +156,7 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
 
             <!-- ── Encabezado ──────────────────────────────────────────────── -->
             <div class="page-header">
-                <div>
+                <div class="page-header__left">
                     <h1 class="page-title">Ventas del Día</h1>
                     <p class="page-subtitle">{{ filterDate }}</p>
                 </div>
@@ -127,6 +176,8 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
                         <span class="totals-bar__value">{{ totals.anuladas }}</span>
                     </div>
                 </div>
+
+                <button class="btn-help" @click="showHelp = true" title="Ayuda">?</button>
             </div>
 
             <!-- ── Filtros ─────────────────────────────────────────────────── -->
@@ -145,7 +196,7 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
 
                 <select v-model="filterMethod" class="filter-input" @change="applyFilters">
                     <option value="">Cualquier método</option>
-                    <option v-for="m in paymentMethods" :key="m.id" :value="m.type">{{ m.name }}</option>
+                    <option v-for="m in paymentMethods" :key="m.id" :value="m.id">{{ m.name }}</option>
                 </select>
 
                 <select v-model="filterStatus" class="filter-input" @change="applyFilters">
@@ -236,6 +287,15 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
 
         </div>
 
+        <!-- ── Panel de ayuda ────────────────────────────────────────────── -->
+        <HelpModal
+            :show="showHelp"
+            title="Ventas del Día — Cómo funciona"
+            :steps="helpSteps"
+            :faqs="helpFaqs"
+            @close="showHelp = false"
+        />
+
         <!-- ── Modal Anulación ────────────────────────────────────────────── -->
         <Teleport to="body">
             <div v-if="showVoidModal" class="modal-overlay">
@@ -296,6 +356,24 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
     flex-wrap: wrap;
     gap: 1rem;
 }
+.page-header__left { display: flex; flex-direction: column; gap: 2px; }
+.btn-help {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-muted);
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: border-color 0.15s, color 0.15s;
+}
+.btn-help:hover { border-color: var(--brand); color: var(--brand); }
 .page-title {
     font-size: 1.25rem;
     font-weight: 700;

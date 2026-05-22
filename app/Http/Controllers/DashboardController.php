@@ -14,6 +14,7 @@ use App\Models\SaleItem;
 use App\Services\DollarRateService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -46,13 +47,15 @@ class DashboardController extends Controller
 
     private function buildData(int $businessId): array
     {
-        $rate  = $this->rates->getTodayRate();
-        $today = now()->toDateString();
+        $rate       = $this->rates->getTodayRate();
+        $today      = now('America/Caracas')->toDateString();
+        $dayStart   = Carbon::parse($today, 'America/Caracas')->startOfDay()->utc();
+        $dayEnd     = Carbon::parse($today, 'America/Caracas')->endOfDay()->utc();
 
         // ── Ventas del día ────────────────────────────────────────────────────
         $ventasHoyRaw = Sale::where('business_id', $businessId)
             ->where('status', 'paid')
-            ->whereDate('sold_at', $today)
+            ->whereBetween('sold_at', [$dayStart, $dayEnd])
             ->selectRaw('COUNT(*) as count, COALESCE(SUM(total_bs), 0) as total_bs, COALESCE(SUM(total_usd), 0) as total_usd')
             ->first();
 
@@ -67,7 +70,7 @@ class DashboardController extends Controller
             ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
             ->where('sales.business_id', $businessId)
             ->where('sales.status', 'paid')
-            ->whereDate('sales.sold_at', $today)
+            ->whereBetween('sales.sold_at', [$dayStart, $dayEnd])
             ->selectRaw('sale_items.product_id, sale_items.product_name, SUM(sale_items.quantity_value) as cantidad, SUM(sale_items.subtotal_usd * sales.rate_used) as monto_bs')
             ->groupBy('sale_items.product_id', 'sale_items.product_name')
             ->orderByDesc('monto_bs')
@@ -160,7 +163,7 @@ class DashboardController extends Controller
             ->join('categories', 'categories.id', '=', 'products.category_id')
             ->where('sales.business_id', $businessId)
             ->where('sales.status', 'paid')
-            ->whereDate('sales.sold_at', $today)
+            ->whereBetween('sales.sold_at', [$dayStart, $dayEnd])
             ->groupBy('categories.id', 'categories.name')
             ->select(
                 'categories.id as category_id',

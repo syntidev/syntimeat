@@ -1,5 +1,6 @@
 ﻿<script setup>
 import AppLayout from '@/Layouts/AppLayout.vue'
+import HelpModal  from '@/Components/HelpModal.vue'
 import { ref, computed, reactive } from 'vue'
 import axios from 'axios'
 import { FileText, Truck, Home } from '@lucide/vue'
@@ -11,6 +12,7 @@ const props = defineProps({
     cobrosPendientes: { type: Array,  default: () => [] },
     products:         { type: Array,  default: () => [] },
     paymentMethods:   { type: Array,  default: () => [] },
+    paymentTerminals: { type: Array,  default: () => [] },
     todayRate:        { type: Number, default: 1 },
     kpis:             { type: Object, default: () => ({}) },
 })
@@ -23,6 +25,40 @@ const cobradosHoy       = ref(props.kpis.cobrados_hoy ?? 0)
 const activeTab         = ref('pending')
 const saving            = ref(false)
 const globalError       = ref('')
+
+// ─── Ayuda ────────────────────────────────────────────────────────────────────
+const showHelp = ref(false)
+
+const helpSteps = [
+    {
+        title: 'Crear un pedido',
+        body:  'Agrega los productos que el cliente quiere. El pedido queda en estado "abierto" hasta que se prepara y cobra.',
+        tip:   'Puedes crear pedidos para delivery o para consumo interno.',
+    },
+    {
+        title: 'Preparar el pedido',
+        body:  'Cuando el pedido está listo, márcalo como preparado. El sistema lo mueve a la lista de cobro pendiente.',
+        tip:   'El badge en el menú muestra cuántos pedidos están por cobrar.',
+    },
+    {
+        title: 'Registrar cobro',
+        body:  'Selecciona el método de pago y confirma. El sistema genera el ticket y descuenta el stock igual que una venta normal.',
+        tip:   'Puedes cobrar con terminal, Pago Móvil o efectivo.',
+    },
+    {
+        title: 'Delivery',
+        body:  'Si es delivery, el pedido queda pendiente hasta que el motorizado confirma la entrega y se registra el cobro.',
+        tip:   'Los deliveries sin cobrar aparecen en el badge del menú.',
+    },
+]
+
+const helpFaqs = [
+    { q: '¿Un pedido descuenta el stock?',        a: 'No hasta que se cobra. El stock baja solo cuando el pago se confirma.' },
+    { q: '¿Puedo modificar un pedido abierto?',   a: 'Sí, mientras no esté cobrado puedes agregar o quitar productos.' },
+    { q: '¿Qué es el badge rojo en Pedidos?',     a: 'Muestra créditos pendientes más deliveries sin cobrar.' },
+    { q: '¿Puedo cancelar un pedido?',            a: 'Sí, solo el administrador puede cancelar con motivo obligatorio.' },
+    { q: '¿Dónde veo los pedidos cobrados?',      a: 'En Ventas del Día aparecen como ventas normales.' },
+]
 
 // ─── KPIs calculados reactivamente ───────────────────────────────────────────
 const kpis = computed(() => ({
@@ -149,6 +185,49 @@ async function submitNewOrder() {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// PAGOS — lista unificada métodos + terminales
+// ──────────────────────────────────────────────────────────────────────────────
+
+// Terminales usan value 'T:<id>' para distinguirlos de payment_method ids
+const allPaymentOptions = computed(() => [
+    ...props.paymentMethods.map(m => ({
+        value: String(m.id),
+        label: m.name,
+        group: 'method',
+    })),
+    ...props.paymentTerminals.map(t => ({
+        value: `T:${t.id}`,
+        label: t.bank_name ?? t.method,
+        group: 'terminal',
+    })),
+])
+
+// Resuelve la opción seleccionada en {payment_method_id, reference, _label}.
+// Terminales usan el payment_method de tipo 'card'; si no existe, usa el primero.
+function resolveOption(selectedValue, customRef) {
+    if (String(selectedValue).startsWith('T:')) {
+        const tid       = parseInt(String(selectedValue).slice(2))
+        const terminal  = props.paymentTerminals.find(t => t.id === tid)
+        const method    = props.paymentMethods.find(m => m.type === 'card') ?? props.paymentMethods[0]
+        const termLabel = terminal?.bank_name ?? terminal?.method ?? 'Terminal'
+        const autoRef   = terminal?.commercial_number
+            ? `${termLabel} #${terminal.commercial_number}`
+            : termLabel
+        return {
+            payment_method_id: method?.id ?? 0,
+            reference:         customRef || autoRef || null,
+            _label:            termLabel,
+        }
+    }
+    const method = props.paymentMethods.find(m => m.id == selectedValue)
+    return {
+        payment_method_id: parseInt(selectedValue),
+        reference:         customRef || null,
+        _label:            method?.name ?? '',
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // MODAL: COBRAR
 // ──────────────────────────────────────────────────────────────────────────────
 const showCollectModal = ref(false)
@@ -168,7 +247,7 @@ const canConfirm     = computed(() => payments.value.length > 0 && paidBs.value 
 function openCollect(order) {
     collectOrder.value   = order
     payments.value       = []
-    newPmtMethodId.value = props.paymentMethods[0]?.id ?? ''
+    newPmtMethodId.value = allPaymentOptions.value[0]?.value ?? ''
     newPmtAmountBs.value = ''
     newPmtRef.value      = ''
     collectError.value   = ''
@@ -179,11 +258,12 @@ function addPayment() {
     if (!newPmtMethodId.value || !newPmtAmountBs.value) return
     const amt = parseFloat(newPmtAmountBs.value)
     if (isNaN(amt) || amt <= 0) return
+    const resolved = resolveOption(newPmtMethodId.value, newPmtRef.value)
     payments.value.push({
-        payment_method_id: parseInt(newPmtMethodId.value),
+        payment_method_id: resolved.payment_method_id,
         amount_bs:         round2(amt),
-        reference:         newPmtRef.value || null,
-        _label:            props.paymentMethods.find(m => m.id == newPmtMethodId.value)?.name ?? '',
+        reference:         resolved.reference,
+        _label:            resolved._label,
     })
     newPmtAmountBs.value = ''
     newPmtRef.value      = ''
@@ -290,7 +370,7 @@ const pendCanConfirm = computed(() => pendPayments.value.length > 0 && pendPaidB
 function openPendCollect(sale) {
     pendCollectSale.value    = sale
     pendPayments.value       = []
-    pendPmtMethodId.value    = props.paymentMethods[0]?.id ?? ''
+    pendPmtMethodId.value    = allPaymentOptions.value[0]?.value ?? ''
     pendPmtAmountBs.value    = ''
     pendPmtRef.value         = ''
     pendCollectError.value   = ''
@@ -301,11 +381,12 @@ function addPendPayment() {
     if (!pendPmtMethodId.value || !pendPmtAmountBs.value) return
     const amt = parseFloat(pendPmtAmountBs.value)
     if (isNaN(amt) || amt <= 0) return
+    const resolved = resolveOption(pendPmtMethodId.value, pendPmtRef.value)
     pendPayments.value.push({
-        payment_method_id: parseInt(pendPmtMethodId.value),
+        payment_method_id: resolved.payment_method_id,
         amount_bs:         round2(amt),
-        reference:         pendPmtRef.value || null,
-        _label:            props.paymentMethods.find(m => m.id == pendPmtMethodId.value)?.name ?? '',
+        reference:         resolved.reference,
+        _label:            resolved._label,
     })
     pendPmtAmountBs.value = ''
     pendPmtRef.value      = ''
@@ -414,7 +495,10 @@ function methodName(id) {
                         Historial
                     </button>
                 </div>
-                <button class="btn-brand" @click="showNewModal = true">+ Nuevo Pedido</button>
+                <div class="header-actions">
+                    <button class="btn-brand" @click="showNewModal = true">+ Nuevo Pedido</button>
+                    <button class="tab-btn--help" @click="showHelp = true" title="Ayuda">?</button>
+                </div>
             </div>
 
             <!-- ─── Tab: Pendientes ───────────────────────────────────────── -->
@@ -696,7 +780,12 @@ function methodName(id) {
 
                         <div class="pay-add-row">
                             <select v-model="newPmtMethodId" class="field-input pay-select">
-                                <option v-for="m in paymentMethods" :key="m.id" :value="m.id">{{ m.name }}</option>
+                                <optgroup label="Métodos de pago">
+                                    <option v-for="m in paymentMethods" :key="m.id" :value="String(m.id)">{{ m.name }}</option>
+                                </optgroup>
+                                <optgroup v-if="paymentTerminals.length" label="Terminales">
+                                    <option v-for="t in paymentTerminals" :key="`T:${t.id}`" :value="`T:${t.id}`">{{ t.bank_name ?? t.method }}</option>
+                                </optgroup>
                             </select>
                             <input v-model="newPmtAmountBs" class="field-input pay-amount-input" type="number" step="0.01" placeholder="Monto Bs." />
                             <button class="btn-sm" @click="fillRest" title="Completar restante">↓</button>
@@ -800,7 +889,12 @@ function methodName(id) {
 
                         <div class="pay-add-row">
                             <select v-model="pendPmtMethodId" class="field-input pay-select">
-                                <option v-for="m in paymentMethods" :key="m.id" :value="m.id">{{ m.name }}</option>
+                                <optgroup label="Métodos de pago">
+                                    <option v-for="m in paymentMethods" :key="m.id" :value="String(m.id)">{{ m.name }}</option>
+                                </optgroup>
+                                <optgroup v-if="paymentTerminals.length" label="Terminales">
+                                    <option v-for="t in paymentTerminals" :key="`T:${t.id}`" :value="`T:${t.id}`">{{ t.bank_name ?? t.method }}</option>
+                                </optgroup>
                             </select>
                             <input v-model="pendPmtAmountBs" class="field-input pay-amount-input" type="number" step="0.01" placeholder="Monto Bs." />
                             <button class="btn-sm" @click="fillPendRest" title="Completar restante">↓</button>
@@ -835,6 +929,15 @@ function methodName(id) {
                 </div>
             </div>
         </Teleport>
+
+        <!-- ── Panel de ayuda ────────────────────────────────────────────── -->
+        <HelpModal
+            :show="showHelp"
+            title="Pedidos — Cómo funciona"
+            :steps="helpSteps"
+            :faqs="helpFaqs"
+            @close="showHelp = false"
+        />
 
     </AppLayout>
 </template>
@@ -1206,6 +1309,24 @@ function methodName(id) {
 /* ─── Misc ────────────────────────────────────────────────────────────────── */
 .empty-msg { font-size: 0.84rem; color: var(--text-muted); text-align: center; padding: 0.75rem 0; }
 .error-msg { font-size: 0.84rem; color: #ef4444; background: rgba(239,68,68,0.1); padding: 0.5rem 0.75rem; border-radius: 7px; }
+
+/* ─── Header actions ────────────────────────────────────────────────────── */
+.header-actions { display: flex; align-items: center; gap: 0.5rem; }
+.tab-btn--help {
+    border-radius: 50%;
+    width: 2rem; height: 2rem;
+    padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+}
+.tab-btn--help:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
 
 /* ─── Responsive ─────────────────────────────────────────────────────────── */
 /* Base (mobile): new-order body stacks, orders-grid 1 col */

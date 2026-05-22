@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue'
+import HelpModal  from '@/Components/HelpModal.vue'
 import { ref, computed, watch } from 'vue'
 import { router } from '@inertiajs/vue3'
 
@@ -78,17 +79,51 @@ function submitForm() {
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json' },
         body: JSON.stringify(form.value),
     })
-    .then(r => {
-        if (!r.ok) return r.json().then(e => { throw e })
-        return r.json()
-    })
-    .then(() => {
+    .then(async r => {
+        if (!r.ok) {
+            const e = await r.json().catch(() => ({}))
+            throw e
+        }
         closeModal()
         router.reload({ only: ['clients', 'kpis'] })
     })
     .catch(e => { errors.value = e.errors ?? {} })
     .finally(() => { saving.value = false })
 }
+
+// ─── Ayuda ────────────────────────────────────────────────────────────────────
+const showHelp = ref(false)
+
+const helpSteps = [
+    {
+        title: 'Registrar un cliente',
+        body: 'Agrega el nombre y teléfono del cliente. El sistema le asigna un código automático (CLI-0001, CLI-0002...).',
+        tip: 'El teléfono es importante para delivery y crédito.',
+    },
+    {
+        title: 'Buscar un cliente',
+        body: 'Escribe el nombre o teléfono en el buscador. Aparece al instante sin recargar la página.',
+        tip: 'También puedes buscarlo desde el POS al momento de vender.',
+    },
+    {
+        title: 'Ver historial de compras',
+        body: 'Toca el nombre del cliente para ver todos sus tickets: fechas, montos y productos comprados.',
+        tip: 'Útil para clientes frecuentes o que compran a crédito.',
+    },
+    {
+        title: 'Editar o desactivar',
+        body: 'Puedes corregir el nombre o teléfono en cualquier momento. Desactivar un cliente no borra su historial.',
+        tip: 'Un cliente desactivado no aparece en el buscador del POS.',
+    },
+]
+
+const helpFaqs = [
+    { q: '¿Es obligatorio registrar el cliente al vender?', a: 'No. Solo si quieres llevar historial o es una venta a crédito.' },
+    { q: '¿Puedo borrar un cliente?', a: 'No se borran, solo se desactivan. El historial siempre se conserva.' },
+    { q: '¿Cómo busco un cliente en el POS?', a: 'En el campo cliente del POS escribe el nombre y aparece el autocompletado.' },
+    { q: '¿Qué es el código CLI-0001?', a: 'Es un código interno automático para identificar al cliente en el sistema.' },
+    { q: '¿Puedo registrar la cédula?', a: 'Sí, el campo cédula es opcional en el formulario de cliente.' },
+]
 
 // ─── Toggle activo ────────────────────────────────────────────────────────────
 function toggleActive(client) {
@@ -133,6 +168,7 @@ function toggleActive(client) {
                     placeholder="Buscar por nombre, teléfono o cédula…"
                 />
                 <button class="btn btn-brand" @click="openCreate">+ Nuevo cliente</button>
+                <button class="help-btn" @click="showHelp = true" title="Ayuda">?</button>
             </div>
 
             <!-- ─── Tabla ─────────────────────────────────────────────────── -->
@@ -284,6 +320,15 @@ function toggleActive(client) {
                 </div>
             </div>
         </Teleport>
+        <!-- ─── Módulo de ayuda ───────────────────────────────────────────── -->
+        <HelpModal
+            :show="showHelp"
+            title="Clientes — Cómo funciona"
+            :steps="helpSteps"
+            :faqs="helpFaqs"
+            @close="showHelp = false"
+        />
+
     </AppLayout>
 </template>
 
@@ -302,6 +347,8 @@ function toggleActive(client) {
 .top-bar { display: flex; gap: 0.75rem; align-items: center; }
 .search-input { flex: 1; padding: 0.6rem 0.9rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); color: var(--text-primary); font-size: 0.9rem; }
 .search-input:focus { outline: none; border-color: var(--brand); }
+.help-btn { width: 2rem; height: 2rem; min-width: 2rem; border-radius: 50%; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+.help-btn:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
 
 /* Table */
 .table-wrap { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; min-width: 0; }

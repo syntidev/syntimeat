@@ -202,6 +202,7 @@ class SaleController extends Controller
 
                 $sale = Sale::create([
                     'business_id'     => $businessId,
+                    'branch_id'       => $user->branch_id,
                     'ticket_number'   => $ticketNumber,
                     'status'          => 'paid',
                     'payment_status'  => 'pendiente_cobro',
@@ -258,6 +259,7 @@ class SaleController extends Controller
         $sale = DB::transaction(function () use ($businessId, $user, $ticketNumber, $totalUsd, $totalBs, $itemsToCreate, $origin, $channel, $status) {
             $sale = Sale::create([
                 'business_id'   => $businessId,
+                'branch_id'     => $user->branch_id,
                 'ticket_number' => $ticketNumber,
                 'status'        => $status,
                 'total_usd'     => round($totalUsd, 2),
@@ -500,7 +502,7 @@ class SaleController extends Controller
         }
 
         if ($method) {
-            $query->where('payment_method', $method);
+            $query->whereHas('salePayments', fn ($q) => $q->where('payment_method_id', $method));
         }
 
         if ($status) {

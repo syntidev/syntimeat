@@ -353,14 +353,15 @@ class ReportController extends Controller
         }
 
         // ── Ventas agregadas por sucursal ────────────────────────────────────
+        $fallback  = $branchIds[0];
         $perBranch = Sale::without('items')
             ->where('business_id', $businessId)
             ->where('status', 'paid')
-            ->whereIn('branch_id', $branchIds)
+            ->where(fn ($q) => $q->whereIn('branch_id', $branchIds)->orWhereNull('branch_id'))
             ->whereDate('sold_at', '>=', $desde)
             ->whereDate('sold_at', '<=', $hasta)
-            ->selectRaw('branch_id, COUNT(*) as ventas_count, COALESCE(SUM(total_bs), 0) as vendido_bs, COALESCE(SUM(total_usd), 0) as vendido_usd')
-            ->groupBy('branch_id')
+            ->selectRaw("ANY_VALUE(COALESCE(branch_id, {$fallback})) as branch_id, COUNT(*) as ventas_count, COALESCE(SUM(total_bs), 0) as vendido_bs, COALESCE(SUM(total_usd), 0) as vendido_usd")
+            ->groupBy(DB::raw("COALESCE(branch_id, {$fallback})"))
             ->get()
             ->keyBy('branch_id');
 
@@ -377,11 +378,11 @@ class ReportController extends Controller
             ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
             ->where('sales.business_id', $businessId)
             ->where('sales.status', 'paid')
-            ->whereIn('sales.branch_id', $branchIds)
+            ->where(fn ($q) => $q->whereIn('sales.branch_id', $branchIds)->orWhereNull('sales.branch_id'))
             ->whereDate('sales.sold_at', '>=', $desde)
             ->whereDate('sales.sold_at', '<=', $hasta)
-            ->groupBy('sales.branch_id', 'sale_items.product_id', 'sale_items.input_type')
-            ->selectRaw('sales.branch_id, sale_items.product_id, sale_items.input_type, SUM(sale_items.quantity_value) as qty')
+            ->groupBy(DB::raw("COALESCE(sales.branch_id, {$fallback})"), 'sale_items.product_id', 'sale_items.input_type')
+            ->selectRaw("ANY_VALUE(COALESCE(sales.branch_id, {$fallback})) as branch_id, sale_items.product_id, sale_items.input_type, SUM(sale_items.quantity_value) as qty")
             ->get();
 
         $costoPorSucursal = [];
@@ -456,7 +457,7 @@ class ReportController extends Controller
         $tendencia = Sale::without('items')
             ->where('business_id', $businessId)
             ->where('status', 'paid')
-            ->whereIn('branch_id', $branchIds)
+            ->where(fn ($q) => $q->whereIn('branch_id', $branchIds)->orWhereNull('branch_id'))
             ->whereDate('sold_at', '>=', $desde)
             ->whereDate('sold_at', '<=', $hasta)
             ->selectRaw('DATE(sold_at) as dia, COALESCE(SUM(total_usd), 0) as total_usd')
@@ -477,7 +478,7 @@ class ReportController extends Controller
             ->join('categories', 'categories.id', '=', 'products.category_id')
             ->where('sales.business_id', $businessId)
             ->where('sales.status', 'paid')
-            ->whereIn('sales.branch_id', $branchIds)
+            ->where(fn ($q) => $q->whereIn('sales.branch_id', $branchIds)->orWhereNull('sales.branch_id'))
             ->whereDate('sales.sold_at', '>=', $desde)
             ->whereDate('sales.sold_at', '<=', $hasta)
             ->groupBy('categories.id', 'categories.name')

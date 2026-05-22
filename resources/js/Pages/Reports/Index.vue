@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue'
+import HelpModal from '@/Components/HelpModal.vue'
 import { ref, computed, reactive, watch } from 'vue'
 import axios from 'axios'
 
@@ -126,6 +127,55 @@ const statusLabel = { open: 'Abierto', pending: 'Pendiente', paid: 'Pagado', can
 const statusClass = { open: 'pill-open', pending: 'pill-pending', paid: 'pill-paid', cancelled: 'pill-cancelled' }
 const typeLabel   = { internal: 'Interno', external: 'Externo' }
 const typeClass   = { internal: 'badge-amber', external: 'badge-blue' }
+
+// ─── Ayuda ────────────────────────────────────────────────────────────────────
+const showHelp = ref(false)
+
+const helpSteps = [
+    {
+        title: 'Seleccionar rango de fechas',
+        body: 'Elige el período que quieres analizar: hoy, esta semana, este mes o un rango personalizado.',
+        tip: 'Los reportes incluyen solo ventas con status "cobrado".',
+    },
+    {
+        title: 'Reporte de ventas',
+        body: 'Muestra el total vendido, tickets emitidos y promedio por venta en el período seleccionado.',
+        tip: 'Filtra por categoría para ver qué corte vende más.',
+    },
+    {
+        title: 'Reporte por categoría',
+        body: 'Desglosa las ventas por Res, Pollo, Cerdo, Charcutería, etc. Con kg vendidos, monto en USD y participación porcentual.',
+        tip: 'Compara semanas para detectar tendencias de consumo.',
+    },
+    {
+        title: 'Exportar',
+        body: 'Descarga el reporte en PDF para imprimir o en Excel para analizar en detalle.',
+        tip: 'El Excel incluye el detalle por producto y por día.',
+    },
+]
+
+const helpFaqs = [
+    {
+        q: '¿Los reportes incluyen ventas canceladas?',
+        a: 'No. Solo ventas con status "cobrado" aparecen en reportes.',
+    },
+    {
+        q: '¿Puedo ver reportes de otro mes?',
+        a: 'Sí, usa el selector de fechas personalizado.',
+    },
+    {
+        q: '¿El reporte incluye el costo?',
+        a: 'Sí, si la bóveda tiene el costo registrado muestra la utilidad bruta.',
+    },
+    {
+        q: '¿Puedo filtrar por cajero?',
+        a: 'Sí, hay un filtro por usuario en la pestaña de detalle.',
+    },
+    {
+        q: '¿El export PDF es el mismo que el ticket?',
+        a: 'No, es un reporte gerencial con resumen del período.',
+    },
+]
 </script>
 
 <template>
@@ -139,6 +189,7 @@ const typeClass   = { internal: 'badge-amber', external: 'badge-blue' }
                     @click="activeTab = t">
                     {{ { ventas: 'Ventas', inventario: 'Inventario', cierres: 'Cierres de Caja', pedidos: 'Pedidos', reporte_dia: 'Reporte del Día' }[t] }}
                 </button>
+                <button class="tab tab-help" @click="showHelp = true" title="Ayuda">?</button>
             </div>
 
             <!-- ─── Filtros + acciones ────────────────────────────────────── -->
@@ -471,6 +522,16 @@ const typeClass   = { internal: 'badge-amber', external: 'badge-blue' }
             </div>
 
         </div>
+
+        <!-- ── Panel de ayuda ────────────────────────────────────────────── -->
+        <HelpModal
+            :show="showHelp"
+            title="Reportes — Cómo funciona"
+            :steps="helpSteps"
+            :faqs="helpFaqs"
+            @close="showHelp = false"
+        />
+
     </AppLayout>
 </template>
 
@@ -499,6 +560,21 @@ const typeClass   = { internal: 'badge-amber', external: 'badge-blue' }
     white-space: nowrap;
 }
 .tab.tab-active { background: var(--bg-card); color: var(--text-primary); }
+.tab-help {
+    margin-left: auto;
+    border-radius: 50%;
+    width: 2rem; height: 2rem;
+    padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.tab-help:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
 
 /* ─── Filtros ──────────────────────────────────────────────────────────────── */
 .filter-bar {

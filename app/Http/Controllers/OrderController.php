@@ -10,6 +10,7 @@ use App\Models\InventoryEntry;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\PaymentMethod;
+use App\Models\PaymentTerminal;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SalePayment;
@@ -58,6 +59,11 @@ class OrderController extends Controller
             ->orderBy('sort_order')
             ->get();
 
+        $paymentTerminals = PaymentTerminal::where('business_id', $businessId)
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get(['id', 'bank_name', 'method', 'commercial_number']);
+
         $cobradosHoy = Order::where('business_id', $businessId)
             ->where('status', 'paid')
             ->whereDate('updated_at', today())
@@ -87,8 +93,9 @@ class OrderController extends Controller
             'historial'       => $historial->map(fn (Order $o) => $this->formatOrderBrief($o, $rate))->values(),
             'cobrosPendientes'=> $cobrosPendientes,
             'products'        => $products,
-            'paymentMethods'  => $paymentMethods,
-            'todayRate'       => $rate,
+            'paymentMethods'   => $paymentMethods,
+            'paymentTerminals' => $paymentTerminals,
+            'todayRate'        => $rate,
             'kpis'            => [
                 'abiertos'           => $activeOrders->count(),
                 'internos'           => $activeOrders->where('client_type', 'internal')->count(),

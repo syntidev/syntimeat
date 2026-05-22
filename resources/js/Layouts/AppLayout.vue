@@ -86,6 +86,16 @@ function canAccess(permission) {
 // ─── Stock crítico ────────────────────────────────────────────────────────────
 const stockCriticoCount = computed(() => page.props.stock_critico_count ?? 0)
 
+// ─── Cobros pendientes (créditos + deliveries sin cobrar) ─────────────────────
+const cobrosPendientesRaw   = computed(() => page.props.cobros_pendientes_count ?? 0)
+const hasCobros             = computed(() => cobrosPendientesRaw.value > 0)
+const cobrosPendientesLabel = computed(() => cobrosPendientesRaw.value > 99 ? '99+' : cobrosPendientesRaw.value)
+
+// ─── Despiece pendiente (boveda_entries con kg en vitrina sin completar) ───────
+const despiecePendienteRaw   = computed(() => page.props.despiece_pendiente_count ?? 0)
+const hasDespiece             = computed(() => despiecePendienteRaw.value > 0)
+const despiecePendienteLabel = computed(() => despiecePendienteRaw.value > 99 ? '99+' : despiecePendienteRaw.value)
+
 // ─── Paleta de colores ───────────────────────────────────────────────────────
 onMounted(() => { applyPalette(page.props.theme_color ?? 'blue') })
 watch(() => page.props.theme_color, (color) => { applyPalette(color ?? 'blue') })
@@ -244,6 +254,14 @@ function routeExists(routeName) {
                                 v-if="item.route === 'inventory.index' && stockCriticoCount > 0"
                                 class="nav-badge"
                             >{{ stockCriticoCount }}</span>
+                            <span
+                                v-if="item.route === 'orders.index' && hasCobros"
+                                class="nav-badge"
+                            >{{ cobrosPendientesLabel }}</span>
+                            <span
+                                v-if="item.route === 'fabrica.index' && hasDespiece"
+                                class="nav-badge"
+                            >{{ despiecePendienteLabel }}</span>
                         </Link>
                         <span v-else :class="['nav-item', 'nav-item--disabled']">
                             <span class="nav-item__icon" v-html="icons[item.icon]" />

@@ -1,8 +1,9 @@
 ﻿﻿<script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import AppLogo from '@/Components/AppLogo.vue';
-import { Lock, AlertTriangle, FileText, Store, Bike, Check, Filter } from '@lucide/vue';
+import HelpModal from '@/Components/HelpModal.vue';
+import { Lock, AlertTriangle, FileText, Store, Bike, Clock, Check, ChevronLeft, ChevronRight } from '@lucide/vue';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 const props = defineProps({
@@ -31,14 +32,31 @@ function tick() {
     const d = n.toLocaleDateString('es-VE', { weekday: 'short', day: '2-digit', month: 'short' });
     currentTime.value = `${t} · ${d}`;
 }
+// ─── Tabs scroll arrows ───────────────────────────────────────────────────────
+const tabsWrapRef  = ref(null);
+const tabArrowLeft  = ref(false);
+const tabArrowRight = ref(false);
+
+function updateTabArrows() {
+    const el = tabsWrapRef.value;
+    if (!el) return;
+    tabArrowLeft.value  = el.scrollLeft > 1;
+    tabArrowRight.value = el.scrollLeft < el.scrollWidth - el.clientWidth - 1;
+}
+function scrollTabsLeft()  { tabsWrapRef.value?.scrollBy({ left: -160, behavior: 'smooth' }); }
+function scrollTabsRight() { tabsWrapRef.value?.scrollBy({ left:  160, behavior: 'smooth' }); }
+
 onMounted(() => {
     tick();
     clockTimer = setInterval(tick, 1000);
     window.addEventListener('keydown', onPhysKeyDown);
+    window.addEventListener('resize', updateTabArrows);
+    nextTick(updateTabArrows);
 });
 onUnmounted(() => {
     clearInterval(clockTimer);
     window.removeEventListener('keydown', onPhysKeyDown);
+    window.removeEventListener('resize', updateTabArrows);
 });
 
 // ─── Animación "recién añadido" ───────────────────────────────────────────────
@@ -76,16 +94,15 @@ function hasStock(p) {
     return s === null || s > 0;
 }
 
-// Toggle "Solo con stock" — ON por defecto, persiste en sesión
-const onlyInStock = ref(true);
+const soloConStock = ref(true);
 
-// Base: todos los productos o filtrado por categoría
-// El toggle controla si se ocultan los sin stock
 const categoryProductsAll = computed(() => {
-    const base = selectedCat.value === null
-        ? props.products
-        : props.products.filter(p => p.category_id === selectedCat.value);
-    return onlyInStock.value ? base.filter(hasStock) : base;
+    const base = selectedCat.value === 'favorites'
+        ? props.products.filter(p => p.is_favorite)
+        : selectedCat.value === null
+            ? props.products
+            : props.products.filter(p => p.category_id === selectedCat.value);
+    return base.filter(p => !soloConStock.value || stockFor(p) > 0);
 });
 
 // Búsqueda: siempre todos los productos, ignora el toggle
@@ -371,6 +388,7 @@ function submitQuickClient() {
 // ─── Modal éxito ──────────────────────────────────────────────────────────────
 const successModal    = ref(false);
 const successTicket   = ref('');
+const successOrigin   = ref('');   // snapshot del origen al momento de la venta
 const successTotal    = ref(0);
 const successItems    = ref([]);   // snapshot de ítems antes de limpiar carrito
 const successPayments = ref([]);   // snapshot de pagos
@@ -401,6 +419,7 @@ function confirmPay() {
             .then(({ data }) => {
                 if (!data.sale) throw new Error('Sin venta');
                 successTicket.value   = data.sale.ticket_number;
+                successOrigin.value   = 'delivery';
                 successTotal.value    = cartTotalBs.value;
                 successItems.value    = cart.value.map(i => ({ ...i, subtotal_bs: i.input_type === 'weight' ? (i.amount_bs ?? 0) : i.subtotal_usd * props.todayRate }));
                 successPayments.value = [];
@@ -426,6 +445,7 @@ function confirmPay() {
             .then(({ data }) => {
                 if (!data.sale) throw new Error('Sin venta');
                 successTicket.value   = data.sale.ticket_number;
+                successOrigin.value   = 'credit';
                 successTotal.value    = cartTotalBs.value;
                 successItems.value    = cart.value.map(i => ({ ...i, subtotal_bs: i.input_type === 'weight' ? (i.amount_bs ?? 0) : i.subtotal_usd * props.todayRate }));
                 successPayments.value = [];
@@ -455,6 +475,7 @@ function confirmPay() {
     })
     .then((ticket) => {
         successTicket.value   = ticket;
+        successOrigin.value   = 'onsite';
         successTotal.value    = cartTotalBs.value;
         successItems.value    = cart.value.map(i => ({ ...i, subtotal_bs: i.input_type === 'weight' ? (i.amount_bs ?? 0) : i.subtotal_usd * props.todayRate }));
         successPayments.value = payments.value.map(p => ({
@@ -474,6 +495,7 @@ function confirmPay() {
 function newSale() {
     successModal.value    = false;
     successTicket.value   = '';
+    successOrigin.value   = '';
     successItems.value    = [];
     successPayments.value = [];
 }
@@ -503,6 +525,12 @@ function printTicket() {
         ? `<p class="t-footer">${biz.ticket_footer}</p>`
         : ''
 
+    const originBadge = successOrigin.value === 'delivery'
+        ? `<p class="t-origin">DELIVERY</p>`
+        : successOrigin.value === 'credit'
+            ? `<p class="t-origin">CRÉDITO</p>`
+            : ''
+
     const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -525,7 +553,8 @@ function printTicket() {
   .t-total-row td { font-weight: bold; font-size: 11pt; border-top: 1px solid #000; padding-top: 2mm; }
   .t-pay-lbl { font-size: 8.5pt; color: #333; }
   .t-footer { text-align: center; font-size: 8pt; margin-top: 3mm; }
-  .t-thanks { text-align: center; font-size: 9pt; font-weight: bold; margin-top: 3mm; }
+  .t-thanks  { text-align: center; font-size: 9pt; font-weight: bold; margin-top: 3mm; }
+  .t-origin  { text-align: center; font-weight: bold; font-size: 9pt; letter-spacing: 0.5px; margin: 1mm 0; }
 </style>
 </head>
 <body>
@@ -534,6 +563,7 @@ function printTicket() {
   ${phone ? `<p class="t-sub">Tel: ${phone}</p>` : ''}
   <hr class="t-sep">
   <p class="t-meta">Ticket: <strong>${successTicket.value}</strong></p>
+  ${originBadge}
   <p class="t-meta">${successDate.value}</p>
   ${successClient.value?.name ? `<p class="t-meta">Cliente: ${successClient.value.name}</p>` : ''}
   <hr class="t-sep">
@@ -588,6 +618,60 @@ function productImageUrl(product) {
     if (product.image_path.startsWith('http')) return product.image_path;
     return '/storage/' + product.image_path;
 }
+
+// ─── Ayuda ────────────────────────────────────────────────────────────────────
+const showHelp = ref(false);
+
+const helpSteps = [
+    {
+        title: 'Seleccionar producto',
+        body: 'Toca el producto en la vitrina. El sistema lo agrega al carrito.',
+        tip: 'Usa "Solo con stock" para ver solo lo disponible hoy.',
+    },
+    {
+        title: 'Ingresar monto en Bs.',
+        body: 'Escribe cuánto te da el cliente en bolívares. El sistema calcula los kg automáticamente. Tú no haces ninguna resta.',
+        tip: 'El sistema usa la tasa BCV del día. No necesitas calcular nada.',
+    },
+    {
+        title: 'Seleccionar método de pago',
+        body: 'Elige cómo pagó el cliente: efectivo, Pago Móvil, punto, etc.',
+        tip: 'Puedes dividir el pago en varios métodos si el cliente paga mixto.',
+    },
+    {
+        title: 'Confirmar venta',
+        body: 'Presiona "Cobrar". El sistema genera el ticket automáticamente.',
+        tip: 'El ticket muestra el total en Bs. y el desglose del producto.',
+    },
+    {
+        title: 'Imprimir o cerrar',
+        body: 'Imprime el ticket o ciérralo. El stock se descuenta en ese momento.',
+        tip: 'Si cierras sin imprimir, la venta ya quedó registrada igual.',
+    },
+];
+
+const helpFaqs = [
+    {
+        q: '¿Qué pasa si me equivoco en el monto?',
+        a: 'Borra el ítem del carrito y vuélvelo a agregar.',
+    },
+    {
+        q: '¿Puedo vender a crédito?',
+        a: 'Sí, selecciona "Crédito" al momento de cobrar.',
+    },
+    {
+        q: '¿Puedo hacer delivery desde aquí?',
+        a: 'Sí, selecciona "Delivery" en el tipo de venta.',
+    },
+    {
+        q: '¿El stock se descuenta al instante?',
+        a: 'Sí, en el momento que confirmas el cobro.',
+    },
+    {
+        q: '¿Qué es el toggle "Solo con stock"?',
+        a: 'Filtra y muestra solo productos que tienen kg disponibles hoy.',
+    },
+];
 </script>
 
 <template>
@@ -659,13 +743,8 @@ function productImageUrl(product) {
             <div class="hd-right">
                 <span v-if="!cashRegister" class="no-caja-pill">Sin caja</span>
                 <span class="pos-time">{{ currentTime }}</span>
-                <div class="user-chip">
-                    <div class="user-av">{{ (authUser?.name ?? 'U')[0].toUpperCase() }}</div>
-                    <div class="user-info">
-                        <span class="user-name-label">{{ authUser?.name ?? 'Usuario' }}</span>
-                        <span class="user-role-label">{{ authUser?.role ?? '' }}</span>
-                    </div>
-                </div>
+                <button class="pos-help-fab" @click="showHelp = true" title="Ayuda">?</button>
+                <div class="user-av" :title="authUser?.name ?? 'Usuario'">{{ (authUser?.name ?? 'U')[0].toUpperCase() }}</div>
             </div>
 
         </header>
@@ -676,26 +755,45 @@ function productImageUrl(product) {
             <!-- Productos -->
             <section class="pnl-products">
 
-                <div class="tabs-wrap">
-                    <div class="tabs">
-                        <button
-                            class="tab"
-                            :class="{ active: selectedCat === null }"
-                            :style="selectedCat === null ? { color: 'var(--brand)', borderBottomColor: 'var(--brand)' } : {}"
-                            @click="selectCat(null)"
-                        >Todas</button>
-                        <button
-                            v-for="cat in categories.filter(c => c.name !== 'Bóveda' && c.macro_category !== 'BOVEDA')"
-                            :key="cat.id"
-                            class="tab"
-                            :class="{ active: selectedCat === cat.id }"
-                            :style="selectedCat === cat.id ? { color: cat.color, borderBottomColor: cat.color } : {}"
-                            @click="selectCat(cat.id)"
-                        >
-                            <span class="tab-dot" :style="{ background: cat.color }" />
-                            {{ cat.name }}
-                        </button>
+                <div class="tabs-outer">
+                    <button v-if="tabArrowLeft" class="tab-arrow tab-arrow--left" @click="scrollTabsLeft" tabindex="-1">
+                        <ChevronLeft :size="15" />
+                    </button>
+
+                    <div class="tabs-wrap" ref="tabsWrapRef" @scroll="updateTabArrows">
+                        <div class="tabs">
+                            <button
+                                class="tab tab-favorites"
+                                :class="{ active: selectedCat === 'favorites' }"
+                                :style="selectedCat === 'favorites' ? { color: '#f59e0b', borderBottomColor: '#f59e0b' } : {}"
+                                @click="selectCat('favorites')"
+                            >⭐ Favoritos</button>
+                            <button
+                                class="tab"
+                                :class="{ active: selectedCat === null }"
+                                :style="selectedCat === null ? { color: 'var(--brand)', borderBottomColor: 'var(--brand)' } : {}"
+                                @click="selectCat(null)"
+                            >Todas</button>
+                            <button
+                                v-for="cat in categories.filter(c => c.name !== 'Bóveda' && c.macro_category !== 'BOVEDA')"
+                                :key="cat.id"
+                                class="tab"
+                                :class="{ active: selectedCat === cat.id }"
+                                :style="selectedCat === cat.id ? { color: cat.color, borderBottomColor: cat.color } : {}"
+                                @click="selectCat(cat.id)"
+                            >
+                                <span class="tab-dot" :style="{ background: cat.color }" />
+                                {{ cat.name }}
+                            </button>
+                        </div>
                     </div>
+
+                    <button v-if="tabArrowRight" class="tab-arrow tab-arrow--right" @click="scrollTabsRight" tabindex="-1">
+                        <ChevronRight :size="15" />
+                    </button>
+
+                    <div v-show="tabArrowLeft"  class="tab-fade tab-fade--left"  aria-hidden="true"></div>
+                    <div v-show="tabArrowRight" class="tab-fade tab-fade--right" aria-hidden="true"></div>
                 </div>
 
                 <!-- Búsqueda + toggle -->
@@ -714,17 +812,13 @@ function productImageUrl(product) {
                         <button v-if="search" class="search-clear" @click="search = ''" title="Limpiar">×</button>
                     </div>
 
-                    <!-- Toggle Solo con stock -->
-                    <button
-                        class="stock-toggle"
-                        :class="{ 'stock-toggle--on': onlyInStock }"
-                        @click="onlyInStock = !onlyInStock"
-                        :title="onlyInStock ? 'Mostrando solo con stock — clic para ver todos' : 'Mostrando todos — clic para filtrar por stock'"
-                    >
-                        <Filter :size="13" />
-                        <span>Solo con stock</span>
-                        <span class="stock-toggle__dot" />
-                    </button>
+                    <!-- Pill toggle -->
+                    <div class="stk-toggle" @click="soloConStock = !soloConStock" :title="soloConStock ? 'Ver todos' : 'Solo con stock'">
+                        <span class="stk-label">Solo con stock</span>
+                        <div class="stk-pill" :class="{ 'stk-pill--on': soloConStock }">
+                            <div class="stk-thumb" />
+                        </div>
+                    </div>
                 </div>
 
                 <div class="grid-wrap">
@@ -1168,6 +1262,11 @@ function productImageUrl(product) {
                             <span>{{ successDate }}</span>
                             <span v-if="cashRegister">{{ cashRegister.name }}</span>
                         </div>
+                        <div v-if="successOrigin === 'delivery' || successOrigin === 'credit'" class="sc-origin-badge">
+                            <Bike v-if="successOrigin === 'delivery'" :size="16" />
+                            <Clock v-if="successOrigin === 'credit'" :size="16" />
+                            <span>{{ successOrigin === 'delivery' ? 'DELIVERY' : 'CRÉDITO' }}</span>
+                        </div>
                         <div v-if="ticketPrefs.show_client && (successClient.name || successClient.phone)" class="sc-biz-sub" style="margin-top:0.15rem">
                             Cliente: {{ [successClient.name, successClient.phone].filter(Boolean).join(' · ') }}
                         </div>
@@ -1240,6 +1339,15 @@ function productImageUrl(product) {
                 </div>
             </div>
         </Teleport>
+
+        <!-- Panel de ayuda -->
+        <HelpModal
+            :show="showHelp"
+            title="Punto de Venta — Cómo funciona"
+            :steps="helpSteps"
+            :faqs="helpFaqs"
+            @close="showHelp = false"
+        />
 
     </div>
 </template>
@@ -1398,6 +1506,14 @@ function productImageUrl(product) {
     background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
     border-radius: 6px; padding: 3px 10px; white-space: nowrap; flex-shrink: 0;
 }
+.pos-help-fab {
+    width: 2rem; height: 2rem; border-radius: 50%; flex-shrink: 0;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text-muted); cursor: pointer; font-family: inherit; font-size: 0.85rem;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.pos-help-fab:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
 .pos-time { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; flex-shrink: 0; }
 .user-chip {
     display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 6px;
@@ -1430,17 +1546,49 @@ function productImageUrl(product) {
 .pnl-products { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
 
 /* ── Category tabs — scrollable on mobile ── */
+.tabs-outer {
+    position: relative;
+    flex-shrink: 0;
+    display: flex;
+    align-items: stretch;
+}
+.tab-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 3;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    cursor: pointer;
+    box-shadow: 0 1px 6px rgba(0,0,0,.25);
+    transition: opacity .15s;
+}
+.tab-arrow--left  { left: 4px; }
+.tab-arrow--right { right: 4px; }
+.tab-arrow:hover  { color: var(--brand); border-color: var(--brand); }
+.tab-fade {
+    position: absolute; top: 0; bottom: 0;
+    width: 44px; pointer-events: none; z-index: 2;
+}
+.tab-fade--left  { left: 0;  background: linear-gradient(to right, var(--bg-base), transparent); }
+.tab-fade--right { right: 0; background: linear-gradient(to left,  var(--bg-base), transparent); }
+@media (pointer: coarse) { .tab-arrow { display: none !important; } }
 .tabs-wrap {
     padding: 14px 0 0;
-    flex-shrink: 0;
+    flex: 1;
     overflow-x: auto;
     overflow-y: hidden;
+    scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-x: contain;
     scrollbar-width: none;
-    /* fade hint that more tabs exist */
-    -webkit-mask-image: linear-gradient(to right, transparent 0, black 16px, black calc(100% - 16px), transparent 100%);
-    mask-image: linear-gradient(to right, transparent 0, black 16px, black calc(100% - 16px), transparent 100%);
 }
 .tabs-wrap::-webkit-scrollbar { display: none; }
 .tabs {
@@ -1464,11 +1612,12 @@ function productImageUrl(product) {
 .tab-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .tab.active .tab-dot { box-shadow: 0 0 6px currentColor; }
 
-.search-row  { padding: 10px 20px 8px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }
+.search-row  { padding: 10px 20px 8px; flex-shrink: 0; display: flex; flex-direction: row; align-items: center; gap: 8px; }
 .search-wrap {
     position: relative;
     display: flex;
     align-items: center;
+    flex: 1;
 }
 .search-icon {
     position: absolute;
@@ -1478,7 +1627,8 @@ function productImageUrl(product) {
     flex-shrink: 0;
 }
 .search-input {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     padding: 10px 36px 10px 38px;
     border: 1.5px solid var(--border);
     border-radius: 10px;
@@ -1508,36 +1658,50 @@ function productImageUrl(product) {
 }
 .search-clear:hover { color: var(--text-primary); }
 
-/* ── Toggle Solo con stock ── */
-.stock-toggle {
-    display: inline-flex;
+/* ── Solo con stock pill toggle ── */
+.stk-toggle {
+    display: flex;
     align-items: center;
-    gap: 5px;
-    align-self: flex-start;
-    padding: 4px 10px 4px 8px;
-    border-radius: 20px;
-    border: 1.5px solid var(--border);
-    background: transparent;
-    color: var(--text-muted);
+    gap: 7px;
+    flex-shrink: 0;
+    cursor: pointer;
+    user-select: none;
+}
+.stk-label {
     font-size: 0.75rem;
     font-weight: 500;
-    font-family: inherit;
-    cursor: pointer;
-    transition: border-color 0.15s, color 0.15s, background 0.15s;
+    color: var(--text-secondary);
+    white-space: nowrap;
 }
-.stock-toggle__dot {
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: var(--border);
-    transition: background 0.15s;
+.stk-pill {
+    width: 34px;
+    height: 19px;
+    border-radius: 999px;
+    background: var(--bg-elevated);
+    border: 1.5px solid var(--border);
+    position: relative;
+    transition: background 0.2s, border-color 0.2s;
     flex-shrink: 0;
 }
-.stock-toggle--on {
+.stk-pill--on {
+    background: var(--brand);
     border-color: var(--brand);
-    color: var(--brand);
-    background: color-mix(in srgb, var(--brand) 8%, transparent);
 }
-.stock-toggle--on .stock-toggle__dot { background: var(--brand); }
+.stk-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    transition: transform 0.2s, background 0.2s;
+}
+.stk-pill--on .stk-thumb {
+    transform: translateX(15px);
+    background: #fff;
+}
+
 
 /* ── Estado inicial vacío ── */
 .pos-empty-state {
@@ -1593,7 +1757,7 @@ function productImageUrl(product) {
     scrollbar-width: thin; scrollbar-color: var(--border) transparent;
     overscroll-behavior: contain;
 }
-.product-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; align-content: start; }
+.product-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; align-content: start; }
 
 @keyframes cardIn {
     from { opacity: 0; transform: translateY(10px) scale(0.97); }
@@ -2133,6 +2297,11 @@ function productImageUrl(product) {
 .sc-biz-meta {
     display: flex; flex-direction: column; align-items: center;
     font-size: 0.68rem; color: #666; margin-top: 0.2rem; gap: 0.05rem;
+}
+.sc-origin-badge {
+    display: flex; align-items: center; justify-content: center; gap: 0.3rem;
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px;
+    color: #111; margin-top: 0.25rem;
 }
 .sc-sep { border: none; border-top: 1px dashed #bbb; margin: 0.5rem 0; }
 

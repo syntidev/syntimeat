@@ -23,9 +23,11 @@ class HandleInertiaRequests extends Middleware
 
     public function share(Request $request): array
     {
-        $tasa              = ['rate' => 40.0, 'source' => 'fallback', 'hora' => null];
-        $stockCriticoCount = 0;
-        $businessName      = '';
+        $tasa                  = ['rate' => 40.0, 'source' => 'fallback', 'hora' => null];
+        $stockCriticoCount     = 0;
+        $cobrosPendientesCount = 0;
+        $despiecePendienteCount = 0;
+        $businessName          = '';
         $businessLogoUrl   = null;
         $themeColor        = 'blue';
 
@@ -85,6 +87,30 @@ class HandleInertiaRequests extends Middleware
                                 ->count();
                         }
                     );
+
+                    $cobrosPendientesCount = Cache::remember(
+                        "cobros_pendientes_count_{$bid}",
+                        120,
+                        static function () use ($bid): int {
+                            return (int) DB::table('sales')
+                                ->where('business_id', $bid)
+                                ->where('status', 'paid')
+                                ->where('payment_status', 'pendiente_cobro')
+                                ->count();
+                        }
+                    );
+
+                    $despiecePendienteCount = Cache::remember(
+                        "despiece_pendiente_count_{$bid}",
+                        60,
+                        static function () use ($bid): int {
+                            return (int) DB::table('boveda_entries')
+                                ->where('business_id', $bid)
+                                ->whereNull('despiece_completado_at')
+                                ->where('kg_surtido_vitrina', '>', 0)
+                                ->count();
+                        }
+                    );
                 }
             } catch (Throwable $_) {
                 // fallback silencioso
@@ -95,7 +121,9 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'auth'                => ['user' => $request->user()],
             'tasa'                => $tasa,
-            'stock_critico_count' => $stockCriticoCount,
+            'stock_critico_count'      => $stockCriticoCount,
+            'cobros_pendientes_count'   => $cobrosPendientesCount,
+            'despiece_pendiente_count'  => $despiecePendienteCount,
             'business_name'       => $businessName,
             'business_logo_url'   => $businessLogoUrl,
             'theme_color'         => $themeColor,

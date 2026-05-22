@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
+import HelpModal  from '@/Components/HelpModal.vue';
 import { ref, computed } from 'vue';
 import { useForm, router } from '@inertiajs/vue3';
 
@@ -36,6 +37,55 @@ const differencePositive = computed(() => differenceBs.value >= 0);
 // ─── Modal confirmación ───────────────────────────────────────────────────────
 const showModal = ref(false);
 
+// ─── Ayuda ────────────────────────────────────────────────────────────────────
+const showHelp = ref(false);
+
+const helpSteps = [
+    {
+        title: 'Revisar el resumen del día',
+        body: 'Antes de cerrar, verifica las ventas cobradas, el total en Bs. y el desglose por método de pago.',
+        tip: 'Si hay diferencia, revisa Ventas del Día para encontrar el ticket.',
+    },
+    {
+        title: 'Contar el efectivo',
+        body: 'Ingresa el monto físico que tienes en caja. El sistema calcula la diferencia contra lo esperado.',
+        tip: 'Sé exacto. Este número queda registrado en el historial.',
+    },
+    {
+        title: 'Revisar utilidad por bóveda',
+        body: 'Muestra cuánto costó la carne que entró vs. cuánto se vendió. Es la utilidad bruta del día por canal.',
+        tip: 'Si el costo aparece en $0, verifica que la bóveda tenga el costo de entrada registrado.',
+    },
+    {
+        title: 'Confirmar cierre',
+        body: 'Presiona "Confirmar Cierre". La caja queda cerrada y el día queda sellado. No se pueden agregar más ventas.',
+        tip: 'El cierre es irreversible. Verifica todo antes de confirmar.',
+    },
+];
+
+const helpFaqs = [
+    {
+        q: '¿Puedo cerrar sin contar el efectivo?',
+        a: 'Sí, puedes dejar el campo en 0 pero quedará registrada la diferencia.',
+    },
+    {
+        q: '¿Qué pasa si cierro por error?',
+        a: 'Contacta al administrador. El cierre es irreversible desde aquí.',
+    },
+    {
+        q: '¿El corte de turno es lo mismo que el cierre?',
+        a: 'No. El corte es parcial, no cierra la caja. El cierre es definitivo.',
+    },
+    {
+        q: '¿Por qué la utilidad muestra $0 en costo?',
+        a: 'La entrada de bóveda no tiene costo registrado. Agrégalo en el módulo Bóveda.',
+    },
+    {
+        q: '¿Dónde veo cierres anteriores?',
+        a: 'En el módulo Caja, en el historial de aperturas y cierres.',
+    },
+];
+
 function submitClose() {
     form.post(route('cash.confirm-close', { register: props.cashRegister?.id }), {
         onSuccess: () => { showModal.value = false; router.visit(route('cash.index')); },
@@ -53,7 +103,10 @@ function submitClose() {
                     <h1 class="dc-title">Cierre del Día</h1>
                     <p class="dc-sub">{{ fmtDate(cashRegister?.opened_at) }} &bull; Tasa: {{ fmtBs(todayRate) }}/USD</p>
                 </div>
-                <a :href="route('cash.index')" class="btn btn-ghost">← Volver a Caja</a>
+                <div class="dc-header-actions">
+                    <button class="btn btn-ghost btn-help" @click="showHelp = true" title="Ayuda">?</button>
+                    <a :href="route('cash.index')" class="btn btn-ghost">← Volver a Caja</a>
+                </div>
             </div>
 
             <!-- KPIs ───────────────────────────────────────────────────────── -->
@@ -322,12 +375,23 @@ function submitClose() {
             </div>
         </Teleport>
 
+        <!-- ── Panel de ayuda ────────────────────────────────────────────── -->
+        <HelpModal
+            :show="showHelp"
+            title="Cierre del Día — Cómo funciona"
+            :steps="helpSteps"
+            :faqs="helpFaqs"
+            @close="showHelp = false"
+        />
+
     </AppLayout>
 </template>
 
 <style scoped>
 .dc-wrap       { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem; }
-.dc-header     { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.5rem; gap: 1rem; }
+.dc-header          { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.5rem; gap: 1rem; }
+.dc-header-actions  { display: flex; align-items: center; gap: .5rem; }
+.btn-help           { width: 36px; height: 36px; padding: 0; justify-content: center; font-size: 1.1rem; font-weight: 700; border-radius: 50%; }
 .dc-title      { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin: 0; }
 .dc-sub        { font-size: .875rem; color: var(--text-muted); margin: .25rem 0 0; }
 
