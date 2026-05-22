@@ -164,9 +164,6 @@ class BovedaController extends Controller
             );
         }
 
-        // Merma = lo que había disponible menos lo que pesó al sacar
-        $merma = round($disponible - $kg, 3);
-
         $businessId = Auth::user()->business_id;
         $userId     = Auth::id();
 
@@ -191,10 +188,16 @@ class BovedaController extends Controller
             }
         }
 
-        DB::transaction(function () use ($entry, $kg, $merma, $businessId, $userId, $requiresDespiece, $vitrinaProduct): void {
+        DB::transaction(function () use ($entry, $kg, $businessId, $userId, $requiresDespiece, $vitrinaProduct): void {
             $entry->increment('kg_surtido_vitrina', $kg);
-            if ($merma > 0) {
-                $entry->increment('waste_kg', $merma);
+
+            $entry->refresh();
+            if ((float) $entry->kg_disponible <= 0) {
+                $entry->update([
+                    'closed_at' => now(),
+                    'waste_kg'  => max(0, (float) $entry->kg_entrada
+                                   - (float) $entry->kg_surtido_vitrina),
+                ]);
             }
 
             if ($requiresDespiece) {
@@ -239,7 +242,6 @@ class BovedaController extends Controller
                 'model_id'    => $entry->id,
                 'new_values'  => [
                     'kg_surtir'         => $kg,
-                    'merma'             => $merma,
                     'requires_despiece' => $requiresDespiece,
                 ],
             ]);
@@ -261,7 +263,11 @@ class BovedaController extends Controller
         $businessId = Auth::user()->business_id;
         $userId     = Auth::id();
 
-        $entry->update(['closed_at' => now()]);
+        $entry->update([
+            'closed_at' => now(),
+            'waste_kg'  => max(0, (float) $entry->kg_entrada
+                           - (float) $entry->kg_surtido_vitrina),
+        ]);
 
         ActivityLog::create([
             'business_id' => $businessId,
