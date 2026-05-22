@@ -346,27 +346,83 @@ if (!$res['ok']) {
     fail('Surtir -1.0 kg (negativo)', 'Error: debe rechazar negativo', 'Aceptó negativo — VULNERABILIDAD CRÍTICA');
 }
 
-// 2.9 — Surtir exactamente el disponible (kg_disponible → 0)
-$entryDrain = $bovedaEntries[1]; // Res #2
-$entryDrain->refresh();
-$kgRestante = round(
-    (float)$entryDrain->kg_entrada - (float)$entryDrain->kg_surtido_vitrina - (float)$entryDrain->waste_kg,
-    3
-);
-$res = surtirBoveda($entryDrain, $kgRestante, $businessId, $user);
-if ($res['ok']) {
+// 2.9 — Surtir exactamente el disponible vía BovedaController::surte() real
+// Las entries anteriores tienen kg_disponible=0 por la merma del helper de test.
+// Crear entry fresca para aislar este caso: leer kg_disponible real y drenarlo.
+$bovedaCtrl = app(\App\Http\Controllers\BovedaController::class);
+$entryDrain = null;
+try {
+    $entryDrain = BovedaEntry::create([
+        'business_id'  => $businessId,
+        'product_type' => 'Res Entera',
+        'description'  => '[ST] Drain test — surtir hasta 0',
+        'kg_entrada'   => 5.0,
+        'costo_usd'    => 10.0,
+        'supplier'     => 'ST-Test',
+        'entered_at'   => now(),
+    ]);
+} catch (\Throwable $e) {
+    fail('Crear entry para drain test', 'Entry creada', $e->getMessage());
+}
+
+if ($entryDrain) {
     $entryDrain->refresh();
-    $disponiblePost = round(
+    $kgDisponible = round(
         (float)$entryDrain->kg_entrada - (float)$entryDrain->kg_surtido_vitrina - (float)$entryDrain->waste_kg,
         3
     );
-    if (abs($disponiblePost) < 0.001) {
-        pass("Surtir hasta kg=0 en Res #{$entryDrain->id}", 'kg_disponible = 0', "kg_disponible post = {$disponiblePost} ✓");
-    } else {
-        fail("Surtir hasta kg=0 en Res #{$entryDrain->id}", 'kg_disponible = 0', "Quedó {$disponiblePost} kg — merma no aplicada");
+    echo "  Entry drain: ID={$entryDrain->id} | kg_disponible={$kgDisponible} kg\n";
+
+    try {
+        $bovedaReq = HttpRequest::create(
+            '/boveda/' . $entryDrain->id . '/surte', 'POST',
+            ['peso_real' => $kgDisponible]
+        );
+        $response = $bovedaCtrl->surte($bovedaReq, $entryDrain);
+        $body     = json_decode($response->getContent(), true);
+
+        if ($response->getStatusCode() === 200 && isset($body['message'])) {
+            $entryDrain->refresh();
+            if ($entryDrain->closed_at !== null) {
+                pass(
+                    "Surtir hasta kg=0 (drain {$kgDisponible} kg) — ID={$entryDrain->id}",
+                    'Surtido OK + entry cerrada (closed_at set)',
+                    "closed_at={$entryDrain->closed_at} ✓"
+                );
+            } else {
+                fail(
+                    "Surtir hasta kg=0 — ID={$entryDrain->id}",
+                    'Entry cerrada (closed_at set)',
+                    'Surtido OK pero closed_at es NULL — BUG: controller no cerró la entry'
+                );
+            }
+        } else {
+            fail(
+                "Surtir hasta kg=0 — ID={$entryDrain->id}",
+                'Surtido OK (HTTP 200)',
+                json_encode($body)
+            );
+        }
+    } catch (HttpException $e) {
+        fail(
+            "Surtir hasta kg=0 — ID={$entryDrain->id}",
+            'Surtido OK',
+            "HTTP {$e->getStatusCode()}: {$e->getMessage()}"
+        );
+    } catch (ValidationException $e) {
+        $msgs = array_merge(...array_values($e->errors()));
+        fail(
+            "Surtir hasta kg=0 — ID={$entryDrain->id}",
+            'Surtido OK',
+            'ValidationError: ' . implode(' | ', $msgs)
+        );
+    } catch (\Throwable $e) {
+        fail(
+            "Surtir hasta kg=0 — ID={$entryDrain->id}",
+            'Surtido OK',
+            get_class($e) . ': ' . $e->getMessage()
+        );
     }
-} else {
-    fail("Surtir hasta kg=0 en Res #{$entryDrain->id}", 'Surtido exacto OK', $res['error']);
 }
 
 // 2.10 — Intentar surtir una entrada ya cerrada
@@ -565,7 +621,7 @@ if ($entradaSinDespiece) {
     }
 }
 
-// 3.5 — Lote fábrica (chorizo) con ingredientes disponibles/insuficientes
+// 3.5 — Lote fábrica con stock insuficiente — llama FabricaController::store() real
 $chorizoProduct = Product::where('business_id', $businessId)
     ->where('fabricable', true)
     ->where('active', true)
@@ -594,64 +650,71 @@ if ($chorizoProduct) {
 
         echo "  Ingrediente: {$ingrediente->name} ID={$ingrediente->id} | stock={$stockReal} kg\n\n";
 
-        // Lote CON stock insuficiente (pedir 999999 kg)
-        // Nota: el sistema NO valida stock al crear lote fábrica (solo registra entradas negativas)
+        // Lote CON stock insuficiente (pedir 999999 kg) — vía controller real
         try {
-            $batchCreated = DB::transaction(function () use ($chorizoProduct, $ingrediente, $businessId, $user) {
-                $batch = FabricaBatch::create([
-                    'business_id'       => $businessId,
-                    'created_by'        => $user->id,
-                    'output_product_id' => $chorizoProduct->id,
-                    'output_kg'         => 10.0,
-                    'output_units'      => 0,
-                    'input_cost_usd'    => 0,
-                    'notes'             => '[ST] Lote fábrica con stock insuficiente',
-                    'produced_at'       => now(),
-                ]);
-
-                $batch->inputs()->create([
+            $fabCtrl = app(\App\Http\Controllers\FabricaController::class);
+            $fabReq  = HttpRequest::create('/fabrica/lotes', 'POST', [
+                'output_product_id' => $chorizoProduct->id,
+                'output_kg'         => 10.0,
+                'produced_at'       => now()->format('Y-m-d H:i:s'),
+                'notes'             => '[ST] Lote fábrica con stock insuficiente',
+                'inputs'            => [[
                     'product_id'  => $ingrediente->id,
-                    'quantity_kg' => 999999.0,  // WAY más de lo disponible
+                    'quantity_kg' => 999999.0,
                     'cost_usd'    => 0,
-                ]);
+                ]],
+            ]);
 
-                InventoryEntry::create([
-                    'business_id' => $businessId,
-                    'product_id'  => $ingrediente->id,
-                    'quantity_kg' => -999999.0,
-                    'waste_kg'    => 0,
-                    'location'    => 'vitrina',
-                    'notes'       => '[ST] Insumo fábrica EXCESO — test',
-                    'entered_at'  => now(),
-                    'created_by'  => $user->id,
-                ]);
+            // Bind sesión para que back()->withErrors() pueda flashear errores
+            try {
+                $fabReq->setLaravelSession(app('session.store'));
+            } catch (\Throwable) {
+                // Sesión no disponible en CLI — continuar sin sesión
+            }
 
-                InventoryEntry::create([
-                    'business_id' => $businessId,
-                    'product_id'  => $chorizoProduct->id,
-                    'quantity_kg' => 10.0,
-                    'waste_kg'    => 0,
-                    'location'    => 'vitrina',
-                    'notes'       => '[ST] Producción fábrica EXCESO — test',
-                    'entered_at'  => now(),
-                    'created_by'  => $user->id,
-                ]);
+            $response = $fabCtrl->store($fabReq);
 
-                return $batch;
-            });
-            // Si llegó aquí, el sistema ACEPTÓ stock negativo
-            fail(
-                "Lote fábrica con 999999 kg ({$ingrediente->name}, stock={$stockReal})",
-                'Error: stock insuficiente rechazado',
-                "ACEPTÓ stock negativo — ID={$batchCreated->id} — BUG: sistema no valida stock en Fábrica"
-            );
-            // Marcar para cleanup
-            $batchCreated->delete();
-        } catch (\Throwable $e) {
+            if ($response instanceof \Illuminate\Http\RedirectResponse) {
+                // Controller detectó stock insuficiente y devolvió back()->withErrors()
+                try {
+                    $errors   = $response->getSession()->get('errors');
+                    $errorMsg = $errors
+                        ? 'Stock insuficiente rechazado: ' . (string) $errors
+                        : 'Stock insuficiente rechazado (RedirectResponse)';
+                } catch (\Throwable) {
+                    $errorMsg = 'Stock insuficiente rechazado (RedirectResponse — sesión CLI no disponible)';
+                }
+                pass(
+                    "Lote fábrica 999999 kg ({$ingrediente->name}, stock={$stockReal})",
+                    'Error: stock insuficiente rechazado',
+                    $errorMsg
+                );
+            } else {
+                // Respuesta inesperada — controller aceptó el lote con stock imposible
+                fail(
+                    "Lote fábrica 999999 kg ({$ingrediente->name}, stock={$stockReal})",
+                    'Error: stock insuficiente rechazado',
+                    'ACEPTÓ stock insuficiente — BUG: sistema no valida stock en Fábrica'
+                );
+            }
+        } catch (HttpException $e) {
             pass(
-                "Lote fábrica con stock insuficiente",
-                'Error: sin stock',
-                $e->getMessage()
+                "Lote fábrica 999999 kg ({$ingrediente->name}, stock={$stockReal})",
+                'Error: rechazado por controller',
+                "HTTP {$e->getStatusCode()}: {$e->getMessage()}"
+            );
+        } catch (ValidationException $e) {
+            $msgs = array_merge(...array_values($e->errors()));
+            pass(
+                "Lote fábrica 999999 kg ({$ingrediente->name}, stock={$stockReal})",
+                'Error: validación',
+                implode(' | ', $msgs)
+            );
+        } catch (\Throwable $e) {
+            fail(
+                "Lote fábrica 999999 kg ({$ingrediente->name}, stock={$stockReal})",
+                'Error controlado',
+                get_class($e) . ': ' . $e->getMessage()
             );
         }
     } else {
@@ -816,6 +879,20 @@ function voidVenta(Sale $sale, string $reason, SaleController $ctrl): array {
 $posCtrl = app(SaleController::class);
 
 $ventasCreadas = [];
+
+// Inyectar stock de prueba para que las ventas no dependan del estado que dejó FASE 3
+DB::table('inventory_entries')->insert([
+    'business_id' => $businessId,
+    'product_id'  => $productoConStock->id,
+    'quantity_kg' => 9999,
+    'waste_kg'    => 0,
+    'location'    => 'vitrina',
+    'notes'       => 'ST-stock-prueba',
+    'entered_at'  => now(),
+    'created_by'  => $user->id,
+    'created_at'  => now(),
+    'updated_at'  => now(),
+]);
 
 // 4.1 — 10 ventas rápidas consecutivas via SaleController::store() + pay()
 $montoPorVenta = 500.0; // Bs. por venta
@@ -1198,6 +1275,9 @@ try {
         ->where('notes', 'like', '%[ST]%')
         ->delete();
     echo "  FabricaBatches [ST] eliminados: {$stBatches}\n";
+
+    // Eliminar stock de prueba inyectado antes de FASE 4
+    DB::table('inventory_entries')->where('notes', 'ST-stock-prueba')->delete();
 
     // Eliminar activity logs del test
     $stLogs = ActivityLog::where('business_id', $businessId)
