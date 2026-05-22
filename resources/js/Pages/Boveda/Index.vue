@@ -202,6 +202,7 @@ const editingProduct   = ref(null);
 const savingProduct    = ref(false);
 const productForm      = ref({ name: '', unit: 'kg', requires_despiece: true, vitrina_product_id: null });
 const productErrors    = ref({});
+const deactivating     = ref(null);
 
 // Lista reactiva local (se actualiza optimistamente para no recargar página)
 const localBovedaProducts = ref([...props.bovedaProducts]);
@@ -318,7 +319,9 @@ async function saveProduct() {
     }
 }
 async function deactivateProduct(product) {
+    if (deactivating.value === product.id) return;
     if (!confirm(`¿Desactivar "${product.name}"? No aparecerá en el selector de entradas.`)) return;
+    deactivating.value = product.id;
     try {
         const res = await fetch(route('boveda.product.destroy', { product: product.id }), {
             method: 'DELETE',
@@ -330,6 +333,8 @@ async function deactivateProduct(product) {
         showFlash('Producto desactivado.');
     } catch (e) {
         alert(e?.message ?? 'Error al desactivar');
+    } finally {
+        deactivating.value = null;
     }
 }
 </script>
@@ -539,6 +544,7 @@ async function deactivateProduct(product) {
                                     <button
                                         v-if="p.active"
                                         class="btn-sm btn-close"
+                                        :disabled="deactivating === p.id"
                                         @click="deactivateProduct(p)"
                                     >Desactivar</button>
                                 </td>
@@ -566,11 +572,12 @@ async function deactivateProduct(product) {
                                     <option v-for="p in bovedaProductosActivos" :key="p.id" :value="p.name">{{ p.name }}</option>
                                     <option :value="OTRO_LABEL">{{ OTRO_LABEL }}</option>
                                 </select>
-                                <span v-if="entradaErrors.product_type" class="field-err">{{ entradaErrors.product_type[0] }}</span>
+                                <span v-if="entradaErrors.product_type && !isCustomType" class="field-err">{{ entradaErrors.product_type[0] }}</span>
                             </div>
                             <div v-if="isCustomType" class="form-field full">
                                 <label>Especificar tipo</label>
                                 <input v-model="entradaForm.customProductType" type="text" class="form-input" maxlength="80" placeholder="Ej: Res Madurada, Cerdo Entero…" />
+                                <p v-if="entradaErrors.product_type && isCustomType" class="text-red-500 text-xs mt-1">{{ entradaErrors.product_type[0] }}</p>
                             </div>
                             <div class="form-field full">
                                 <label>Descripción (opcional)</label>
@@ -579,12 +586,12 @@ async function deactivateProduct(product) {
                             </div>
                             <div class="form-field">
                                 <label>Kg entrada</label>
-                                <input v-model="entradaForm.kg_entrada" type="number" class="form-input" min="0.001" step="0.001" placeholder="0.000" />
+                                <input v-model.number="entradaForm.kg_entrada" type="number" class="form-input" min="0.001" step="0.001" placeholder="0.000" />
                                 <span v-if="entradaErrors.kg_entrada" class="field-err">{{ entradaErrors.kg_entrada[0] }}</span>
                             </div>
                             <div class="form-field">
                                 <label>Costo USD (total)</label>
-                                <input v-model="entradaForm.costo_usd" type="number" class="form-input" min="0" step="0.01" placeholder="0.00" />
+                                <input v-model.number="entradaForm.costo_usd" type="number" class="form-input" min="0" step="0.01" placeholder="0.00" />
                                 <span v-if="entradaErrors.costo_usd" class="field-err">{{ entradaErrors.costo_usd[0] }}</span>
                             </div>
                             <div class="form-field">
