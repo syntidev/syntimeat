@@ -264,22 +264,24 @@ class BovedaController extends Controller
         $businessId = Auth::user()->business_id;
         $userId     = Auth::id();
 
-        $entry->update([
-            'closed_at' => now(),
-            'waste_kg'  => max(0, (float) $entry->kg_entrada
-                           - (float) $entry->kg_surtido_vitrina),
-        ]);
+        return DB::transaction(function () use ($entry, $businessId, $userId): \Illuminate\Http\JsonResponse {
+            $entry->update([
+                'closed_at' => now(),
+                'waste_kg'  => max(0, (float) $entry->kg_entrada
+                               - (float) $entry->kg_surtido_vitrina),
+            ]);
 
-        ActivityLog::create([
-            'business_id' => $businessId,
-            'user_id'     => $userId,
-            'action'      => 'boveda.close',
-            'model_type'  => 'BovedaEntry',
-            'model_id'    => $entry->id,
-            'description' => 'Entrada bóveda #' . $entry->id . ' cerrada.',
-        ]);
+            ActivityLog::create([
+                'business_id' => $businessId,
+                'user_id'     => $userId,
+                'action'      => 'boveda.close',
+                'model_type'  => 'BovedaEntry',
+                'model_id'    => $entry->id,
+                'description' => 'Entrada bóveda #' . $entry->id . ' cerrada.',
+            ]);
 
-        return response()->json(['message' => 'Entrada cerrada.']);
+            return response()->json(['message' => 'Entrada cerrada.']);
+        });
     }
 
     public function registerMerma(Request $request, BovedaEntry $entry): \Illuminate\Http\JsonResponse
@@ -309,20 +311,22 @@ class BovedaController extends Controller
 
         $mermaCalculada = round($disponible - $pesoActual, 3);
 
-        $entry->increment('waste_kg', $mermaCalculada);
+        return DB::transaction(function () use ($entry, $mermaCalculada): \Illuminate\Http\JsonResponse {
+            $entry->increment('waste_kg', $mermaCalculada);
 
-        ActivityLog::create([
-            'business_id' => Auth::user()->business_id,
-            'user_id'     => Auth::id(),
-            'action'      => 'boveda.merma',
-            'model_type'  => 'BovedaEntry',
-            'model_id'    => $entry->id,
-        ]);
+            ActivityLog::create([
+                'business_id' => Auth::user()->business_id,
+                'user_id'     => Auth::id(),
+                'action'      => 'boveda.merma',
+                'model_type'  => 'BovedaEntry',
+                'model_id'    => $entry->id,
+            ]);
 
-        return response()->json([
-            'message'          => 'Merma registrada.',
-            'merma_calculada'  => $mermaCalculada,
-        ]);
+            return response()->json([
+                'message'          => 'Merma registrada.',
+                'merma_calculada'  => $mermaCalculada,
+            ]);
+        });
     }
 
     public function storeProduct(Request $request): \Illuminate\Http\JsonResponse
@@ -340,24 +344,26 @@ class BovedaController extends Controller
             'vitrina_product_id' => ['nullable', 'integer', 'exists:products,id'],
         ]);
 
-        $product = BovedaProduct::create([
-            'business_id'        => $businessId,
-            'name'               => $data['name'],
-            'unit'               => $data['unit'] ?? 'kg',
-            'active'             => true,
-            'requires_despiece'  => $data['requires_despiece'] ?? true,
-            'vitrina_product_id' => $data['vitrina_product_id'] ?? null,
-        ]);
+        return DB::transaction(function () use ($businessId, $data): \Illuminate\Http\JsonResponse {
+            $product = BovedaProduct::create([
+                'business_id'        => $businessId,
+                'name'               => $data['name'],
+                'unit'               => $data['unit'] ?? 'kg',
+                'active'             => true,
+                'requires_despiece'  => $data['requires_despiece'] ?? true,
+                'vitrina_product_id' => $data['vitrina_product_id'] ?? null,
+            ]);
 
-        ActivityLog::create([
-            'business_id' => $businessId,
-            'user_id'     => Auth::id(),
-            'action'      => 'boveda.product.create',
-            'model_type'  => 'BovedaProduct',
-            'model_id'    => $product->id,
-        ]);
+            ActivityLog::create([
+                'business_id' => $businessId,
+                'user_id'     => Auth::id(),
+                'action'      => 'boveda.product.create',
+                'model_type'  => 'BovedaProduct',
+                'model_id'    => $product->id,
+            ]);
 
-        return response()->json(['product' => $this->formatBovedaProduct($product)], 201);
+            return response()->json(['product' => $this->formatBovedaProduct($product)], 201);
+        });
     }
 
     public function updateProduct(Request $request, BovedaProduct $product): \Illuminate\Http\JsonResponse
@@ -377,24 +383,26 @@ class BovedaController extends Controller
             'vitrina_product_id' => ['nullable', 'integer', 'exists:products,id'],
         ]);
 
-        $product->update([
-            'name'               => $data['name'],
-            'unit'               => $data['unit'] ?? $product->unit,
-            'requires_despiece'  => $data['requires_despiece'] ?? $product->requires_despiece,
-            'vitrina_product_id' => array_key_exists('vitrina_product_id', $data)
-                ? $data['vitrina_product_id']
-                : $product->vitrina_product_id,
-        ]);
+        return DB::transaction(function () use ($product, $businessId, $data): \Illuminate\Http\JsonResponse {
+            $product->update([
+                'name'               => $data['name'],
+                'unit'               => $data['unit'] ?? $product->unit,
+                'requires_despiece'  => $data['requires_despiece'] ?? $product->requires_despiece,
+                'vitrina_product_id' => array_key_exists('vitrina_product_id', $data)
+                    ? $data['vitrina_product_id']
+                    : $product->vitrina_product_id,
+            ]);
 
-        ActivityLog::create([
-            'business_id' => $businessId,
-            'user_id'     => Auth::id(),
-            'action'      => 'boveda.product.update',
-            'model_type'  => 'BovedaProduct',
-            'model_id'    => $product->id,
-        ]);
+            ActivityLog::create([
+                'business_id' => $businessId,
+                'user_id'     => Auth::id(),
+                'action'      => 'boveda.product.update',
+                'model_type'  => 'BovedaProduct',
+                'model_id'    => $product->id,
+            ]);
 
-        return response()->json(['product' => $this->formatBovedaProduct($product)]);
+            return response()->json(['product' => $this->formatBovedaProduct($product)]);
+        });
     }
 
     public function plantillaDespiece(BovedaEntry $entry): View
@@ -452,18 +460,20 @@ class BovedaController extends Controller
     {
         abort_unless($product->business_id === Auth::user()->business_id, 403);
 
-        $product->update(['active' => false]);
+        return DB::transaction(function () use ($product): \Illuminate\Http\JsonResponse {
+            $product->update(['active' => false]);
 
-        ActivityLog::create([
-            'business_id' => $product->business_id,
-            'user_id'     => Auth::id(),
-            'action'      => 'boveda.product.deactivate',
-            'model_type'  => 'BovedaProduct',
-            'model_id'    => $product->id,
-            'description' => 'Producto bóveda desactivado: ' . $product->name,
-        ]);
+            ActivityLog::create([
+                'business_id' => $product->business_id,
+                'user_id'     => Auth::id(),
+                'action'      => 'boveda.product.deactivate',
+                'model_type'  => 'BovedaProduct',
+                'model_id'    => $product->id,
+                'description' => 'Producto bóveda desactivado: ' . $product->name,
+            ]);
 
-        return response()->json(['ok' => true]);
+            return response()->json(['ok' => true]);
+        });
     }
 
     private function formatBovedaProduct(BovedaProduct $p): array

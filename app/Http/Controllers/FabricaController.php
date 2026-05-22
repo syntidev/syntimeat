@@ -14,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -282,7 +283,11 @@ class FabricaController extends Controller
         $data = $request->validate([
             'boveda_entry_id' => ['required', 'integer', 'exists:boveda_entries,id'],
             'cortes'          => ['required', 'array', 'min:1'],
-            'cortes.*.product_id' => ['required', 'integer', 'exists:products,id'],
+            'cortes.*.product_id' => [
+                'required', 'integer',
+                Rule::exists('products', 'id')
+                    ->where('business_id', auth()->user()->business_id),
+            ],
             'cortes.*.kg'         => ['required', 'numeric', 'min:0'],
             'notes'           => ['nullable', 'string', 'max:500'],
         ]);
