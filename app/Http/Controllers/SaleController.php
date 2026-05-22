@@ -655,7 +655,13 @@ class SaleController extends Controller
 
     private function generateTicketNumber(int $businessId, string $prefix): string
     {
-        $count = Sale::where('business_id', $businessId)->count() + 1;
-        return $prefix . '-' . str_pad((string) $count, 4, '0', STR_PAD_LEFT);
+        return DB::transaction(function () use ($businessId, $prefix): string {
+            $last = Sale::where('business_id', $businessId)
+                ->lockForUpdate()
+                ->orderByDesc('id')
+                ->value('ticket_number');
+            $n = $last ? ((int) preg_replace('/\D/', '', $last)) + 1 : 1;
+            return $prefix . '-' . str_pad((string) $n, 4, '0', STR_PAD_LEFT);
+        });
     }
 }
