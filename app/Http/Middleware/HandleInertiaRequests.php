@@ -23,13 +23,14 @@ class HandleInertiaRequests extends Middleware
 
     public function share(Request $request): array
     {
-        $tasa                  = ['rate' => 40.0, 'source' => 'fallback', 'hora' => null];
-        $stockCriticoCount     = 0;
-        $cobrosPendientesCount = 0;
+        $tasa                   = ['rate' => 40.0, 'source' => 'fallback', 'hora' => null];
+        $stockCriticoCount      = 0;
+        $cobrosPendientesCount  = 0;
         $despiecePendienteCount = 0;
-        $businessName          = '';
-        $businessLogoUrl   = null;
-        $themeColor        = 'blue';
+        $businessName           = '';
+        $businessLogoUrl        = null;
+        $themeColor             = 'blue';
+        $branches               = [];
 
         if ($user = $request->user()) {
             try {
@@ -57,7 +58,11 @@ class HandleInertiaRequests extends Middleware
                     $businessLogoUrl = $business->logo_path
                         ? Storage::disk('public')->url($business->logo_path)
                         : null;
-                    $bid          = $business->id;
+                    $bid      = $business->id;
+                    $branches = $business->branches()
+                        ->where('is_active', true)
+                        ->get(['id', 'name'])
+                        ->toArray();
 
                     $stockCriticoCount = Cache::remember(
                         "stock_critico_count_{$bid}",
@@ -127,6 +132,8 @@ class HandleInertiaRequests extends Middleware
             'business_name'       => $businessName,
             'business_logo_url'   => $businessLogoUrl,
             'theme_color'         => $themeColor,
+            'branches'            => $branches,
+            'currentBranch'       => session('current_branch_id'),
         ];
     }
 }

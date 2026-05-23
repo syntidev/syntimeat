@@ -222,8 +222,13 @@ class SaleController extends Controller
                 ->whereNull('closed_at')
                 ->first();
 
+            $nowCredit      = now('America/Caracas');
+            $accountingDate = $nowCredit->hour >= 19
+                ? $nowCredit->copy()->addDay()->toDateString()
+                : $nowCredit->toDateString();
+
             $sale = DB::transaction(function () use (
-                $businessId, $user, $ticketNumber, $totalUsd, $totalBs, $itemsToCreate, $channel, $rate, $cashRegister
+                $businessId, $user, $ticketNumber, $totalUsd, $totalBs, $itemsToCreate, $channel, $rate, $cashRegister, $accountingDate
             ) {
 
                 $sale = Sale::create([
@@ -236,6 +241,7 @@ class SaleController extends Controller
                     'total_bs'        => $totalBs,
                     'rate_used'       => $rate,
                     'sold_at'         => now(),
+                    'accounting_date' => $accountingDate,
                     'cashier_id'      => $user->id,
                     'origin'          => 'credit',
                     'channel'         => $channel,
@@ -375,9 +381,14 @@ class SaleController extends Controller
         // Para compatibilidad con campos legacy de Sale, tomar el primer método
         $firstMethod = $methods[$data['payments'][0]['payment_method_id']];
 
+        $nowPay           = now('America/Caracas');
+        $accountingDatePay = $nowPay->hour >= 19
+            ? $nowPay->copy()->addDay()->toDateString()
+            : $nowPay->toDateString();
+
         DB::transaction(function () use (
             $sale, $rate, $totalBs, $changeBs, $changeUsd,
-            $firstMethod, $data, $methods, $businessId, $user, $cashRegister, $clientId
+            $firstMethod, $data, $methods, $businessId, $user, $cashRegister, $clientId, $accountingDatePay
         ) {
             $sale->update([
                 'status'              => 'paid',
@@ -387,6 +398,7 @@ class SaleController extends Controller
                 'amount_received_usd' => $rate > 0 ? round(array_sum(array_column($data['payments'], 'amount_bs')) / $rate, 2) : 0.0,
                 'change_usd'          => $changeUsd,
                 'sold_at'             => now(),
+                'accounting_date'     => $accountingDatePay,
                 'cash_register_id'    => $cashRegister->id,
                 'client_name'         => $data['client_name'] ?? null,
                 'client_phone'        => $data['client_phone'] ?? null,

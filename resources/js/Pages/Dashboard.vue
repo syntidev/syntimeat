@@ -2,7 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue'
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import axios from 'axios'
-import { Receipt, BarChart2, AlertTriangle, CheckCircle, Package, Check } from '@lucide/vue'
+import { Receipt, BarChart2, AlertTriangle, CheckCircle, Package, Check, Bell, X } from '@lucide/vue'
 
 // ─── Props iniciales desde Inertia ────────────────────────────────────────────
 const props = defineProps({
@@ -15,6 +15,7 @@ const props = defineProps({
     pedidos_pendientes: { type: Number, default: 0 },
     categorias_hoy:     { type: Array,  default: () => [] },
     utilidad_boveda:    { type: Array,  default: () => [] },
+    banking_alert:      { type: String, default: null },
 })
 
 const d = ref({
@@ -28,6 +29,7 @@ const d = ref({
     categorias_hoy:      props.categorias_hoy,
     utilidad_boveda:     props.utilidad_boveda,
     kilos_por_categoria: [],
+    banking_alert:       props.banking_alert,
 })
 
 // ─── Polling 30 s ─────────────────────────────────────────────────────────────
@@ -127,11 +129,34 @@ function updateHora() {
 let clockTimer = null
 onMounted(() => { updateHora(); clockTimer = setInterval(updateHora, 1000) })
 onUnmounted(() => clearInterval(clockTimer))
+
+// ─── Alerta de corte bancario ──────────────────────────────────────────────────
+// Se descarta manualmente; se restablece si el polling trae un mensaje nuevo
+const dismissedAlertText = ref(null)
+const activeBankingAlert = computed(() => {
+    const msg = d.value.banking_alert
+    if (!msg || msg === dismissedAlertText.value) return null
+    return msg
+})
+function dismissBankingAlert() {
+    dismissedAlertText.value = d.value.banking_alert
+}
 </script>
 
 <template>
     <AppLayout title="Dashboard">
         <div class="dash-wrap">
+
+            <!-- ═══ ALERTA CORTE BANCARIO ═════════════════════════════════════ -->
+            <Transition name="banking-alert">
+                <div v-if="activeBankingAlert" class="banking-banner" role="alert" aria-live="assertive">
+                    <Bell :size="18" class="banking-banner__icon" />
+                    <span class="banking-banner__msg">{{ activeBankingAlert }}</span>
+                    <button class="banking-banner__close" @click="dismissBankingAlert" aria-label="Cerrar alerta">
+                        <X :size="16" />
+                    </button>
+                </div>
+            </Transition>
 
             <!-- ═══ HERO KPIs ══════════════════════════════════════════════════ -->
             <div class="kpi-hero">
@@ -819,4 +844,42 @@ onUnmounted(() => clearInterval(clockTimer))
     .kpi-side { grid-template-columns: none; grid-template-rows: repeat(3, 1fr); }
     .main-row { grid-template-columns: 1.4fr 1fr; }
 }
+
+/* ═══ BANNER CORTE BANCARIO ═══════════════════════════════════════════════════ */
+.banking-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(90deg, rgba(245,158,11,0.15), rgba(239,68,68,0.10));
+    border: 1px solid rgba(245,158,11,0.5);
+    border-radius: 12px;
+    color: #f59e0b;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+.banking-banner__icon { flex-shrink: 0; }
+.banking-banner__msg  { flex: 1; }
+.banking-banner__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: inherit;
+    opacity: 0.7;
+    padding: 0.25rem;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: 8px;
+    transition: opacity 0.2s, background 0.2s;
+}
+.banking-banner__close:hover { opacity: 1; background: rgba(245,158,11,0.12); }
+
+/* Transition */
+.banking-alert-enter-active,
+.banking-alert-leave-active { transition: opacity 0.3s ease, transform 0.3s ease; }
+.banking-alert-enter-from,
+.banking-alert-leave-to     { opacity: 0; transform: translateY(-6px); }
 </style>

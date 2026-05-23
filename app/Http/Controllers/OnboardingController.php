@@ -154,6 +154,11 @@ class OnboardingController extends Controller
 
         session()->forget(['onboarding_step', 'onboarding_business_id']);
 
+        \App\Models\Branch::firstOrCreate(
+            ['business_id' => $business->id, 'name' => $data['business_name'] ?? 'Principal'],
+            ['is_active' => true, 'city' => $data['city'] ?? null]
+        );
+
         Auth::login($user);
 
         return redirect()->route('dashboard');

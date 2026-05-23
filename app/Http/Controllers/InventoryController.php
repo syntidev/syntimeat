@@ -22,11 +22,14 @@ class InventoryController extends Controller
         $business   = Auth::user()->business;
         $businessId = $business->id;
 
-        // ─── Productos activos con categoría ─────────────────────────────────
-        $products = Product::with('category')
+        // ─── Productos activos con categoría y sucursal ───────────────────────
+        $branchId = session('current_branch_id') ?? Auth::user()->branch_id;
+
+        $products = Product::with(['category', 'branch'])
             ->where('business_id', $businessId)
             ->where('active', true)
             ->where('location', '!=', 'boveda')
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->orderBy('sort_order')
             ->get();
 

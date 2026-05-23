@@ -332,6 +332,7 @@ const helpFaqs = [
                             <tr>
                                 <th class="th-sort" @click="toggleSort('name')">Producto <span class="sort-icon">{{ sortIcon('name') }}</span></th>
                                 <th>Categoría</th>
+                                <th>Sucursal</th>
                                 <th class="txt-right th-sort" @click="toggleSort('stock')">Stock <span class="sort-icon">{{ sortIcon('stock') }}</span></th>
                                 <th class="th-sort" @click="toggleSort('status')">Estado <span class="sort-icon">{{ sortIcon('status') }}</span></th>
                                 <th class="th-sort" @click="toggleSort('last')">Última entrada <span class="sort-icon">{{ sortIcon('last') }}</span></th>
@@ -350,6 +351,7 @@ const helpFaqs = [
                                     <span class="cat-dot" :style="{ background: p.category?.color ?? 'var(--brand)' }"></span>
                                     {{ p.category?.name ?? '—' }}
                                 </td>
+                                <td class="txt-muted">{{ p.branch?.name ?? '—' }}</td>
                                 <td class="txt-right mono">
                                     {{ fmtKg(stockValue(p.id)) }}
                                     <small>{{ p.sale_mode === 'weight' ? 'kg' : 'und' }}</small>
@@ -363,7 +365,7 @@ const helpFaqs = [
                                 <td class="txt-muted row-arrow">›</td>
                             </tr>
                             <tr v-if="pagedProducts.length === 0">
-                                <td colspan="6" class="empty-cell">Sin productos que coincidan.</td>
+                                <td colspan="7" class="empty-cell">Sin productos que coincidan.</td>
                             </tr>
                         </tbody>
                     </table>

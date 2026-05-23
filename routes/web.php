@@ -29,12 +29,7 @@ Route::post('/setup/{step}', [OnboardingController::class, 'store'])
 
 // ─── Public ───────────────────────────────────────────────────────────────────
 Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin'       => Route::has('login'),
-        'canRegister'    => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion'     => PHP_VERSION,
-    ]);
+    return redirect()->route('login');
 });
 
 // ─── Authenticated + onboarding complete ─────────────────────────────────────
@@ -44,6 +39,12 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // Selector de sucursal activa en sesión
+    Route::post('/set-branch', function (\Illuminate\Http\Request $r) {
+        session(['current_branch_id' => $r->branch_id ?: null]);
+        return back();
+    })->name('branch.set');
 
     // ── Todos los roles (super_admin, admin, cashier) ─────────────────────────
     Route::middleware('role:super_admin,admin,cashier')->group(function () {

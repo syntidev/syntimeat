@@ -29,7 +29,7 @@ class CatalogController extends Controller
             ->orderBy('sort_order')
             ->get();
 
-        $branchId = Auth::user()->branch_id;
+        $branchId = session('current_branch_id') ?? Auth::user()->branch_id;
 
         $products = Product::with(['category', 'subcategory'])
             ->where('business_id', $businessId)

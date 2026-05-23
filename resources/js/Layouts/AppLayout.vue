@@ -116,6 +116,14 @@ function applyPalette(color) {
     })
 }
 
+// ─── Sucursales ───────────────────────────────────────────────────────────────
+const branches      = computed(() => page.props.branches ?? [])
+const currentBranch = computed(() => page.props.currentBranch ?? null)
+
+function changeBranch(branchId) {
+    router.post('/set-branch', { branch_id: branchId }, { preserveState: false })
+}
+
 // ─── Tasa ─────────────────────────────────────────────────────────────────────
 const tasa = computed(() => page.props.tasa ?? { rate: 40, source: 'fallback', hora: null })
 const isAdmin = computed(() => user.value?.role === 'admin')
@@ -289,6 +297,21 @@ function routeExists(routeName) {
                 <h1 class="topbar__title">{{ title }}</h1>
 
                 <div class="topbar__actions">
+
+                    <!-- Selector de sucursal -->
+                    <select
+                        v-if="branches.length > 0"
+                        @change="changeBranch($event.target.value)"
+                        class="text-xs bg-transparent border border-white/20 rounded px-2 py-1 text-white"
+                    >
+                        <option value="">Todas</option>
+                        <option
+                            v-for="b in branches"
+                            :key="b.id"
+                            :value="b.id"
+                            :selected="b.id == currentBranch"
+                        >{{ b.name }}</option>
+                    </select>
 
                     <!-- Badge caja -->
                     <span class="badge-caja">
