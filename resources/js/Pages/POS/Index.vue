@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import AppLogo from '@/Components/AppLogo.vue';
 import HelpModal from '@/Components/HelpModal.vue';
-import { Lock, AlertTriangle, FileText, Store, Bike, Clock, Check, ChevronLeft, ChevronRight } from '@lucide/vue';
+import { Lock, AlertTriangle, FileText, Store, Bike, Clock, Check, ChevronLeft, ChevronRight, Bell, X } from '@lucide/vue';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 const props = defineProps({
@@ -22,6 +22,17 @@ const props = defineProps({
 // ─── Auth / usuario ───────────────────────────────────────────────────────────
 const page     = usePage();
 const authUser = computed(() => page.props.auth?.user ?? null);
+
+// ─── Alerta de corte bancario ─────────────────────────────────────────────────
+const dismissedAlertText = ref(null);
+const activeBankingAlert = computed(() => {
+    const msg = page.props.banking_alert;
+    if (!msg || msg === dismissedAlertText.value) return null;
+    return msg;
+});
+function dismissBankingAlert() {
+    dismissedAlertText.value = page.props.banking_alert;
+}
 
 // ─── Reloj ────────────────────────────────────────────────────────────────────
 const currentTime = ref('');
@@ -822,6 +833,17 @@ const helpFaqs = [
                 </div>
 
                 <div class="grid-wrap">
+                    <!-- ── Alerta de corte bancario ── -->
+                    <Transition name="banking-alert">
+                        <div v-if="activeBankingAlert" class="banking-banner" role="alert" aria-live="assertive">
+                            <Bell :size="18" class="banking-banner__icon" />
+                            <span class="banking-banner__msg">{{ activeBankingAlert }}</span>
+                            <button class="banking-banner__close" @click="dismissBankingAlert" aria-label="Cerrar alerta">
+                                <X :size="16" />
+                            </button>
+                        </div>
+                    </Transition>
+
                     <!-- Contador solo cuando hay búsqueda activa -->
                     <p v-if="search.trim()" class="search-count">
                         {{ searchResults.length }} resultado{{ searchResults.length !== 1 ? 's' : '' }}
@@ -2347,4 +2369,43 @@ const helpFaqs = [
     .logo-text       { font-size: 14px; }
     .no-caja-pill    { font-size: 0.68rem; padding: 2px 7px; }
 }
+
+/* ═══ BANNER CORTE BANCARIO ═══════════════════════════════════════════════════ */
+.banking-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+    background: linear-gradient(90deg, rgba(245,158,11,0.15), rgba(239,68,68,0.10));
+    border: 1px solid rgba(245,158,11,0.5);
+    border-radius: 12px;
+    color: #f59e0b;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+.banking-banner__icon { flex-shrink: 0; }
+.banking-banner__msg  { flex: 1; }
+.banking-banner__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: inherit;
+    opacity: 0.7;
+    padding: 0.25rem;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: 8px;
+    transition: opacity 0.2s, background 0.2s;
+}
+.banking-banner__close:hover { opacity: 1; background: rgba(245,158,11,0.12); }
+
+/* Transition */
+.banking-alert-enter-active,
+.banking-alert-leave-active { transition: opacity 0.3s ease, transform 0.3s ease; }
+.banking-alert-enter-from,
+.banking-alert-leave-to     { opacity: 0; transform: translateY(-6px); }
 </style>
