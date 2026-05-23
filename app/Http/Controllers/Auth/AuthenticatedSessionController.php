@@ -42,6 +42,10 @@ class AuthenticatedSessionController extends Controller
         $user->updateQuietly(['session_token' => $token]);
         $request->session()->put('user_session_token', $token);
 
+        if ($user->role === 'owner' || $user->role === 'branch_admin') {
+            return redirect()->route('reports.consolidated');
+        }
+
         return redirect()->intended(route('dashboard', absolute: false));
     }
 
