@@ -63,6 +63,7 @@ class SettingsController extends Controller
 
         $file = $request->file('logo');
         if ($file && $file->isValid()) {
+            Storage::disk('public')->makeDirectory('logos');
             if ($business->logo_path) {
                 Storage::disk('public')->delete($business->logo_path);
             }
