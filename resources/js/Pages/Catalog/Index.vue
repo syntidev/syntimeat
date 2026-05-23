@@ -490,7 +490,7 @@ const helpFaqs = [
                     >Categorías</button>
                 </div>
                 <div v-if="mainTab === 'products'" class="header-actions">
-                    <button class="btn-secondary" @click="openImportModal">
+                    <button class="btn-import" @click="openImportModal">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                         Importar
                     </button>
@@ -740,28 +740,16 @@ const helpFaqs = [
                                 <div class="prod-col-right">
                                     <!-- Tipo de medida -->
                                     <label class="field-label">Tipo de medida</label>
-                                    <div class="mode-radios">
-                                        <label
-                                            class="mode-option"
-                                            :class="{ selected: form.sale_mode === 'weight' }"
-                                        >
+                                    <div class="mode-pills">
+                                        <label class="mode-pill" :class="{ active: form.sale_mode === 'weight' }">
                                             <input type="radio" value="weight" v-model="form.sale_mode" class="sr-only" />
-                                            <span class="mode-icon"><Scale :size="20" /></span>
-                                            <span class="mode-text">
-                                                <strong>Por Kilo (kg)</strong>
-                                                <small>Carnes y pesados</small>
-                                            </span>
+                                            <Scale :size="14" />
+                                            Kilo / kg
                                         </label>
-                                        <label
-                                            class="mode-option"
-                                            :class="{ selected: form.sale_mode === 'unit' }"
-                                        >
+                                        <label class="mode-pill" :class="{ active: form.sale_mode === 'unit' }">
                                             <input type="radio" value="unit" v-model="form.sale_mode" class="sr-only" />
-                                            <span class="mode-icon"><Package :size="20" /></span>
-                                            <span class="mode-text">
-                                                <strong>Por Unidad (und)</strong>
-                                                <small>Productos individuales</small>
-                                            </span>
+                                            <Package :size="14" />
+                                            Unidad / und
                                         </label>
                                     </div>
 
@@ -1273,6 +1261,23 @@ const helpFaqs = [
 }
 .btn-secondary:hover { background: var(--bg-base); color: var(--text-primary); }
 
+.btn-import {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--brand);
+    color: #fff;
+    border: 1px solid var(--brand);
+    border-radius: 0.5rem;
+    padding: 0.5rem 1.1rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity 0.15s;
+}
+.btn-import:hover { opacity: 0.85; }
+
 /* ─── Modal ──────────────────────────────────────────────────────────────── */
 .modal-overlay {
     position: fixed;
@@ -1300,23 +1305,18 @@ const helpFaqs = [
 /* ─── Product modal: 2-column, no external scroll ─────────────────────── */
 .prod-modal-box {
     max-width: 780px;
-    height: min(560px, 92vh);
-    overflow: hidden;
+    max-height: 90vh;
+    overflow-y: auto;
 }
 .prod-form-wrap {
-    flex: 1;
-    min-height: 0;
     display: flex;
     flex-direction: column;
 }
 .prod-modal-body {
-    flex: 1;
-    min-height: 0;
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .prod-col-left {
-    overflow-y: auto;
     padding: 1rem 1.25rem;
     border-right: 1px solid var(--border);
     display: flex;
@@ -1324,14 +1324,13 @@ const helpFaqs = [
     gap: 0.4rem;
 }
 .prod-col-right {
-    overflow-y: auto;
     padding: 1rem 1.25rem;
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
 }
 @media (max-width: 640px) {
-    .prod-modal-box { height: 92vh; }
+    .prod-modal-box { max-height: 92vh; }
     .prod-modal-body { grid-template-columns: 1fr; }
     .prod-col-left { border-right: none; border-bottom: 1px solid var(--border); }
 }
@@ -1414,36 +1413,39 @@ const helpFaqs = [
     border-color: #B45309;
 }
 
-/* ─── Mode radios ────────────────────────────────────────────────────────── */
-.mode-radios {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
+/* ─── Mode pills ─────────────────────────────────────────────────────────── */
+.mode-pills {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
     margin-top: 0.25rem;
+    overflow: visible;
 }
-.mode-option {
-    display: flex;
+.mode-pill {
+    display: inline-flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem;
-    border: 2px solid var(--border);
-    border-radius: 0.625rem;
+    gap: 0.35rem;
+    padding: 0.35rem 0.6rem;
+    border: 1.5px solid var(--border);
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-muted);
     cursor: pointer;
-    transition: border-color 0.15s, background 0.15s;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+    white-space: nowrap;
+    user-select: none;
 }
-.mode-option:hover { border-color: var(--brand); }
-.mode-option.selected {
+.mode-pill:hover {
     border-color: var(--brand);
-    background: color-mix(in srgb, var(--brand) 8%, transparent);
+    color: var(--text-primary);
 }
-.mode-icon { font-size: 1.4rem; }
-.mode-text {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
+.mode-pill.active {
+    border-color: var(--brand);
+    background: var(--brand);
+    color: #fff;
 }
-.mode-text strong { font-size: 0.8rem; color: var(--text-primary); }
-.mode-text small  { font-size: 0.7rem; color: var(--text-muted); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
 
 /* ─── Modal footer ───────────────────────────────────────────────────────── */
