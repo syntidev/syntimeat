@@ -327,14 +327,10 @@ function routeExists(routeName) {
                 <!-- Título de página -->
                 <h1 class="topbar__title">{{ title }}</h1>
 
-                <div class="topbar__actions">
-
-                    <!-- Selector de sucursal -->
-                    <select
-                        v-if="branches.length > 0"
-                        @change="changeBranch($event.target.value)"
-                        class="text-xs bg-transparent border border-white/20 rounded px-2 py-1 text-white"
-                    >
+                <!-- Selector de sucursal -->
+                <div v-if="branches.length > 0" class="branch-picker">
+                    <span class="branch-picker__label">Sucursal</span>
+                    <select class="branch-select" @change="changeBranch($event.target.value)">
                         <option value="">Todas</option>
                         <option
                             v-for="b in branches"
@@ -343,6 +339,9 @@ function routeExists(routeName) {
                             :selected="b.id == currentBranch"
                         >{{ b.name }}</option>
                     </select>
+                </div>
+
+                <div class="topbar__actions">
 
                     <!-- Badge caja -->
                     <span class="badge-caja">
@@ -960,5 +959,49 @@ const icons = {
 .rate-modal__submit:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+}
+
+/* ── Selector de sucursal ─────────────────────────────────────────────────── */
+.branch-picker {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: color-mix(in srgb, var(--brand) 10%, transparent);
+    border: 1.5px solid var(--brand);
+    border-radius: 0.5rem;
+    padding: 0.375rem 0.875rem;
+    flex-shrink: 0;
+    transition: background 0.15s;
+}
+.branch-picker:focus-within {
+    background: color-mix(in srgb, var(--brand) 16%, transparent);
+}
+.branch-picker__label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--brand);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.branch-select {
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    font-weight: 600;
+    font-family: inherit;
+    outline: none;
+    cursor: pointer;
+    min-width: 110px;
+    padding: 0;
+}
+.branch-select option {
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+@media (max-width: 640px) {
+    .branch-picker { display: none; }
 }
 </style>

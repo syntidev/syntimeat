@@ -348,6 +348,59 @@ function subProductCount(subId) {
     return props.products.filter(p => p.subcategory_id === subId).length
 }
 
+// ─── Importar productos ───────────────────────────────────────────────────────
+const showImportModal  = ref(false)
+const importFile       = ref(null)
+const importFileInput  = ref(null)
+const importing        = ref(false)
+const importResult     = ref(null)    // {imported, updated, warnings, total} | null
+const importError      = ref('')
+
+function openImportModal() {
+    importFile.value    = null
+    importResult.value  = null
+    importError.value   = ''
+    if (importFileInput.value) importFileInput.value.value = ''
+    showImportModal.value = true
+}
+function closeImportModal() {
+    showImportModal.value = false
+    if (!importResult.value) return
+    // Si hubo importaciones, recargar la página para ver los nuevos productos
+    if ((importResult.value.imported ?? 0) + (importResult.value.updated ?? 0) > 0) {
+        router.reload({ only: ['products', 'categories'] })
+    }
+}
+function onImportFileSelect(e) {
+    importFile.value   = e.target.files?.[0] ?? null
+    importResult.value = null
+    importError.value  = ''
+}
+async function submitImport() {
+    if (!importFile.value || importing.value) return
+    importing.value   = true
+    importResult.value = null
+    importError.value  = ''
+
+    const fd = new FormData()
+    fd.append('file', importFile.value)
+
+    try {
+        const { data } = await window.axios.post(route('catalog.import'), fd, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        })
+        importResult.value = data
+    } catch (err) {
+        const msg = err?.response?.data?.error
+            ?? err?.response?.data?.message
+            ?? err?.message
+            ?? 'Error al importar.'
+        importError.value = msg
+    } finally {
+        importing.value = false
+    }
+}
+
 // ─── Ayuda ────────────────────────────────────────────────────────────────────
 const showHelp = ref(false)
 
@@ -436,7 +489,13 @@ const helpFaqs = [
                         @click="mainTab = 'categories'"
                     >Categorías</button>
                 </div>
-                <button v-if="mainTab === 'products'" class="btn-primary" @click="openNew">+ Nuevo Producto</button>
+                <div v-if="mainTab === 'products'" class="header-actions">
+                    <button class="btn-secondary" @click="openImportModal">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Importar
+                    </button>
+                    <button class="btn-primary" @click="openNew">+ Nuevo Producto</button>
+                </div>
                 <button v-else class="btn-primary" @click="openNewCat">+ Nueva Categoría</button>
             </div>
 
@@ -855,6 +914,99 @@ const helpFaqs = [
             :faqs="helpFaqs"
             @close="showHelp = false"
         />
+
+        <!-- ── Modal Importar Productos ─────────────────────────────────────── -->
+        <Teleport to="body">
+            <div v-if="showImportModal" class="modal-overlay" @click.self="closeImportModal">
+                <div class="modal-box imp-modal">
+
+                    <div class="modal-header">
+                        <h3>Importar Productos</h3>
+                        <button class="modal-close" @click="closeImportModal">✕</button>
+                    </div>
+
+                    <div class="modal-body">
+
+                        <!-- Plantilla descargable -->
+                        <div class="imp-tip">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+                            <span>
+                                Usa el formato correcto.
+                                <a :href="route('catalog.product-template')" class="imp-template-link" download>
+                                    Descargar plantilla Excel
+                                </a>
+                            </span>
+                        </div>
+
+                        <!-- Columnas requeridas/opcionales -->
+                        <div class="imp-cols">
+                            <span class="imp-col imp-col--req">nombre *</span>
+                            <span class="imp-col imp-col--req">categoria *</span>
+                            <span class="imp-col imp-col--req">precio_usd *</span>
+                            <span class="imp-col imp-col--req">unidad *</span>
+                            <span class="imp-col">stock_kg</span>
+                            <span class="imp-col">activo</span>
+                            <span class="imp-col">descripcion</span>
+                        </div>
+
+                        <!-- File input -->
+                        <div v-if="!importResult" class="imp-upload-area" @click="importFileInput?.click()">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <span v-if="importFile">{{ importFile.name }}</span>
+                            <span v-else class="imp-upload-hint">Haz clic para seleccionar un archivo .xlsx, .xls o .csv</span>
+                        </div>
+                        <input
+                            ref="importFileInput"
+                            type="file"
+                            accept=".xlsx,.xls,.csv"
+                            class="sr-only"
+                            @change="onImportFileSelect"
+                        />
+
+                        <!-- Error general -->
+                        <p v-if="importError" class="imp-error">{{ importError }}</p>
+
+                        <!-- Resultado -->
+                        <div v-if="importResult" class="imp-result">
+                            <div class="imp-result-kpis">
+                                <div class="imp-kpi imp-kpi--created">
+                                    <span class="imp-kpi-n">{{ importResult.imported }}</span>
+                                    <span class="imp-kpi-l">Creados</span>
+                                </div>
+                                <div class="imp-kpi imp-kpi--updated">
+                                    <span class="imp-kpi-n">{{ importResult.updated }}</span>
+                                    <span class="imp-kpi-l">Actualizados</span>
+                                </div>
+                                <div class="imp-kpi imp-kpi--warn">
+                                    <span class="imp-kpi-n">{{ importResult.warnings?.length ?? 0 }}</span>
+                                    <span class="imp-kpi-l">Advertencias</span>
+                                </div>
+                            </div>
+
+                            <ul v-if="importResult.warnings?.length" class="imp-warnings">
+                                <li v-for="(w, i) in importResult.warnings" :key="i">{{ w }}</li>
+                            </ul>
+                        </div>
+
+                    </div>
+
+                    <div class="modal-footer">
+                        <button class="btn-secondary" @click="closeImportModal">
+                            {{ importResult ? 'Cerrar' : 'Cancelar' }}
+                        </button>
+                        <button
+                            v-if="!importResult"
+                            class="btn-primary"
+                            :disabled="!importFile || importing"
+                            @click="submitImport"
+                        >
+                            {{ importing ? 'Importando…' : 'Importar' }}
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+        </Teleport>
 
     </AppLayout>
 </template>
@@ -1497,4 +1649,68 @@ const helpFaqs = [
     color: var(--text-muted);
     text-align: center;
 }
+
+/* ─── Header actions ───────────────────────────────────────────────────────── */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* ─── Modal importar ───────────────────────────────────────────────────────── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 60; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+.modal-box     { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 480px; overflow: hidden; }
+.modal-header  { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); }
+.modal-header h3 { font-size: .9375rem; font-weight: 700; color: var(--text-primary); }
+.modal-close   { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; padding: .25rem; }
+.modal-body    { padding: 1.25rem; display: flex; flex-direction: column; gap: .875rem; }
+.modal-footer  { display: flex; justify-content: flex-end; gap: .625rem; padding: 1rem 1.25rem; border-top: 1px solid var(--border); }
+
+.imp-modal {}
+
+.imp-tip {
+    display: flex; align-items: flex-start; gap: .5rem;
+    background: color-mix(in srgb, var(--brand) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--brand) 25%, transparent);
+    border-radius: 8px; padding: .625rem .875rem;
+    font-size: .8rem; color: var(--text-secondary); line-height: 1.5;
+}
+.imp-template-link { color: var(--brand); font-weight: 600; text-decoration: none; }
+.imp-template-link:hover { text-decoration: underline; }
+
+.imp-cols { display: flex; flex-wrap: wrap; gap: .3rem; }
+.imp-col {
+    font-size: .7rem; padding: 2px 7px; border-radius: 20px;
+    background: var(--hover); color: var(--text-muted); border: 1px solid var(--border);
+}
+.imp-col--req { background: color-mix(in srgb, var(--brand) 12%, transparent); color: var(--brand); border-color: color-mix(in srgb, var(--brand) 30%, transparent); }
+
+.imp-upload-area {
+    border: 2px dashed var(--border);
+    border-radius: 10px; padding: 1.25rem;
+    display: flex; flex-direction: column; align-items: center; gap: .5rem;
+    cursor: pointer; transition: border-color .15s;
+    color: var(--text-muted); font-size: .85rem; text-align: center;
+}
+.imp-upload-area:hover { border-color: var(--brand); color: var(--text-primary); }
+.imp-upload-hint { font-size: .78rem; color: var(--text-muted); }
+
+.imp-error { font-size: .8rem; color: #ef4444; background: #3f0d0d; border: 1px solid #ef444444; border-radius: 8px; padding: .5rem .75rem; }
+
+.imp-result {}
+.imp-result-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin-bottom: .75rem; }
+.imp-kpi { display: flex; flex-direction: column; align-items: center; gap: 2px; border-radius: 8px; padding: .625rem; border: 1px solid var(--border); }
+.imp-kpi--created { background: #16a34a14; border-color: #16a34a44; }
+.imp-kpi--updated { background: color-mix(in srgb, var(--brand) 10%, transparent); border-color: color-mix(in srgb, var(--brand) 30%, transparent); }
+.imp-kpi--warn    { background: #78350f14; border-color: #f59e0b44; }
+.imp-kpi-n { font-size: 1.25rem; font-weight: 800; color: var(--text-primary); }
+.imp-kpi-l { font-size: .7rem; color: var(--text-muted); }
+.imp-kpi--created .imp-kpi-n { color: #16a34a; }
+.imp-kpi--updated .imp-kpi-n { color: var(--brand); }
+.imp-kpi--warn    .imp-kpi-n { color: #f59e0b; }
+
+.imp-warnings { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .3rem; max-height: 160px; overflow-y: auto; }
+.imp-warnings li { font-size: .75rem; color: #fbbf24; background: #78350f22; border: 1px solid #f59e0b33; border-radius: 6px; padding: .3rem .625rem; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
 </style>

@@ -4,18 +4,24 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Exports\SimpleExport;
+use App\Imports\EmptyImport;
 use App\Models\Category;
 use App\Models\InventoryEntry;
 use App\Models\Product;
 use App\Models\Subcategory;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class CatalogController extends Controller
 {
@@ -187,6 +193,197 @@ class CatalogController extends Controller
         $product->update(['is_favorite' => ! $product->is_favorite]);
 
         return redirect()->route('catalog.index');
+    }
+
+    // ─── Plantilla Excel de productos ─────────────────────────────────────────
+
+    public function downloadProductTemplate(): BinaryFileResponse
+    {
+        $headings = ['nombre', 'categoria', 'precio_usd', 'unidad',
+                     'stock_kg', 'activo', 'descripcion'];
+
+        $example = collect([
+            ['Carne Molida', 'Res', 3.50, 'weight', 50.000, 1, 'Carne fresca molida'],
+            ['Pechuga Entera', 'Pollo', 2.80, 'weight', '', 1, ''],
+            ['Chorizo und', 'Embutidos', 1.20, 'unit', '', 1, 'Por unidad'],
+        ]);
+
+        $export = new SimpleExport($example, $headings, 'Productos');
+
+        return Excel::download($export, 'plantilla-productos.xlsx');
+    }
+
+    // ─── Importar productos desde Excel/CSV ───────────────────────────────────
+
+    public function importProducts(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:4096'],
+        ]);
+
+        /** @var \App\Models\User $user */
+        $user       = Auth::user();
+        $businessId = $user->business_id;
+
+        // Leer Excel — mismo helper que ContingencyController
+        $rows = Excel::toCollection(new EmptyImport(), $request->file('file'))
+            ->first();
+
+        if ($rows === null || $rows->isEmpty()) {
+            return response()->json(['error' => 'Archivo vacío o sin datos.'], 422);
+        }
+
+        // Verificar columnas requeridas
+        $requiredCols = ['nombre', 'categoria', 'precio_usd', 'unidad'];
+        $headers      = array_map('strtolower', $rows->first()->keys()->toArray());
+        foreach ($requiredCols as $col) {
+            if (!in_array($col, $headers, true)) {
+                return response()->json(['error' => "Columna requerida faltante: {$col}"], 422);
+            }
+        }
+
+        // Omitir fila de encabezado si primera celda = 'nombre'
+        $data = strtolower((string) ($rows->first()['nombre'] ?? '')) === 'nombre'
+            ? $rows->skip(1)
+            : $rows;
+
+        $imported = 0;
+        $updated  = 0;
+        $warnings = [];
+
+        DB::beginTransaction();
+        try {
+            foreach ($data as $index => $row) {
+                $row = array_change_key_case(
+                    $row instanceof \Illuminate\Support\Collection ? $row->toArray() : (array) $row,
+                    CASE_LOWER
+                );
+
+                $rowNum     = $index + 2;
+                $nombre     = trim((string) ($row['nombre']     ?? ''));
+                $categoria  = trim((string) ($row['categoria']  ?? ''));
+                $precioRaw  = $row['precio_usd'] ?? '';
+                $unidad     = strtolower(trim((string) ($row['unidad'] ?? 'weight')));
+                $stockKg    = isset($row['stock_kg']) && (string) $row['stock_kg'] !== ''
+                    ? (float) $row['stock_kg'] : null;
+                $activoRaw  = $row['activo'] ?? 1;
+                $descripcion = trim((string) ($row['descripcion'] ?? ''));
+
+                // Validaciones de fila
+                if ($nombre === '') {
+                    $warnings[] = "Fila {$rowNum}: nombre vacío — omitida.";
+                    continue;
+                }
+
+                if (!in_array($unidad, ['weight', 'unit'], true)) {
+                    $warnings[] = "Fila {$rowNum}: unidad '{$unidad}' inválida (weight/unit) — omitida.";
+                    continue;
+                }
+
+                if ($categoria === '') {
+                    $warnings[] = "Fila {$rowNum}: categoría vacía — omitida.";
+                    continue;
+                }
+
+                // Precio: null si vacío o 0 (solo actualiza si viene un valor real)
+                $precio = ($precioRaw !== '' && $precioRaw !== null)
+                    ? (float) $precioRaw
+                    : null;
+
+                // Activo
+                $activo = (bool) filter_var($activoRaw, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE)
+                    ?? (bool) ((int) $activoRaw);
+
+                // Buscar o crear categoría (case-insensitive)
+                $category = Category::where('business_id', $businessId)
+                    ->whereRaw('LOWER(name) = ?', [mb_strtolower($categoria)])
+                    ->first();
+
+                if ($category === null) {
+                    $maxSort  = Category::where('business_id', $businessId)->max('sort_order') ?? 0;
+                    $category = Category::create([
+                        'business_id' => $businessId,
+                        'name'        => $categoria,
+                        'sort_order'  => $maxSort + 1,
+                        'active'      => true,
+                    ]);
+                }
+
+                // Buscar producto existente (case-insensitive, mismo negocio)
+                $product = Product::where('business_id', $businessId)
+                    ->whereRaw('LOWER(name) = ?', [mb_strtolower($nombre)])
+                    ->first();
+
+                if ($product !== null) {
+                    // ACTUALIZAR — solo precio si viene valor > 0
+                    $updates = [
+                        'category_id' => $category->id,
+                        'active'      => $activo,
+                    ];
+
+                    if ($precio !== null && $precio > 0) {
+                        if ($unidad === 'weight') {
+                            $updates['price_per_kg_usd'] = $precio;
+                        } else {
+                            $updates['price_per_unit_usd'] = $precio;
+                        }
+                    }
+
+                    $product->update($updates);
+                    $updated++;
+                } else {
+                    // CREAR
+                    $createData = [
+                        'business_id'    => $businessId,
+                        'category_id'    => $category->id,
+                        'name'           => $nombre,
+                        'sale_mode'      => $unidad,
+                        'base_unit_label' => $unidad === 'weight' ? 'kg' : 'und',
+                        'active'         => $activo,
+                    ];
+
+                    if ($precio !== null && $precio > 0) {
+                        if ($unidad === 'weight') {
+                            $createData['price_per_kg_usd']   = $precio;
+                            $createData['price_per_unit_usd'] = null;
+                        } else {
+                            $createData['price_per_unit_usd'] = $precio;
+                            $createData['price_per_kg_usd']   = null;
+                        }
+                    }
+
+                    $product = Product::create($createData);
+                    $imported++;
+
+                    // Stock inicial (si viene)
+                    if ($stockKg !== null && $stockKg > 0 && $unidad === 'weight') {
+                        InventoryEntry::create([
+                            'business_id'     => $businessId,
+                            'product_id'      => $product->id,
+                            'quantity_kg'     => $stockKg,
+                            'waste_kg'        => 0,
+                            'cost_per_kg_usd' => 0,
+                            'notes'           => 'Importado desde Excel',
+                            'entered_at'      => now(),
+                            'created_by'      => $user->id,
+                        ]);
+                    }
+                }
+            }
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('CatalogController::importProducts', ['error' => $e->getMessage()]);
+            return response()->json(['error' => 'Error al importar: ' . $e->getMessage()], 500);
+        }
+
+        return response()->json([
+            'imported' => $imported,
+            'updated'  => $updated,
+            'warnings' => $warnings,
+            'total'    => $imported + $updated,
+        ]);
     }
 
     public function storeCategory(Request $request): RedirectResponse

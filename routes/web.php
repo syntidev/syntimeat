@@ -106,6 +106,8 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
 
         // Catálogo
         Route::get('/catalogo', [CatalogController::class, 'index'])->name('catalog.index');
+        Route::get('/catalogo/plantilla-productos', [CatalogController::class, 'downloadProductTemplate'])->name('catalog.product-template');
+        Route::post('/catalogo/importar', [CatalogController::class, 'importProducts'])->name('catalog.import');
         Route::post('/catalogo/productos', [CatalogController::class, 'store'])->name('catalog.store');
         Route::put('/catalogo/productos/{product}', [CatalogController::class, 'update'])->name('catalog.update');
         Route::delete('/catalogo/productos/{product}', [CatalogController::class, 'destroy'])->name('catalog.destroy');

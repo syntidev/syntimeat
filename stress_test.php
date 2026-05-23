@@ -2561,6 +2561,195 @@ try {
     fail('Dashboard pedidos_pendientes es entero ≥ 0', 'integer >= 0', get_class($e) . ': ' . $e->getMessage());
 }
 
+// ─── FASE 16 — Importador de Productos ───────────────────────────────────────
+section('FASE 16 — CatalogController::importProducts()');
+
+$catalogCtrl = app(\App\Http\Controllers\CatalogController::class);
+
+// Nombres únicos para no colisionar con datos reales
+$stProductName  = '[ST] Carne Import ' . uniqid();
+$stCategoryName = '[ST] Cat Import '   . uniqid();
+
+// 16.1 — Importar XLSX válido: producto nuevo + categoría nueva
+$tmpXlsx16a = null;
+try {
+    $xlsxData16a = buildXlsxUpload(
+        'st_products_valid_' . uniqid() . '.xlsx',
+        ['nombre', 'categoria', 'precio_usd', 'unidad', 'stock_kg', 'activo', 'descripcion'],
+        [
+            [
+                $stProductName,   // nombre
+                $stCategoryName,  // categoria — no existe aún, debe crearse
+                3.75,             // precio_usd
+                'weight',         // unidad
+                15.000,           // stock_kg — debe crear InventoryEntry
+                1,                // activo
+                'Test importador stress',  // descripcion
+            ],
+        ]
+    );
+    $tmpXlsx16a = $xlsxData16a['path'];
+
+    $prodBefore16 = Product::where('business_id', $businessId)
+        ->whereRaw('LOWER(name) = ?', [strtolower($stProductName)])
+        ->count();
+
+    $req16a = makeReq('/catalogo/importar', 'POST', []);
+    $req16a->files->set('file', $xlsxData16a['file']);
+
+    $resp16a = $catalogCtrl->importProducts($req16a);
+    $body16a = json_decode($resp16a->getContent(), true);
+
+    if ($tmpXlsx16a && file_exists($tmpXlsx16a)) @unlink($tmpXlsx16a);
+
+    $prodAfter16 = Product::where('business_id', $businessId)
+        ->whereRaw('LOWER(name) = ?', [strtolower($stProductName)])
+        ->count();
+
+    if ($resp16a->getStatusCode() === 200
+        && isset($body16a['imported'])
+        && (int) $body16a['imported'] === 1
+        && (int) $body16a['updated']  === 0
+        && $prodAfter16 > $prodBefore16
+    ) {
+        pass('Importar XLSX productos — nuevo producto',
+            'imported=1, updated=0, Product creado en DB',
+            "imported={$body16a['imported']} | updated={$body16a['updated']}"
+            . " | warnings=" . count($body16a['warnings'] ?? [])
+            . " | products {$prodBefore16}→{$prodAfter16} ✓");
+    } else {
+        fail('Importar XLSX productos — nuevo producto',
+            'imported=1, updated=0, Product creado en DB',
+            "HTTP={$resp16a->getStatusCode()} | body=" . json_encode($body16a)
+            . " | products {$prodBefore16}→{$prodAfter16}");
+    }
+} catch (ValidationException $e) {
+    if ($tmpXlsx16a && file_exists($tmpXlsx16a)) @unlink($tmpXlsx16a);
+    fail('Importar XLSX productos — nuevo producto',
+        'HTTP 200 + imported=1',
+        'ValidationException: ' . implode(' | ', array_merge(...array_values($e->errors()))));
+} catch (\Throwable $e) {
+    if ($tmpXlsx16a && file_exists($tmpXlsx16a)) @unlink($tmpXlsx16a);
+    fail('Importar XLSX productos — nuevo producto',
+        'HTTP 200 + imported=1',
+        get_class($e) . ': ' . $e->getMessage());
+}
+
+// 16.2 — Re-importar mismo producto con precio distinto → debe actualizar, no crear
+$tmpXlsx16b = null;
+try {
+    $xlsxData16b = buildXlsxUpload(
+        'st_products_update_' . uniqid() . '.xlsx',
+        ['nombre', 'categoria', 'precio_usd', 'unidad', 'stock_kg', 'activo', 'descripcion'],
+        [
+            [
+                $stProductName,   // mismo nombre → debe actualizar
+                $stCategoryName,
+                4.99,             // nuevo precio
+                'weight',
+                '',               // sin stock adicional
+                1,
+                '',
+            ],
+        ]
+    );
+    $tmpXlsx16b = $xlsxData16b['path'];
+
+    $req16b = makeReq('/catalogo/importar', 'POST', []);
+    $req16b->files->set('file', $xlsxData16b['file']);
+
+    $resp16b = $catalogCtrl->importProducts($req16b);
+    $body16b = json_decode($resp16b->getContent(), true);
+
+    if ($tmpXlsx16b && file_exists($tmpXlsx16b)) @unlink($tmpXlsx16b);
+
+    // Verificar precio actualizado en DB
+    $updatedProduct = Product::where('business_id', $businessId)
+        ->whereRaw('LOWER(name) = ?', [strtolower($stProductName)])
+        ->first();
+    $priceActual = (float) ($updatedProduct?->price_per_kg_usd ?? 0);
+
+    if ($resp16b->getStatusCode() === 200
+        && isset($body16b['updated'])
+        && (int) $body16b['imported'] === 0
+        && (int) $body16b['updated']  === 1
+        && abs($priceActual - 4.99) < 0.01
+    ) {
+        pass('Re-importar producto existente → actualizar precio',
+            'imported=0, updated=1, price_per_kg_usd=4.99',
+            "imported={$body16b['imported']} | updated={$body16b['updated']}"
+            . " | precio_actual={$priceActual} ✓");
+    } else {
+        fail('Re-importar producto existente → actualizar precio',
+            'imported=0, updated=1, price_per_kg_usd=4.99',
+            "HTTP={$resp16b->getStatusCode()} | body=" . json_encode($body16b)
+            . " | precio_actual={$priceActual}");
+    }
+} catch (ValidationException $e) {
+    if ($tmpXlsx16b && file_exists($tmpXlsx16b)) @unlink($tmpXlsx16b);
+    fail('Re-importar producto existente → actualizar precio',
+        'HTTP 200 + updated=1',
+        'ValidationException: ' . implode(' | ', array_merge(...array_values($e->errors()))));
+} catch (\Throwable $e) {
+    if ($tmpXlsx16b && file_exists($tmpXlsx16b)) @unlink($tmpXlsx16b);
+    fail('Re-importar producto existente → actualizar precio',
+        'HTTP 200 + updated=1',
+        get_class($e) . ': ' . $e->getMessage());
+}
+
+// 16.3 — XLSX con columnas incorrectas → HTTP 422
+$tmpXlsx16c = null;
+try {
+    $xlsxData16c = buildXlsxUpload(
+        'st_products_bad_' . uniqid() . '.xlsx',
+        ['producto', 'precio', 'cantidad'],          // faltan nombre, categoria, unidad
+        [['Carne Molida', 3.50, 50]]
+    );
+    $tmpXlsx16c = $xlsxData16c['path'];
+
+    $req16c = makeReq('/catalogo/importar', 'POST', []);
+    $req16c->files->set('file', $xlsxData16c['file']);
+
+    $resp16c = $catalogCtrl->importProducts($req16c);
+    $body16c = json_decode($resp16c->getContent(), true);
+
+    if ($tmpXlsx16c && file_exists($tmpXlsx16c)) @unlink($tmpXlsx16c);
+
+    if ($resp16c->getStatusCode() === 422 && isset($body16c['error'])) {
+        pass('XLSX productos malformado rechazado',
+            'HTTP 422 + {error: "Columna requerida faltante: ..."}',
+            "HTTP=422 | error={$body16c['error']} ✓");
+    } else {
+        fail('XLSX productos malformado rechazado',
+            'HTTP 422 + error de columna faltante',
+            "HTTP={$resp16c->getStatusCode()} | body=" . json_encode($body16c));
+    }
+} catch (ValidationException $e) {
+    if ($tmpXlsx16c && file_exists($tmpXlsx16c)) @unlink($tmpXlsx16c);
+    pass('XLSX productos malformado rechazado',
+        'HTTP 422 o ValidationException',
+        'ValidationException: ' . implode(' | ', array_merge(...array_values($e->errors()))));
+} catch (\Throwable $e) {
+    if ($tmpXlsx16c && file_exists($tmpXlsx16c)) @unlink($tmpXlsx16c);
+    fail('XLSX productos malformado rechazado', 'HTTP 422 limpio',
+        get_class($e) . ': ' . $e->getMessage());
+}
+
+// 16.4 — Sin archivo → ValidationException (file required)
+try {
+    $req16d = makeReq('/catalogo/importar', 'POST', []);
+    $resp16d = $catalogCtrl->importProducts($req16d);
+    fail('Importar productos sin archivo rechazado', 'ValidationException (file required)',
+        'Aceptado sin error — BUG');
+} catch (ValidationException $e) {
+    pass('Importar productos sin archivo rechazado',
+        'ValidationException (file required)',
+        'Rechazado: ' . implode(' | ', array_merge(...array_values($e->errors()))));
+} catch (\Throwable $e) {
+    fail('Importar productos sin archivo rechazado', 'ValidationException',
+        get_class($e) . ': ' . $e->getMessage());
+}
+
 // ─── RESUMEN FINAL ────────────────────────────────────────────────────────────
 section('RESUMEN FINAL — Tabla de Resultados');
 printTable($results);
@@ -2699,6 +2888,25 @@ try {
         ->where('notes', 'Contingencia offline')
         ->delete();
     echo "  InventoryEntries contingencia eliminadas: {$stContInv}\n";
+
+    // ── FASE 16 cleanup ────────────────────────────────────────────────────
+
+    // Productos creados por el importador de test (nombre empieza con '[ST] Carne Import')
+    $stImportProducts = Product::where('business_id', $businessId)
+        ->where('name', 'like', '[ST] Carne Import%')
+        ->get();
+    foreach ($stImportProducts as $stP) {
+        // Eliminar inventory entries creadas por el importador para este producto
+        InventoryEntry::where('product_id', $stP->id)->delete();
+        $stP->delete();
+    }
+    echo "  Productos importados [ST] eliminados: " . $stImportProducts->count() . "\n";
+
+    // Categorías creadas por el importador de test (nombre empieza con '[ST] Cat Import')
+    $stImportCats = \App\Models\Category::where('business_id', $businessId)
+        ->where('name', 'like', '[ST] Cat Import%')
+        ->delete();
+    echo "  Categorías importadas [ST] eliminadas: {$stImportCats}\n";
 
     echo "\n  Cleanup completo.\n";
 } catch (\Throwable $e) {
