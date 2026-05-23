@@ -1044,6 +1044,8 @@ const helpFaqs = [
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }
 .catalog-title {
     font-size: 1.25rem;
@@ -1305,7 +1307,7 @@ const helpFaqs = [
 /* ─── Product modal: 2-column, no external scroll ─────────────────────── */
 .prod-modal-box {
     max-width: 780px;
-    max-height: 90vh;
+    max-height: 90dvh;
     overflow-y: auto;
 }
 .prod-form-wrap {
@@ -1330,9 +1332,19 @@ const helpFaqs = [
     gap: 0.4rem;
 }
 @media (max-width: 640px) {
-    .prod-modal-box { max-height: 92vh; }
+    .prod-modal-box { max-height: 92dvh; }
     .prod-modal-body { grid-template-columns: 1fr; }
     .prod-col-left { border-right: none; border-bottom: 1px solid var(--border); }
+    /* header wrappea en pantallas estrechas */
+    .catalog-header { flex-wrap: wrap; gap: 0.75rem; }
+    .header-actions { width: 100%; justify-content: flex-end; }
+    /* touch targets en botones de acción */
+    .btn-icon { min-height: 44px; min-width: 44px; }
+    /* tabs con altura mínima táctil */
+    .tab-btn { min-height: 44px; }
+    .tab-btn--help { width: 44px; height: 44px; }
+    /* tabla: scroll horizontal explícito + scroll hint */
+    .table-wrap { -webkit-overflow-scrolling: touch; }
 }
 
 .modal-header {

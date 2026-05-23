@@ -1099,6 +1099,10 @@ const helpFaqs = [
                     <div class="mobile-cart-drawer">
                         <div class="cart-head">
                             <span class="cart-title">Carrito</span>
+                            <div class="rate-badge rate-badge--drawer">
+                                <span class="rate-dot" />
+                                <span class="rate-val">{{ fmtBs(todayRate) }} Bs/$</span>
+                            </div>
                             <button class="drawer-close" @click="showMobileCart = false">×</button>
                         </div>
                         <div class="cart-items-list">
@@ -1584,6 +1588,8 @@ const helpFaqs = [
 }
 .rate-lbl { color: var(--text-muted); }
 .rate-val  { color: var(--amber); font-weight: 700; font-variant-numeric: tabular-nums; }
+/* Versión compacta visible en el drawer mobile */
+.rate-badge--drawer { font-size: 11px; padding: 3px 8px; margin-left: auto; }
 
 /* Ticket tabs header */
 .header-tabs { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
@@ -2060,7 +2066,7 @@ const helpFaqs = [
 
 /* ── Mobile drawer ── */
 .mobile-cart-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 60; display: flex; align-items: flex-end; }
-.mobile-cart-drawer { width: 100%; max-height: 80vh; background: var(--bg-card); border-radius: 16px 16px 0 0; display: flex; flex-direction: column; overflow: hidden; }
+.mobile-cart-drawer { width: 100%; max-height: 80dvh; background: var(--bg-card); border-radius: 16px 16px 0 0; display: flex; flex-direction: column; overflow: hidden; }
 .drawer-close { margin-left: auto; background: none; border: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer; }
 .cart-drawer-enter-active, .cart-drawer-leave-active { transition: transform 0.25s ease; }
 .cart-drawer-enter-from .mobile-cart-drawer, .cart-drawer-leave-to .mobile-cart-drawer { transform: translateY(100%); }
@@ -2078,7 +2084,7 @@ const helpFaqs = [
 .mc-leave-to     { opacity: 0; transform: scale(0.96) translateY(8px); }
 
 /* Qty modal card */
-.modal-card { width: 388px; background: var(--bg-base); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: 0 40px 80px rgba(0,0,0,0.65); }
+.modal-card { width: min(388px, 94vw); background: var(--bg-base); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: 0 40px 80px rgba(0,0,0,0.65); }
 .modal-top  { border-top: 3px solid; padding: 18px 20px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .m-cat  { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
 .m-name { font-size: 24px; font-weight: 800; color: var(--text-primary); line-height: 1.1; }
@@ -2100,7 +2106,7 @@ const helpFaqs = [
 .m-total-amt  { font-size: 32px; font-weight: 800; color: var(--amber); font-variant-numeric: tabular-nums; }
 .m-total-curr { font-size: 13px; color: var(--text-muted); }
 .numpad { display: grid; grid-template-columns: repeat(3,1fr); gap: 0.5rem; margin-top: 14px; }
-.np-key { padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-primary); font-size: 1.2rem; font-weight: 600; cursor: pointer; transition: background 0.1s; font-family: inherit; }
+.np-key { padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-primary); font-size: 1.2rem; font-weight: 600; cursor: pointer; transition: background 0.1s; font-family: inherit; min-height: 44px; display: flex; align-items: center; justify-content: center; }
 .np-key:hover { background: var(--brand); color: #fff; }
 .unit-controls { display: flex; align-items: center; gap: 0.75rem; justify-content: center; margin-top: 14px; }
 .unit-btn { width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-primary); font-size: 1.5rem; cursor: pointer; font-family: inherit; }
@@ -2111,7 +2117,7 @@ const helpFaqs = [
 .btn-agregar:disabled { opacity: 0.28; cursor: not-allowed; }
 
 /* Generic modal box */
-.modal-box { background: var(--bg-card); border-radius: 14px; border: 1px solid var(--border); width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem; box-shadow: 0 40px 80px rgba(0,0,0,0.65); }
+.modal-box { background: var(--bg-card); border-radius: 14px; border: 1px solid var(--border); width: 100%; max-width: 480px; max-height: 90dvh; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem; box-shadow: 0 40px 80px rgba(0,0,0,0.65); }
 .modal-header { display: flex; align-items: center; justify-content: space-between; }
 .modal-header h3 { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
 .close-btn { width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0; line-height: 1; background: var(--bg-base); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 16px; cursor: pointer; transition: background 0.15s, color 0.15s; font-family: inherit; }
@@ -2157,7 +2163,7 @@ const helpFaqs = [
 .pay-modal-2col {
     display: flex;
     width: min(800px, 96vw);
-    height: min(560px, 92vh);
+    height: min(560px, 92dvh);
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 1rem;
@@ -2364,7 +2370,7 @@ const helpFaqs = [
     border: 1px solid var(--border);
     border-radius: 7px;
     color: var(--text-primary);
-    font-size: 0.9rem;
+    font-size: 1rem;
     font-weight: 600;
     padding: 0.45rem 0.7rem;
     outline: none;
@@ -2396,17 +2402,19 @@ const helpFaqs = [
     .pay-modal-2col {
         flex-direction: column;
         width: 96vw;
-        height: 92vh;
+        height: 92dvh;
     }
     .pay-col--left {
         border-right: none;
         border-bottom: 1px solid var(--border);
         flex: 0 0 auto;
-        max-height: 42%;
+        max-height: 45dvh;
+        overflow-y: auto;
     }
     .pay-col--right {
         width: 100%;
         flex: 1;
+        overflow-y: auto;
     }
 }
 
@@ -2480,6 +2488,8 @@ const helpFaqs = [
     .product-grid { grid-template-columns: repeat(2, 1fr); }
     .header-tabs  { display: none; }
     .hd-center    { display: none; }
+    /* touch targets expandidos en mobile */
+    .ci-rm        { min-width: 44px; min-height: 44px; }
 }
 @media (max-width: 640px) {
     .pos-header      { gap: 6px; padding: 0 10px; }
@@ -2488,6 +2498,8 @@ const helpFaqs = [
     .product-grid    { grid-template-columns: repeat(2, 1fr); }
     .logo-text       { font-size: 14px; }
     .no-caja-pill    { font-size: 0.68rem; padding: 2px 7px; }
+    /* evita auto-zoom en iOS Safari (threshold: 16px) */
+    .search-input    { font-size: 16px; }
 }
 
 /* ═══ BANNER CORTE BANCARIO ═══════════════════════════════════════════════════ */

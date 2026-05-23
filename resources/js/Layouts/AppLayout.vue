@@ -309,6 +309,26 @@ function routeExists(routeName) {
                     </template>
                 </template>
             </nav>
+
+            <!-- Footer del sidebar — solo visible en mobile -->
+            <div class="sidebar-mobile-footer">
+                <span class="sidebar-caja-badge">
+                    <span class="badge-caja__dot" />
+                    Caja abierta
+                </span>
+                <div v-if="branches.length > 0" class="sidebar-branch-picker">
+                    <span class="branch-picker__label">Sucursal</span>
+                    <select class="branch-select" @change="changeBranch($event.target.value)">
+                        <option value="">Todas</option>
+                        <option
+                            v-for="b in branches"
+                            :key="b.id"
+                            :value="b.id"
+                            :selected="b.id == currentBranch"
+                        >{{ b.name }}</option>
+                    </select>
+                </div>
+            </div>
         </aside>
 
         <!-- ── Contenido principal ───────────────────────────────────────── -->
@@ -1003,5 +1023,40 @@ const icons = {
 }
 @media (max-width: 640px) {
     .branch-picker { display: none; }
+}
+
+/* ── Sidebar mobile footer ────────────────────────────────────────────────── */
+.sidebar-mobile-footer {
+    display: none; /* oculto en desktop */
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.875rem 0.75rem;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.sidebar-caja-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--green);
+    background-color: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    padding: 0.35rem 0.75rem;
+    border-radius: 9999px;
+    width: fit-content;
+}
+.sidebar-branch-picker {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: color-mix(in srgb, var(--brand) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--brand) 25%, transparent);
+    border-radius: 0.5rem;
+    padding: 0.375rem 0.75rem;
+}
+@media (max-width: 768px) {
+    .sidebar-mobile-footer { display: flex; }
 }
 </style>

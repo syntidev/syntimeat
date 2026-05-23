@@ -107,6 +107,7 @@ function onKeydown(e) {
 .help-overlay {
     position: fixed;
     inset: 0;
+    height: 100dvh; /* descuenta barra del browser en iOS Safari */
     background: rgba(0, 0, 0, 0.45);
     z-index: 1100;
     display: flex;
@@ -117,6 +118,7 @@ function onKeydown(e) {
 /* ── Panel ───────────────────────────────────────────────── */
 .help-panel {
     width: min(460px, 100vw);
+    max-height: 100dvh;
     background: var(--bg-card);
     display: flex;
     flex-direction: column;
@@ -159,8 +161,8 @@ function onKeydown(e) {
     margin: 0;
 }
 .help-close {
-    width: 30px;
-    height: 30px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     border: none;
     background: transparent;
@@ -299,7 +301,7 @@ function onKeydown(e) {
 }
 .faq-q:hover { background: var(--bg-row-hover, rgba(255,255,255,0.04)); }
 .faq-text {
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     font-weight: 500;
     color: var(--text-primary);
     line-height: 1.4;

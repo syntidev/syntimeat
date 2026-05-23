@@ -618,6 +618,10 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
 @media (max-width: 639px) {
     .hide-sm { display: none !important; }
     .show-sm { display: flex; flex-direction: column; gap: 0.5rem; }
+    /* evita auto-zoom en iOS (inputs < 16px) */
+    .filter-input { font-size: 1rem; }
+    /* touch target mínimo 44px */
+    .btn-help { width: 44px; height: 44px; }
 }
 
 /* ── Mobile sale cards ────────────────────────────────────────────────────── */

@@ -946,7 +946,7 @@ const helpFaqs = [
     width: 100%;
     max-width: 720px;
     box-shadow: 0 8px 32px color-mix(in srgb, #000 40%, transparent);
-    max-height: 90vh;
+    max-height: 90dvh;
     overflow-y: auto;
 }
 .modal-title {
@@ -967,7 +967,7 @@ const helpFaqs = [
 /* ─── Entry form ─────────────────────────────────────────────────────────── */
 .entry-form { display: flex; flex-direction: column; gap: 0.75rem; }
 .form-row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
-.field-group { display: flex; flex-direction: column; gap: 0.25rem; flex: 1; min-width: 150px; }
+.field-group { display: flex; flex-direction: column; gap: 0.25rem; flex: 1; min-width: min(150px, 100%); }
 .field-grow { flex: 2; }
 .field-label { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
 .field-input {
@@ -1069,5 +1069,11 @@ const helpFaqs = [
     .filter-count { display: inline; }
     .table-wrap { display: block; }
     .mobile-cards { display: none; }
+}
+
+/* Mobile: iOS auto-zoom fix (inputs < 16px) + touch targets */
+@media (max-width: 639px) {
+    .field-input  { font-size: 1rem; }
+    .filter-select { font-size: 1rem; min-height: 44px; }
 }
 </style>
