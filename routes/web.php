@@ -47,7 +47,7 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
     })->name('branch.set');
 
     // ── Todos los roles (super_admin, admin, cashier) ─────────────────────────
-    Route::middleware('role:super_admin,admin,cashier')->group(function () {
+    Route::middleware('role:super_admin,admin,owner,branch_admin,cashier')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
         Route::get('/dashboard/data', [DashboardController::class, 'data'])->name('dashboard.data');
 
@@ -94,7 +94,7 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
     });
 
     // ── super_admin y admin ───────────────────────────────────────────────────
-    Route::middleware('role:super_admin,admin')->group(function () {
+    Route::middleware('role:super_admin,admin,owner,branch_admin')->group(function () {
         // Tasa manual
         Route::post('/tasa/manual', [SettingsController::class, 'setManualRate'])->name('rate.manual');
 
