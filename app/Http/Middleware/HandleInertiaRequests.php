@@ -134,6 +134,7 @@ class HandleInertiaRequests extends Middleware
             'theme_color'         => $themeColor,
             'branches'            => $branches,
             'currentBranch'       => session('current_branch_id'),
+            'banking_alert'       => Cache::get('banking_alert'),
         ];
     }
 }
