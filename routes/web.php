@@ -38,7 +38,7 @@ Route::get('/', function () {
 });
 
 // ─── Authenticated + onboarding complete ─────────────────────────────────────
-Route::middleware(['auth', 'verified', 'check.onboarding'])->group(function () {
+Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->group(function () {
 
     // ── Perfil (todos los roles) ──────────────────────────────────────────────
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

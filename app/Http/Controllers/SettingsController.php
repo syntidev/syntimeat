@@ -86,6 +86,7 @@ class SettingsController extends Controller
         $business = Auth::user()->business;
 
         $users = User::where('business_id', $business->id)
+            ->where('role', '!=', 'super_admin')
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'role', 'created_at']);
 

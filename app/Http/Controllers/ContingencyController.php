@@ -137,7 +137,7 @@ class ContingencyController extends Controller
         DB::beginTransaction();
         try {
             foreach ($data as $index => $row) {
-                $row       = array_change_key_case((array) $row, CASE_LOWER);
+                $row       = array_change_key_case($row instanceof \Illuminate\Support\Collection ? $row->toArray() : (array) $row, CASE_LOWER);
                 $hora      = trim((string) ($row['hora'] ?? ''));
                 $productId = (int) ($row['product_id'] ?? 0);
                 $qty       = (float) ($row['quantity_value'] ?? 0);

@@ -23,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'check.onboarding' => \App\Http\Middleware\CheckOnboarding::class,
             'role'             => \App\Http\Middleware\EnsureRole::class,
+            'subscription'     => \App\Http\Middleware\CheckSubscription::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
