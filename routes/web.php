@@ -168,8 +168,9 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
             Route::post('/terminales',             [SettingsController::class, 'storeTerminal'])->name('terminals.store');
             Route::put('/terminales/{terminal}',   [SettingsController::class, 'updateTerminal'])->name('terminals.update');
             Route::delete('/terminales/{terminal}',[SettingsController::class, 'destroyTerminal'])->name('terminals.destroy');
-            Route::get('/ticket',  [SettingsController::class, 'ticket'])->name('ticket');
-            Route::post('/ticket', [SettingsController::class, 'updateTicket'])->name('ticket.update');
+            Route::get('/ticket',   [SettingsController::class, 'ticket'])->name('ticket');
+            Route::post('/ticket',  [SettingsController::class, 'updateTicket'])->name('ticket.update');
+            Route::get('/hardware', fn () => inertia('Settings/Hardware'))->name('hardware');
             Route::get('/sucursales',             [SettingsController::class, 'branches'])->name('branches');
             Route::post('/sucursales',            [SettingsController::class, 'storeBranch'])->name('branches.store');
             Route::put('/sucursales/{branch}',    [SettingsController::class, 'updateBranch'])->name('branches.update');

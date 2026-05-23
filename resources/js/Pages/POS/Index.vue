@@ -630,6 +630,117 @@ function productImageUrl(product) {
     return '/storage/' + product.image_path;
 }
 
+// ─── Scanner EAN-13 ──────────────────────────────────────────────────────────
+// Detecta input de scanner por burst: caracteres < 50 ms entre sí + Enter final.
+// EAN-13 prefijo '2': pos 2-6 = PLU/SKU (5 dígitos), pos 7-11 = precio Bs (÷100).
+const scannerBuffer    = ref('')
+const scannerLastTime  = ref(0)
+const scannerFired     = ref(false)
+const SCANNER_BURST_MS = 50
+
+function onSearchKeydown(e) {
+    if (qtyModal.value) return   // el numpad físico ya lo maneja onPhysKeyDown
+
+    const now  = Date.now()
+    const diff = scannerLastTime.value ? now - scannerLastTime.value : 9999
+
+    if (e.key === 'Enter') {
+        const buf = scannerBuffer.value
+        scannerBuffer.value   = ''
+        scannerLastTime.value = 0
+        if (buf.length === 13 && /^\d{13}$/.test(buf)) {
+            e.preventDefault()
+            processBarcode(buf)
+        }
+        return
+    }
+
+    if (e.key.length === 1 && /\d/.test(e.key)) {
+        scannerBuffer.value   = diff < SCANNER_BURST_MS ? scannerBuffer.value + e.key : e.key
+        scannerLastTime.value = now
+    } else {
+        // Tecla no numérica → no es burst de scanner, resetear buffer
+        scannerBuffer.value   = ''
+        scannerLastTime.value = 0
+    }
+}
+
+function processBarcode(code) {
+    // Código no-precio (prefijo ≠ '2') → caer en búsqueda normal por nombre
+    if (code[0] !== '2') {
+        search.value = code
+        return
+    }
+
+    // PLU: dígitos 2-6 (índices 1-5), precio: dígitos 7-11 (índices 6-10)
+    const skuRaw  = code.slice(1, 6)    // '00123' → PLU 123
+    const priceRaw = code.slice(6, 11)  // '01250' → 12.50 Bs
+    const priceBs  = parseInt(priceRaw, 10) / 100
+    const skuInt   = parseInt(skuRaw, 10)
+
+    // Buscar por campo sku si existe, si no por id
+    const product =
+        props.products.find(p => p.sku && parseInt(p.sku, 10) === skuInt) ??
+        props.products.find(p => p.id  === skuInt)
+
+    if (!product) {
+        // No encontrado → búsqueda por texto del PLU
+        search.value = skuInt > 0 ? String(skuInt) : skuRaw
+        return
+    }
+
+    addToCartFromScanner(product, priceBs)
+    search.value = ''
+}
+
+function addToCartFromScanner(product, amountBs) {
+    const isWeight  = product.sale_mode === 'weight'
+    const priceBsKg = isWeight
+        ? parseFloat(product.price_per_kg_usd || 0) * props.todayRate
+        : 0
+    const quantityValue = isWeight && priceBsKg > 0
+        ? Math.round((amountBs / priceBsKg) * 1000) / 1000
+        : 1
+
+    const subtotalUsd = parseFloat(
+        ((isWeight
+            ? parseFloat(product.price_per_kg_usd  || 0)
+            : parseFloat(product.price_per_unit_usd || 0)) * quantityValue
+        ).toFixed(2)
+    )
+
+    const existing = cart.value.find(i => i.product_id === product.id)
+    if (existing) {
+        existing.quantity_value += quantityValue
+        if (isWeight) existing.amount_bs = (existing.amount_bs ?? 0) + amountBs
+        existing.subtotal_usd = parseFloat(
+            ((isWeight
+                ? parseFloat(product.price_per_kg_usd  || 0)
+                : parseFloat(product.price_per_unit_usd || 0)) * existing.quantity_value
+            ).toFixed(2)
+        )
+    } else {
+        cart.value.push({
+            product_id:         product.id,
+            product_name:       product.name,
+            input_type:         isWeight ? 'weight' : 'unit',
+            sale_mode:          product.sale_mode,
+            quantity_value:     quantityValue,
+            amount_bs:          isWeight ? amountBs : null,
+            price_per_kg_usd:   parseFloat(product.price_per_kg_usd  || 0),
+            price_per_unit_usd: parseFloat(product.price_per_unit_usd || 0),
+            subtotal_usd:       subtotalUsd,
+        })
+    }
+
+    justAdded.value    = product.id
+    scannerFired.value = true
+    setTimeout(() => {
+        justAdded.value    = null
+        scannerFired.value = false
+    }, 2000)
+}
+
 // ─── Ayuda ────────────────────────────────────────────────────────────────────
 const showHelp = ref(false);
 
@@ -819,6 +930,7 @@ const helpFaqs = [
                             class="search-input"
                             placeholder="Busca un producto para agregarlo al ticket…"
                             autocomplete="off"
+                            @keydown="onSearchKeydown"
                         />
                         <button v-if="search" class="search-clear" @click="search = ''" title="Limpiar">×</button>
                     </div>
@@ -831,6 +943,14 @@ const helpFaqs = [
                         </div>
                     </div>
                 </div>
+
+                <!-- Scanner feedback ─────────────────────────────────────── -->
+                <Transition name="scanner-toast">
+                    <div v-if="scannerFired" class="scanner-toast">
+                        <Check :size="14" />
+                        Escaneado
+                    </div>
+                </Transition>
 
                 <div class="grid-wrap">
                     <!-- ── Alerta de corte bancario ── -->
@@ -2408,4 +2528,18 @@ const helpFaqs = [
 .banking-alert-leave-active { transition: opacity 0.3s ease, transform 0.3s ease; }
 .banking-alert-enter-from,
 .banking-alert-leave-to     { opacity: 0; transform: translateY(-6px); }
+
+/* ── Scanner toast ── */
+.scanner-toast {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #16a34a22; color: #16a34a;
+    border: 1px solid #16a34a55;
+    padding: 0.35rem 0.875rem;
+    border-radius: 8px;
+    font-size: 0.78rem; font-weight: 700;
+    margin-bottom: 0.5rem;
+    width: fit-content;
+}
+.scanner-toast-enter-active, .scanner-toast-leave-active { transition: opacity 0.2s, transform 0.2s; }
+.scanner-toast-enter-from,   .scanner-toast-leave-to     { opacity: 0; transform: translateY(-4px); }
 </style>
