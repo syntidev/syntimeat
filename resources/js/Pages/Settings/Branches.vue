@@ -1,5 +1,6 @@
 ﻿<script setup>
 import SettingsLayout from '@/Layouts/SettingsLayout.vue'
+import HelpModal      from '@/Components/HelpModal.vue'
 import { ref } from 'vue'
 import { router } from '@inertiajs/vue3'
 import { Users, Monitor } from '@lucide/vue'
@@ -56,6 +57,42 @@ function submitEdit() {
         preserveScroll: true,
     })
 }
+
+// ─── Ayuda ────────────────────────────────────────────────────────────────────
+const showHelp = ref(false)
+
+const helpSteps = [
+    {
+        title: 'Para qué sirven las sucursales',
+        body:  'Una sucursal es una sede física del negocio. Cada sucursal tiene sus propios usuarios, cajas registradoras y ventas. Los reportes pueden filtrarse por sucursal.',
+        tip:   'Si tu negocio tiene una sola sede, no necesitas crear sucursales — el sistema opera sin esta configuración.',
+    },
+    {
+        title: 'Crear y configurar una sucursal',
+        body:  'Registra el nombre, ciudad, dirección y teléfono de cada sede. Luego ve a Configuración → Equipo para asignar usuarios y a Configuración → Cajas para asignar cajas registradoras.',
+        tip:   'El nombre de la sucursal aparece en los reportes y en la sesión del cajero para identificar desde qué sede está operando.',
+    },
+    {
+        title: 'Activar e inactivar',
+        body:  'Una sucursal inactiva no admite nuevas ventas ni aperturas de caja. Los datos históricos se conservan. Puedes reactivarla en cualquier momento.',
+        tip:   'Inactiva una sucursal si la vas a cerrar temporalmente — no la elimines para preservar el historial.',
+    },
+]
+
+const helpFaqs = [
+    {
+        q: '¿Cuántas sucursales puedo crear?',
+        a: 'Depende del plan contratado. En el plan base hay un límite configurable. Contacta al administrador del sistema si necesitas ampliar el número de sedes.',
+    },
+    {
+        q: '¿Un cajero puede trabajar en varias sucursales?',
+        a: 'No simultáneamente. Cada usuario está asignado a una sucursal específica. Para cambiar de sede hay que editar el perfil del usuario en Configuración → Equipo.',
+    },
+    {
+        q: '¿Los reportes se pueden ver por sucursal?',
+        a: 'Sí. Los administradores ven solo su sucursal. El super administrador puede ver todas las sucursales y hay reportes consolidados multi-sede.',
+    },
+]
 </script>
 
 <template>
@@ -67,7 +104,10 @@ function submitEdit() {
                     <h2 class="page-title">Sucursales</h2>
                     <p class="page-sub">Sedes del negocio. Asigna usuarios en <strong>Equipo</strong> y cajas en <strong>Cajas</strong>.</p>
                 </div>
-                <button class="btn-brand" @click="openNew">+ Nueva sucursal</button>
+                <div class="page-head-actions">
+                    <button class="help-btn" @click="showHelp = true" title="Ayuda">?</button>
+                    <button class="btn-brand" @click="openNew">+ Nueva sucursal</button>
+                </div>
             </div>
 
             <div v-if="!branches.length" class="empty-state">No hay sucursales. Crea la primera.</div>
@@ -156,6 +196,16 @@ function submitEdit() {
                 </div>
             </div>
         </Teleport>
+
+        <!-- Panel de ayuda ───────────────────────────────────────────────── -->
+        <HelpModal
+            :show="showHelp"
+            title="Sucursales — Cómo funciona"
+            :steps="helpSteps"
+            :faqs="helpFaqs"
+            @close="showHelp = false"
+        />
+
     </SettingsLayout>
 </template>
 
@@ -164,6 +214,19 @@ function submitEdit() {
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .page-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
 .page-sub   { font-size: .8rem; color: var(--text-muted); margin-top: 2px; }
+.page-head-actions { display: flex; align-items: center; gap: 0.5rem; }
+.help-btn {
+    border-radius: 50%;
+    width: 28px; height: 28px;
+    padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.85rem; font-weight: 700;
+    border: 1.5px solid var(--border);
+    background: none; color: var(--text-muted);
+    cursor: pointer; flex-shrink: 0;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.help-btn:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
 
 .branch-list { display: flex; flex-direction: column; gap: .5rem; }
 .branch-row  { display: flex; align-items: center; gap: 1rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: .85rem 1.1rem; flex-wrap: wrap; }

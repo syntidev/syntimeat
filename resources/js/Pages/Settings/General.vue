@@ -1,5 +1,6 @@
 <script setup>
 import SettingsLayout from '@/Layouts/SettingsLayout.vue'
+import HelpModal      from '@/Components/HelpModal.vue'
 import { useForm, usePage } from '@inertiajs/vue3'
 import { ref } from 'vue'
 
@@ -50,6 +51,42 @@ function submit() {
 const inputClass = 'w-full bg-[var(--bg-input)] border border-[var(--border)] text-[var(--text-primary)] rounded-lg px-3.5 py-2.5 text-sm placeholder:text-[var(--text-muted)] focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)] outline-none transition'
 const labelClass = 'block text-xs font-medium text-[var(--text-secondary)] mb-1.5'
 const errorClass = 'mt-1 text-xs text-red-400'
+
+// ─── Ayuda ────────────────────────────────────────────────────────────────────
+const showHelp = ref(false)
+
+const helpSteps = [
+    {
+        title: 'Datos del negocio',
+        body:  'Registra el nombre comercial, razón social, RIF y teléfono de tu establecimiento. Estos datos aparecen en los tickets y reportes del sistema.',
+        tip:   'El campo "Nombre del negocio" es obligatorio y es lo que verán tus cajeros al iniciar sesión.',
+    },
+    {
+        title: 'Logo y color de interfaz',
+        body:  'Sube el logo de tu negocio (PNG o JPG, máx. 2 MB) y elige el color principal de la interfaz. El color se aplica a botones, íconos activos y acentos de toda la aplicación.',
+        tip:   'El logo aparece en la pantalla de bienvenida. El cambio de color es instantáneo para todos los usuarios.',
+    },
+    {
+        title: 'Ubicación',
+        body:  'Ingresa la dirección, ciudad y estado del negocio. Estos datos pueden mostrarse en los tickets impresos si lo configuras en Configuración → Ticket.',
+        tip:   'Ciudad y estado son campos obligatorios. La dirección completa es opcional pero aparece en el ticket si la activas.',
+    },
+]
+
+const helpFaqs = [
+    {
+        q: '¿El RIF aparece en los tickets al cliente?',
+        a: 'No automáticamente. Por ahora el ticket muestra el nombre del negocio. El RIF se usa internamente para reportes y documentos administrativos.',
+    },
+    {
+        q: '¿Puedo cambiar el color de la interfaz después?',
+        a: 'Sí, en cualquier momento. El cambio se aplica de inmediato en toda la aplicación para todos los usuarios sin necesidad de recargar.',
+    },
+    {
+        q: '¿El logo se imprime en los tickets?',
+        a: 'El logo se muestra en la interfaz del sistema. La impresión del logo en tickets depende de la impresora y la configuración en Configuración → Ticket.',
+    },
+]
 </script>
 
 <template>
@@ -58,8 +95,13 @@ const errorClass = 'mt-1 text-xs text-red-400'
 
             <!-- Header -->
             <div class="settings-panel__header">
-                <h2 class="settings-panel__title">Mi Negocio</h2>
-                <p class="settings-panel__subtitle">Información general de tu establecimiento</p>
+                <div class="header-row">
+                    <div>
+                        <h2 class="settings-panel__title">Mi Negocio</h2>
+                        <p class="settings-panel__subtitle">Información general de tu establecimiento</p>
+                    </div>
+                    <button class="help-btn" @click="showHelp = true" title="Ayuda">?</button>
+                </div>
             </div>
 
             <form @submit.prevent="submit" class="settings-panel__body" enctype="multipart/form-data">
@@ -175,6 +217,16 @@ const errorClass = 'mt-1 text-xs text-red-400'
 
             </form>
         </div>
+
+        <!-- Panel de ayuda ───────────────────────────────────────────────── -->
+        <HelpModal
+            :show="showHelp"
+            title="Mi Negocio — Cómo funciona"
+            :steps="helpSteps"
+            :faqs="helpFaqs"
+            @close="showHelp = false"
+        />
+
     </SettingsLayout>
 </template>
 
@@ -183,6 +235,19 @@ const errorClass = 'mt-1 text-xs text-red-400'
 .settings-panel__header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); }
 .settings-panel__title { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
 .settings-panel__subtitle { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+.header-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.help-btn {
+    border-radius: 50%;
+    width: 28px; height: 28px;
+    padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.85rem; font-weight: 700;
+    border: 1.5px solid var(--border);
+    background: none; color: var(--text-muted);
+    cursor: pointer; flex-shrink: 0;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.help-btn:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
 .settings-panel__body { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; }
 .logo-section { display: flex; align-items: center; gap: 1.25rem; }
 .logo-preview { width: 72px; height: 72px; border-radius: 10px; border: 1px solid var(--border); overflow: hidden; flex-shrink: 0; background: var(--bg-input); display: flex; align-items: center; justify-content: center; }

@@ -1,7 +1,8 @@
 <script setup>
 import SettingsLayout from '@/Layouts/SettingsLayout.vue'
+import HelpModal      from '@/Components/HelpModal.vue'
 import { useForm } from '@inertiajs/vue3'
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 
 const props = defineProps({
     business: { type: Object, required: true },
@@ -60,6 +61,42 @@ const previewTotal = computed(() =>
 
 const inputClass = 'w-full bg-[var(--bg-input)] border border-[var(--border)] text-[var(--text-primary)] rounded-lg px-3.5 py-2.5 text-sm placeholder:text-[var(--text-muted)] focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)] outline-none transition'
 const labelClass = 'block text-xs font-medium text-[var(--text-secondary)] mb-1.5'
+
+// ─── Ayuda ────────────────────────────────────────────────────────────────────
+const showHelp = ref(false)
+
+const helpSteps = [
+    {
+        title: 'Prefijo y numeración',
+        body:  'El prefijo identifica los tickets de este negocio (ej: "VEN" genera tickets VEN-0001, VEN-0002…). Úsalo para diferenciar tickets si tienes varias sucursales o sistemas.',
+        tip:   'Usa mayúsculas y sin espacios. Máximo 10 caracteres. Ej: VEN, CAR-01, CHAG.',
+    },
+    {
+        title: 'Qué muestra el ticket',
+        body:  'Controla qué información aparece en el ticket al cliente: cantidad en kg, precio por kg, monto en Bs., referencia en dólares, datos del cliente y datos del negocio (dirección, teléfono).',
+        tip:   'Activa solo lo que sea útil para tu cliente. Un ticket más corto se imprime más rápido y es más fácil de leer.',
+    },
+    {
+        title: 'Vista previa en tiempo real',
+        body:  'La columna derecha muestra exactamente cómo se verá el ticket al confirmar una venta. Cada cambio que hagas en el formulario se refleja de inmediato en la vista previa.',
+        tip:   'Guarda los cambios con el botón inferior. Los cambios aplican a todos los tickets nuevos — los tickets ya emitidos no se modifican.',
+    },
+]
+
+const helpFaqs = [
+    {
+        q: '¿Los cambios afectan tickets ya impresos?',
+        a: 'No. Los cambios solo aplican a las ventas nuevas. Los tickets anteriores mantienen el formato con el que fueron generados.',
+    },
+    {
+        q: '¿Qué es la opción "REF" en divisas?',
+        a: 'Muestra el monto en divisas como "REF 8.00" en lugar de "$8.00". Algunos negocios prefieren no mostrar el símbolo de dólar en el ticket para evitar confusiones con la moneda de cobro.',
+    },
+    {
+        q: '¿El pie de página aparece siempre?',
+        a: 'Sí, si lo configuras. Es un texto fijo que aparece al final de cada ticket. Ideal para mensajes de agradecimiento, número de WhatsApp o políticas de devolución.',
+    },
+]
 </script>
 
 <template>
@@ -67,9 +104,12 @@ const labelClass = 'block text-xs font-medium text-[var(--text-secondary)] mb-1.
         <div class="settings-panel">
 
             <div class="settings-panel__header">
-                <div>
-                    <h1 class="settings-panel__title">Ticket</h1>
-                    <p class="settings-panel__desc">Configura qué muestra el ticket al cliente y el prefijo de numeración.</p>
+                <div class="header-row">
+                    <div>
+                        <h1 class="settings-panel__title">Ticket</h1>
+                        <p class="settings-panel__desc">Configura qué muestra el ticket al cliente y el prefijo de numeración.</p>
+                    </div>
+                    <button class="help-btn" @click="showHelp = true" title="Ayuda">?</button>
                 </div>
             </div>
 
@@ -312,10 +352,34 @@ const labelClass = 'block text-xs font-medium text-[var(--text-secondary)] mb-1.
 
             </div>
         </div>
+
+        <!-- Panel de ayuda ───────────────────────────────────────────────── -->
+        <HelpModal
+            :show="showHelp"
+            title="Ticket — Cómo funciona"
+            :steps="helpSteps"
+            :faqs="helpFaqs"
+            @close="showHelp = false"
+        />
+
     </SettingsLayout>
 </template>
 
 <style scoped>
+.settings-panel__header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); }
+.header-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.help-btn {
+    border-radius: 50%;
+    width: 28px; height: 28px;
+    padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.85rem; font-weight: 700;
+    border: 1.5px solid var(--border);
+    background: none; color: var(--text-muted);
+    cursor: pointer; flex-shrink: 0;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.help-btn:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
 .tkt-layout {
     display: grid;
     grid-template-columns: 1fr 280px;

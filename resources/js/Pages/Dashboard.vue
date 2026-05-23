@@ -1,5 +1,6 @@
 ﻿<script setup>
-import AppLayout from '@/Layouts/AppLayout.vue'
+import AppLayout  from '@/Layouts/AppLayout.vue'
+import HelpModal  from '@/Components/HelpModal.vue'
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import axios from 'axios'
 import { Receipt, BarChart2, AlertTriangle, CheckCircle, Package, Check, Bell, X } from '@lucide/vue'
@@ -130,6 +131,42 @@ let clockTimer = null
 onMounted(() => { updateHora(); clockTimer = setInterval(updateHora, 1000) })
 onUnmounted(() => clearInterval(clockTimer))
 
+// ─── Ayuda ────────────────────────────────────────────────────────────────────
+const showHelp = ref(false)
+
+const helpSteps = [
+    {
+        title: 'KPIs en tiempo real',
+        body:  'El panel superior muestra ventas del día (USD y Bs.), tickets emitidos y ticket promedio. Los datos se actualizan automáticamente cada 30 segundos sin necesidad de recargar la página.',
+        tip:   'El punto verde parpadeante indica que el dashboard está vivo — no necesitas recargar.',
+    },
+    {
+        title: 'Centro de Control por categoría',
+        body:  'Activa o desactiva las categorías con los chips de colores para ver el rendimiento de cada corte: ventas en USD/Bs., kilos despachados y utilidad vs. costo de bóveda activa.',
+        tip:   'El porcentaje "recuperado" te dice cuánto del costo de bóveda ya fue cubierto con ventas. 100% = punto de equilibrio superado.',
+    },
+    {
+        title: 'Stock crítico y últimas ventas',
+        body:  'El panel de stock crítico lista productos con inventario bajo o agotado. Las últimas ventas muestran los tickets más recientes del día con monto, método de pago y estado.',
+        tip:   'Si un producto aparece en rojo con "Sin stock", ve a Inventario y registra una entrada antes de que la cajera intente venderlo.',
+    },
+]
+
+const helpFaqs = [
+    {
+        q: '¿Cada cuánto se actualiza el dashboard?',
+        a: 'Automáticamente cada 30 segundos. No necesitas recargar la página — el sistema hace la consulta en segundo plano.',
+    },
+    {
+        q: '¿Qué significa el porcentaje "recuperado"?',
+        a: 'Es la relación entre lo vendido en esa categoría y el costo total de la bóveda activa. Cuando llega a 100% significa que ya cubriste el costo de la compra con las ventas del día.',
+    },
+    {
+        q: '¿Los filtros de categoría del Centro de Control se guardan?',
+        a: 'Sí. Tu selección se guarda en el navegador y se mantiene entre sesiones en el mismo dispositivo.',
+    },
+]
+
 // ─── Alerta de corte bancario ──────────────────────────────────────────────────
 // Se descarta manualmente; se restablece si el polling trae un mensaje nuevo
 const dismissedAlertText = ref(null)
@@ -157,6 +194,11 @@ function dismissBankingAlert() {
                     </button>
                 </div>
             </Transition>
+
+            <!-- Header de página con botón de ayuda ──────────────────────── -->
+            <div class="dash-header">
+                <button class="dash-help-btn" @click="showHelp = true" title="Ayuda">?</button>
+            </div>
 
             <!-- ═══ HERO KPIs ══════════════════════════════════════════════════ -->
             <div class="kpi-hero">
@@ -216,6 +258,71 @@ function dismissBankingAlert() {
                     </div>
 
                 </div>
+            </div>
+
+            <!-- ═══ CENTRO DE CONTROL ════════════════════════════════════════ -->
+            <div class="panel panel--cc">
+                <div class="panel-head">
+                    <div>
+                        <h3 class="panel-title">Centro de Control</h3>
+                        <p class="panel-desc">Rendimiento por categoría · {{ fmtDate(new Date().toISOString()) }}</p>
+                    </div>
+                    <a :href="route('reports.day-pdf')" target="_blank" class="btn-export">
+                        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0-3-3m3 3 3-3M3 17v3a1 1 0 001 1h16a1 1 0 001-1v-3M3 7V4a1 1 0 011-1h16a1 1 0 011 1v3"/></svg>
+                        Exportar día
+                    </a>
+                </div>
+
+                <div class="cc-chips">
+                    <button
+                        v-for="cat in ALL_CATS" :key="cat"
+                        class="cc-chip" :class="{ 'cc-chip--on': selectedCats.includes(cat) }"
+                        @click="toggleCat(cat)"
+                    >{{ cat }}</button>
+                </div>
+
+                <div v-if="catCardsData.length" class="cc-grid">
+                    <div v-for="cat in catCardsData" :key="cat.name" class="cc-card">
+                        <div class="cc-card-header">
+                            <span class="cc-cat-name">{{ cat.name }}</span>
+                            <span class="cc-cat-bs">{{ fmtUsd(cat.total_usd) }}</span>
+                        </div>
+                        <div class="cc-stats">
+                            <div class="cc-stat">
+                                <span class="cc-lbl">Bs.</span>
+                                <span class="cc-val">{{ fmtBs(cat.total_bs) }}</span>
+                            </div>
+                            <div class="cc-stat">
+                                <span class="cc-lbl">Kg despachados</span>
+                                <span class="cc-val">{{ fmtKg(cat.kg_vendidos) }}</span>
+                            </div>
+                        </div>
+                        <div v-if="cat.boveda" class="cc-boveda">
+                            <div class="cc-bov-row">
+                                <span class="cc-lbl">Costo bóveda</span>
+                                <span class="cc-val">{{ fmtUsd(cat.boveda.costo) }}</span>
+                            </div>
+                            <div class="cc-bov-row">
+                                <span class="cc-lbl">Utilidad</span>
+                                <span class="cc-val" :class="cat.boveda.utilidad >= 0 ? 'val-green' : 'val-red'">
+                                    {{ cat.boveda.utilidad >= 0 ? '+' : '' }}{{ fmtUsd(cat.boveda.utilidad) }}
+                                </span>
+                            </div>
+                            <div class="cc-progress">
+                                <div class="cc-track">
+                                    <div
+                                        class="cc-fill"
+                                        :class="cat.boveda.porcentaje >= 100 ? 'fill-green' : cat.boveda.porcentaje >= 50 ? 'fill-amber' : 'fill-red'"
+                                        :style="{ width: Math.min(cat.boveda.porcentaje, 100) + '%' }"
+                                    />
+                                </div>
+                                <span class="cc-pct">{{ cat.boveda.porcentaje }}% recuperado</span>
+                            </div>
+                        </div>
+                        <p v-else class="cc-no-bov">Sin entrada bóveda activa</p>
+                    </div>
+                </div>
+                <p v-else class="td-empty">Selecciona al menos una categoría.</p>
             </div>
 
             <!-- ═══ FILA PRINCIPAL ════════════════════════════════════════════ -->
@@ -354,76 +461,45 @@ function dismissBankingAlert() {
                 </div>
             </div>
 
-            <!-- ═══ CENTRO DE CONTROL ════════════════════════════════════════ -->
-            <div class="panel panel--cc">
-                <div class="panel-head">
-                    <div>
-                        <h3 class="panel-title">Centro de Control</h3>
-                        <p class="panel-desc">Rendimiento por categoría · {{ fmtDate(new Date().toISOString()) }}</p>
-                    </div>
-                    <a :href="route('reports.day-pdf')" target="_blank" class="btn-export">
-                        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0-3-3m3 3 3-3M3 17v3a1 1 0 001 1h16a1 1 0 001-1v-3M3 7V4a1 1 0 011-1h16a1 1 0 011 1v3"/></svg>
-                        Exportar día
-                    </a>
-                </div>
-
-                <div class="cc-chips">
-                    <button
-                        v-for="cat in ALL_CATS" :key="cat"
-                        class="cc-chip" :class="{ 'cc-chip--on': selectedCats.includes(cat) }"
-                        @click="toggleCat(cat)"
-                    >{{ cat }}</button>
-                </div>
-
-                <div v-if="catCardsData.length" class="cc-grid">
-                    <div v-for="cat in catCardsData" :key="cat.name" class="cc-card">
-                        <div class="cc-card-header">
-                            <span class="cc-cat-name">{{ cat.name }}</span>
-                            <span class="cc-cat-bs">{{ fmtUsd(cat.total_usd) }}</span>
-                        </div>
-                        <div class="cc-stats">
-                            <div class="cc-stat">
-                                <span class="cc-lbl">Bs.</span>
-                                <span class="cc-val">{{ fmtBs(cat.total_bs) }}</span>
-                            </div>
-                            <div class="cc-stat">
-                                <span class="cc-lbl">Kg despachados</span>
-                                <span class="cc-val">{{ fmtKg(cat.kg_vendidos) }}</span>
-                            </div>
-                        </div>
-                        <div v-if="cat.boveda" class="cc-boveda">
-                            <div class="cc-bov-row">
-                                <span class="cc-lbl">Costo bóveda</span>
-                                <span class="cc-val">{{ fmtUsd(cat.boveda.costo) }}</span>
-                            </div>
-                            <div class="cc-bov-row">
-                                <span class="cc-lbl">Utilidad</span>
-                                <span class="cc-val" :class="cat.boveda.utilidad >= 0 ? 'val-green' : 'val-red'">
-                                    {{ cat.boveda.utilidad >= 0 ? '+' : '' }}{{ fmtUsd(cat.boveda.utilidad) }}
-                                </span>
-                            </div>
-                            <div class="cc-progress">
-                                <div class="cc-track">
-                                    <div
-                                        class="cc-fill"
-                                        :class="cat.boveda.porcentaje >= 100 ? 'fill-green' : cat.boveda.porcentaje >= 50 ? 'fill-amber' : 'fill-red'"
-                                        :style="{ width: Math.min(cat.boveda.porcentaje, 100) + '%' }"
-                                    />
-                                </div>
-                                <span class="cc-pct">{{ cat.boveda.porcentaje }}% recuperado</span>
-                            </div>
-                        </div>
-                        <p v-else class="cc-no-bov">Sin entrada bóveda activa</p>
-                    </div>
-                </div>
-                <p v-else class="td-empty">Selecciona al menos una categoría.</p>
-            </div>
-
         </div>
+
+        <!-- Panel de ayuda ───────────────────────────────────────────────── -->
+        <HelpModal
+            :show="showHelp"
+            title="Dashboard — Cómo funciona"
+            :steps="helpSteps"
+            :faqs="helpFaqs"
+            @close="showHelp = false"
+        />
+
     </AppLayout>
 </template>
 
 <style scoped>
+/* ═══ HEADER AYUDA ════════════════════════════════════════════════════════════ */
+.dash-header {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+}
+.dash-help-btn {
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    border: 1.5px solid var(--border);
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.dash-help-btn:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
+
 /* ═══ LAYOUT ══════════════════════════════════════════════════════════════════ */
 .dash-wrap {
     padding: 1rem 0.85rem;

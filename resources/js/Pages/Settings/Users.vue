@@ -1,5 +1,6 @@
 <script setup>
 import SettingsLayout from '@/Layouts/SettingsLayout.vue'
+import HelpModal      from '@/Components/HelpModal.vue'
 import { useForm } from '@inertiajs/vue3'
 import { ref } from 'vue'
 
@@ -69,6 +70,42 @@ function destroy(user) {
 const inputClass = 'w-full bg-[var(--bg-input)] border border-[var(--border)] text-[var(--text-primary)] rounded-lg px-3.5 py-2.5 text-sm placeholder:text-[var(--text-muted)] focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)] outline-none transition'
 const labelClass = 'block text-xs font-medium text-[var(--text-secondary)] mb-1.5'
 const errorClass = 'mt-1 text-xs text-red-400'
+
+// ─── Ayuda ────────────────────────────────────────────────────────────────────
+const showHelp = ref(false)
+
+const helpSteps = [
+    {
+        title: 'Gestión de usuarios del sistema',
+        body:  'Este módulo es exclusivo del super administrador. Aquí se crean y administran las cuentas de acceso al sistema: nombre, correo, rol y contraseña.',
+        tip:   'Para configuraciones avanzadas como sucursal, horario de acceso y suspensión, usa Configuración → Equipo.',
+    },
+    {
+        title: 'Roles disponibles',
+        body:  'Administrador: gestión completa de su sucursal. Supervisor: gestión operativa sin acceso a configuración. Cajero: acceso solo al POS e inventario sin costos.',
+        tip:   'Asigna el rol mínimo necesario. Un cajero con rol de administrador por error puede modificar configuraciones críticas.',
+    },
+    {
+        title: 'Crear y editar usuarios',
+        body:  'Al crear un usuario se le asigna una contraseña inicial que debe comunicar de forma segura. Al editar, la contraseña solo se cambia si se ingresa una nueva — déjala en blanco para conservar la actual.',
+        tip:   'El correo electrónico es opcional para cajeros pero necesario si el usuario necesita recuperar su contraseña por email.',
+    },
+]
+
+const helpFaqs = [
+    {
+        q: '¿Qué diferencia hay entre este módulo y Configuración → Equipo?',
+        a: 'Usuarios gestiona las cuentas de acceso al sistema (credenciales y rol). Equipo es más completo: incluye sucursal, horario, suspensión y cierre forzado de sesión.',
+    },
+    {
+        q: '¿Puedo eliminar un usuario con ventas registradas?',
+        a: 'No. El botón de eliminar estará deshabilitado si el usuario tiene ventas asociadas. En ese caso, suspéndelo desde Configuración → Equipo.',
+    },
+    {
+        q: '¿La contraseña se puede ver una vez creada?',
+        a: 'No. Las contraseñas se guardan cifradas y no son recuperables. Si un usuario olvida su contraseña, edita el usuario y asigna una nueva.',
+    },
+]
 </script>
 
 <template>
@@ -82,7 +119,10 @@ const errorClass = 'mt-1 text-xs text-red-400'
                         <h2 class="settings-panel__title">Usuarios</h2>
                         <p class="settings-panel__subtitle">Gestiona quién tiene acceso al sistema</p>
                     </div>
-                    <button class="btn-primary" @click="openNew">+ Agregar usuario</button>
+                    <div class="header-actions">
+                        <button class="help-btn" @click="showHelp = true" title="Ayuda">?</button>
+                        <button class="btn-primary" @click="openNew">+ Agregar usuario</button>
+                    </div>
                 </div>
             </div>
 
@@ -173,6 +213,16 @@ const errorClass = 'mt-1 text-xs text-red-400'
                 </div>
             </div>
         </Teleport>
+
+        <!-- Panel de ayuda ───────────────────────────────────────────────── -->
+        <HelpModal
+            :show="showHelp"
+            title="Usuarios — Cómo funciona"
+            :steps="helpSteps"
+            :faqs="helpFaqs"
+            @close="showHelp = false"
+        />
+
     </SettingsLayout>
 </template>
 
@@ -180,6 +230,19 @@ const errorClass = 'mt-1 text-xs text-red-400'
 .settings-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
 .settings-panel__header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); }
 .header-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.header-actions { display: flex; align-items: center; gap: 0.5rem; }
+.help-btn {
+    border-radius: 50%;
+    width: 28px; height: 28px;
+    padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.85rem; font-weight: 700;
+    border: 1.5px solid var(--border);
+    background: none; color: var(--text-muted);
+    cursor: pointer; flex-shrink: 0;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.help-btn:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
 .settings-panel__title { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
 .settings-panel__subtitle { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
 .panel-body { padding: 1.25rem 1.5rem; }

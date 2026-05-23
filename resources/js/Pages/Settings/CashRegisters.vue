@@ -1,5 +1,6 @@
 <script setup>
 import SettingsLayout from '@/Layouts/SettingsLayout.vue'
+import HelpModal      from '@/Components/HelpModal.vue'
 import { useForm } from '@inertiajs/vue3'
 import { ref } from 'vue'
 
@@ -47,6 +48,42 @@ function destroy(reg) {
 function branchName(id) {
     return props.branches?.find(b => b.id === id)?.name ?? '—'
 }
+
+// ─── Ayuda ────────────────────────────────────────────────────────────────────
+const showHelp = ref(false)
+
+const helpSteps = [
+    {
+        title: 'Qué es una caja registradora',
+        body:  'Cada caja representa un punto de cobro físico en una sucursal. Un cajero debe abrir su caja al inicio del día para poder registrar ventas en el POS.',
+        tip:   'Puedes tener varias cajas en la misma sucursal, una por cajero.',
+    },
+    {
+        title: 'Crear y asignar cajas',
+        body:  'Agrega una caja con un nombre descriptivo (ej: "Caja 1", "Caja Principal") y asígnala a su sucursal. La asignación de sucursal determina qué cajeros pueden usarla.',
+        tip:   'Si tienes una sola sede, puedes dejar la sucursal sin asignar.',
+    },
+    {
+        title: 'Estado de la caja',
+        body:  'Una caja puede estar "Abierta" (en uso por un cajero activo hoy) o "Cerrada" (fuera de turno). El estado se gestiona desde el módulo Caja — aquí solo se configura la caja.',
+        tip:   'No elimines una caja que tenga historial de ventas — en su lugar déjala inactiva.',
+    },
+]
+
+const helpFaqs = [
+    {
+        q: '¿Cuántas cajas puedo crear?',
+        a: 'No hay un límite fijo. Lo recomendable es una caja por cajero activo por turno en cada sucursal.',
+    },
+    {
+        q: '¿Puedo eliminar una caja con historial?',
+        a: 'Técnicamente sí, pero no es recomendable. Si la caja ya tuvo ventas o cierres, perderías la trazabilidad. Mejor créa una nueva y deja la antigua como referencia.',
+    },
+    {
+        q: '¿La caja afecta los reportes?',
+        a: 'Sí. Los cierres de caja y los KPIs de cuadre se asocian a la caja específica. Cada cajero cierra su propia caja al final del turno.',
+    },
+]
 </script>
 
 <template>
@@ -58,7 +95,10 @@ function branchName(id) {
                     <h2 class="page-title">Cajas Registradoras</h2>
                     <p class="page-sub">Una caja por sucursal. Solo una puede estar abierta a la vez por sede.</p>
                 </div>
-                <button class="btn-primary" @click="openNew">+ Agregar caja</button>
+                <div class="page-head-actions">
+                    <button class="help-btn" @click="showHelp = true" title="Ayuda">?</button>
+                    <button class="btn-primary" @click="openNew">+ Agregar caja</button>
+                </div>
             </div>
 
             <div class="table-wrap">
@@ -125,6 +165,16 @@ function branchName(id) {
                 </div>
             </div>
         </Teleport>
+
+        <!-- Panel de ayuda ───────────────────────────────────────────────── -->
+        <HelpModal
+            :show="showHelp"
+            title="Cajas Registradoras — Cómo funciona"
+            :steps="helpSteps"
+            :faqs="helpFaqs"
+            @close="showHelp = false"
+        />
+
     </SettingsLayout>
 </template>
 
@@ -133,6 +183,19 @@ function branchName(id) {
 .page-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .page-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
 .page-sub   { font-size: .8rem; color: var(--text-muted); margin-top: 2px; }
+.page-head-actions { display: flex; align-items: center; gap: 0.5rem; }
+.help-btn {
+    border-radius: 50%;
+    width: 28px; height: 28px;
+    padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.85rem; font-weight: 700;
+    border: 1.5px solid var(--border);
+    background: none; color: var(--text-muted);
+    cursor: pointer; flex-shrink: 0;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.help-btn:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
 
 .table-wrap { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; min-width: 0; }
 .tbl        { width: 100%; min-width: 480px; border-collapse: collapse; font-size: .875rem; }

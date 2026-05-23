@@ -1,5 +1,6 @@
 <script setup>
 import SettingsLayout from '@/Layouts/SettingsLayout.vue'
+import HelpModal      from '@/Components/HelpModal.vue'
 import { useForm } from '@inertiajs/vue3'
 import { ref } from 'vue'
 
@@ -103,6 +104,42 @@ function destroy(t) {
 const inputClass = 'w-full bg-[var(--bg-input)] border border-[var(--border)] text-[var(--text-primary)] rounded-lg px-3.5 py-2.5 text-sm placeholder:text-[var(--text-muted)] focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)] outline-none transition'
 const labelClass = 'block text-xs font-medium text-[var(--text-secondary)] mb-1.5'
 const errorClass = 'mt-1 text-xs text-red-400'
+
+// ─── Ayuda ────────────────────────────────────────────────────────────────────
+const showHelp = ref(false)
+
+const helpSteps = [
+    {
+        title: 'Tipos de terminal',
+        body:  'Registra los equipos físicos de cobro electrónico: Débito (POS tarjeta de débito), Crédito (POS tarjeta de crédito) y BioPago (dispositivo biométrico). Cada uno se asocia a un banco.',
+        tip:   'Si tienes dos terminales del mismo banco (ej: un POS de respaldo), crea dos registros separados con distintos seriales.',
+    },
+    {
+        title: 'Datos del terminal',
+        body:  'Registra el banco emisor (obligatorio), el serial del dispositivo y el número de comercio que aparece en los vouchers. Estos datos te ayudan a identificar el equipo en caso de fallas.',
+        tip:   'El número de comercio lo asigna el banco. Lo encuentras en los vouchers de cobro o en el contrato del servicio.',
+    },
+    {
+        title: 'Activar o desactivar',
+        body:  'Un terminal inactivo no aparece como opción al cobrar en el POS pero conserva su historial. Úsalo cuando el equipo está en reparación o de baja temporal.',
+        tip:   'No elimines un terminal con historial — márcalo como inactivo para preservar la trazabilidad de las ventas anteriores.',
+    },
+]
+
+const helpFaqs = [
+    {
+        q: '¿Para qué sirve el número de comercio?',
+        a: 'Es el identificador que el banco usa para procesar los cobros. Aparece en los vouchers de cada transacción. Es útil para conciliar pagos con el estado de cuenta bancario.',
+    },
+    {
+        q: '¿Puedo tener terminales de varios bancos?',
+        a: 'Sí, sin límite. Puedes registrar todos los equipos que uses. Al cobrar en el POS, la cajera selecciona cuál terminal procesó el pago.',
+    },
+    {
+        q: '¿Qué diferencia hay entre BioPago y débito/crédito?',
+        a: 'BioPago es un sistema biométrico venezolano que verifica la identidad por huella dactilar conectada a la cuenta bancaria. Es un tipo de cobro distinto a los POS tradicionales.',
+    },
+]
 </script>
 
 <template>
@@ -116,7 +153,10 @@ const errorClass = 'mt-1 text-xs text-red-400'
                         <h2 class="settings-panel__title">Terminales POS</h2>
                         <p class="settings-panel__subtitle">Configura tus terminales de débito, crédito y BioPago</p>
                     </div>
-                    <button class="btn-primary" @click="openNew">+ Agregar terminal</button>
+                    <div class="header-actions">
+                        <button class="help-btn" @click="showHelp = true" title="Ayuda">?</button>
+                        <button class="btn-primary" @click="openNew">+ Agregar terminal</button>
+                    </div>
                 </div>
             </div>
 
@@ -227,6 +267,16 @@ const errorClass = 'mt-1 text-xs text-red-400'
                 </div>
             </div>
         </Teleport>
+
+        <!-- Panel de ayuda ───────────────────────────────────────────────── -->
+        <HelpModal
+            :show="showHelp"
+            title="Terminales POS — Cómo funciona"
+            :steps="helpSteps"
+            :faqs="helpFaqs"
+            @close="showHelp = false"
+        />
+
     </SettingsLayout>
 </template>
 
@@ -234,6 +284,19 @@ const errorClass = 'mt-1 text-xs text-red-400'
 .settings-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
 .settings-panel__header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); }
 .header-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.header-actions { display: flex; align-items: center; gap: 0.5rem; }
+.help-btn {
+    border-radius: 50%;
+    width: 28px; height: 28px;
+    padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.85rem; font-weight: 700;
+    border: 1.5px solid var(--border);
+    background: none; color: var(--text-muted);
+    cursor: pointer; flex-shrink: 0;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.help-btn:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
 .settings-panel__title { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
 .settings-panel__subtitle { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
 .panel-body { padding: 1.25rem 1.5rem; }

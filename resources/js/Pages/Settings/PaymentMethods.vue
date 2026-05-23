@@ -1,5 +1,6 @@
 <script setup>
 import SettingsLayout from '@/Layouts/SettingsLayout.vue'
+import HelpModal      from '@/Components/HelpModal.vue'
 import { ref, computed } from 'vue'
 import { useForm, router } from '@inertiajs/vue3'
 
@@ -176,6 +177,42 @@ function destroyTerminal(t) {
     if (!confirm(`¿Eliminar el dispositivo "${t.bank_name} – ${TERMINAL_LABELS[t.method] ?? t.method}"?`)) return
     router.delete(route('settings.terminals.destroy', t.id), { preserveScroll: true })
 }
+
+// ─── Ayuda ────────────────────────────────────────────────────────────────────
+const showHelp = ref(false)
+
+const helpSteps = [
+    {
+        title: 'Métodos de pago',
+        body:  'Define qué formas de cobro acepta tu negocio: efectivo (Bs. o USD), transferencia, pago móvil, BioPago u otros. Cada método aparece como opción al cajero cuando procesa una venta.',
+        tip:   'Arrastra los métodos para reordenarlos — el orden aquí es el orden que verá la cajera en el POS al cobrar.',
+    },
+    {
+        title: 'Activar y desactivar métodos',
+        body:  'El toggle de cada método lo activa o desactiva sin eliminarlo. Un método inactivo no aparece en el POS pero conserva su historial en los reportes.',
+        tip:   'Desactiva métodos que no uses temporalmente en lugar de eliminarlos — preserva la trazabilidad de ventas anteriores.',
+    },
+    {
+        title: 'Dispositivos (terminales)',
+        body:  'Registra tus terminales POS de débito, crédito o BioPago. Incluye el banco emisor, serial y número de comercio. El sistema los lista al procesar cobros con tarjeta.',
+        tip:   'Puedes tener múltiples terminales del mismo banco si tienes equipos de respaldo.',
+    },
+]
+
+const helpFaqs = [
+    {
+        q: '¿Puedo tener dos métodos del mismo tipo?',
+        a: 'Sí. Por ejemplo, puedes tener "Efectivo Bs." y "Efectivo USD" como métodos separados, o "Pago Móvil BDV" y "Pago Móvil Banesco".',
+    },
+    {
+        q: '¿El orden de los métodos importa?',
+        a: 'Sí. El primer método de la lista aparece preseleccionado en el POS. Pon el más usado primero para agilizar el cobro.',
+    },
+    {
+        q: '¿Para qué sirve registrar el serial del terminal?',
+        a: 'Es opcional pero útil para identificar el dispositivo en caso de fallas o reclamaciones bancarias. El sistema no lo valida automáticamente.',
+    },
+]
 </script>
 
 <template>
@@ -188,6 +225,7 @@ function destroyTerminal(t) {
                     <h2 class="section-title">Cobros</h2>
                     <p class="section-sub">Métodos de pago y dispositivos aceptados en el POS</p>
                 </div>
+                <button class="help-btn" @click="showHelp = true" title="Ayuda">?</button>
             </div>
 
             <div class="card">
@@ -349,12 +387,34 @@ function destroyTerminal(t) {
                 </div>
             </div>
         </Teleport>
+
+        <!-- Panel de ayuda ───────────────────────────────────────────────── -->
+        <HelpModal
+            :show="showHelp"
+            title="Cobros — Cómo funciona"
+            :steps="helpSteps"
+            :faqs="helpFaqs"
+            @close="showHelp = false"
+        />
+
     </SettingsLayout>
 </template>
 
 <style scoped>
 .page         { display: flex; flex-direction: column; gap: 1.25rem; }
 .section-head { display: flex; align-items: center; justify-content: space-between; }
+.help-btn {
+    border-radius: 50%;
+    width: 28px; height: 28px;
+    padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.85rem; font-weight: 700;
+    border: 1.5px solid var(--border);
+    background: none; color: var(--text-muted);
+    cursor: pointer; flex-shrink: 0;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.help-btn:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
 .section-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
 .section-sub   { font-size: .8rem; color: var(--text-muted); margin-top: 2px; }
 

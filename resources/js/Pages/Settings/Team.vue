@@ -1,5 +1,6 @@
 <script setup>
 import SettingsLayout from '@/Layouts/SettingsLayout.vue'
+import HelpModal      from '@/Components/HelpModal.vue'
 import { ref, computed } from 'vue'
 import { useForm, router, usePage } from '@inertiajs/vue3'
 
@@ -94,6 +95,42 @@ function destroy(user) {
     if (!confirm(`¿Eliminar a ${user.name}? No se puede deshacer.`)) return
     router.delete(route('settings.team.destroy', user.id), { preserveScroll: true })
 }
+
+// ─── Ayuda ────────────────────────────────────────────────────────────────────
+const showHelp = ref(false)
+
+const helpSteps = [
+    {
+        title: 'Roles y permisos',
+        body:  'Cada usuario tiene un rol que define qué puede hacer: Administrador (gestión completa de su sucursal), Cajero (solo POS e inventario sin costos) y Analista (reportes y caja en solo lectura).',
+        tip:   'Un cajero no puede ver costos de bóveda ni crear usuarios. Asigna el rol mínimo necesario para cada persona.',
+    },
+    {
+        title: 'Sucursal y horario de acceso',
+        body:  'Asigna cada usuario a su sucursal correspondiente. Opcionalmente configura los días habilitados y la ventana horaria — fuera de ese horario el sistema cerrará la sesión automáticamente.',
+        tip:   'Deja los días y horario en blanco si el usuario puede acceder en cualquier momento.',
+    },
+    {
+        title: 'Suspender y eliminar usuarios',
+        body:  'Suspende a un usuario para bloquearlo sin perder su historial. Solo elimina usuarios que nunca hayan registrado ventas — si tienen ventas, el botón "Eliminar" estará deshabilitado.',
+        tip:   'Usa "Sesión" para cerrar forzosamente la sesión activa de un usuario si dejó una computadora abierta.',
+    },
+]
+
+const helpFaqs = [
+    {
+        q: '¿El correo del usuario es obligatorio?',
+        a: 'No para cajeros. Puedes crear cajeros solo con nombre y contraseña, sin correo. El correo es necesario si el usuario necesita recuperar su contraseña.',
+    },
+    {
+        q: '¿Qué pasa si suspendo a un cajero con la caja abierta?',
+        a: 'El sistema expulsa su sesión de inmediato. La caja queda abierta y puede ser cerrada por un administrador desde el módulo Caja.',
+    },
+    {
+        q: '¿Puedo cambiar el rol de un usuario activo?',
+        a: 'Sí. El cambio de rol aplica en la próxima acción del usuario o al recargar su sesión. Si tiene sesión activa, usa el botón "Sesión" para forzar el cierre y que tome el nuevo rol.',
+    },
+]
 </script>
 
 <template>
@@ -105,7 +142,10 @@ function destroy(user) {
                     <h2 class="page-title">Equipo</h2>
                     <p class="page-sub">Usuarios del negocio, su sucursal y horario de acceso.</p>
                 </div>
-                <button class="btn-brand" @click="openCreate">+ Nuevo usuario</button>
+                <div class="page-head-actions">
+                    <button class="help-btn" @click="showHelp = true" title="Ayuda">?</button>
+                    <button class="btn-brand" @click="openCreate">+ Nuevo usuario</button>
+                </div>
             </div>
 
             <div v-if="flash.success" class="flash flash--ok">{{ flash.success }}</div>
@@ -251,6 +291,16 @@ function destroy(user) {
                 </div>
             </div>
         </Teleport>
+
+        <!-- Panel de ayuda ───────────────────────────────────────────────── -->
+        <HelpModal
+            :show="showHelp"
+            title="Equipo — Cómo funciona"
+            :steps="helpSteps"
+            :faqs="helpFaqs"
+            @close="showHelp = false"
+        />
+
     </SettingsLayout>
 </template>
 
@@ -259,6 +309,19 @@ function destroy(user) {
 .page-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .page-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
 .page-sub   { font-size: .8rem; color: var(--text-muted); margin-top: 2px; }
+.page-head-actions { display: flex; align-items: center; gap: 0.5rem; }
+.help-btn {
+    border-radius: 50%;
+    width: 28px; height: 28px;
+    padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.85rem; font-weight: 700;
+    border: 1.5px solid var(--border);
+    background: none; color: var(--text-muted);
+    cursor: pointer; flex-shrink: 0;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.help-btn:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
 
 .flash      { padding: .6rem 1rem; border-radius: 8px; font-size: .85rem; font-weight: 500; }
 .flash--ok  { background: color-mix(in srgb,#22c55e 15%,transparent); color: #22c55e; }

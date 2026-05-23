@@ -73,9 +73,11 @@ function logout() {
 
 // ─── Visibilidad del menú por rol ─────────────────────────────────────────────
 const rolePermissions = {
-    admin:      ['dashboard','pos','inventory','boveda','fabrica','orders','sales','dayclose','catalog','clients','contingency','users','settings','cash'],
-    supervisor: ['dashboard','pos','inventory','boveda','fabrica','orders','sales','dayclose','catalog','clients'],
-    cashier:    ['pos','cash'],
+    admin:        ['dashboard','pos','inventory','boveda','fabrica','orders','sales','dayclose','catalog','clients','contingency','users','settings','cash'],
+    owner:        ['dashboard','pos','inventory','boveda','fabrica','orders','sales','dayclose','catalog','clients','contingency','users','settings','cash'],
+    branch_admin: ['dashboard','pos','inventory','boveda','fabrica','orders','sales','dayclose','catalog','clients','contingency','users','settings','cash'],
+    supervisor:   ['dashboard','pos','cash','sales','dayclose','inventory','catalog','boveda','fabrica','orders','clients','reports','contingency'],
+    cashier:      ['pos','cash','sales','dayclose','inventory','catalog','orders','clients','contingency'],
 }
 function canAccess(permission) {
     const role = user.value?.role ?? 'admin'
@@ -187,8 +189,7 @@ const nav = [
     {
         section: 'ADMINISTRACIÓN',
         items: [
-            { label: 'Configuración', route: 'settings.index',    icon: 'cog',    perm: 'settings' },
-            { label: 'Sucursales',    route: 'settings.branches', icon: 'branch', perm: 'settings' },
+            { label: 'Configuración', route: 'settings.index', icon: 'cog', perm: 'settings' },
         ],
     },
 ]
