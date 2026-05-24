@@ -241,13 +241,15 @@ class ReportController extends Controller
             'fecha'          => ['nullable', 'date'],
             'category_ids'   => ['nullable', 'array'],
             'category_ids.*' => ['integer'],
+            'branch_id'      => ['nullable', 'integer'],
         ]);
 
         $fecha       = $data['fecha'] ?? now()->toDateString();
         $categoryIds = array_map('intval', $data['category_ids'] ?? []);
         $businessId  = Auth::user()->business->id;
+        $branchId    = isset($data['branch_id']) ? (int) $data['branch_id'] : null;
 
-        $result = $this->buildDayData($businessId, $fecha, $categoryIds);
+        $result = $this->buildDayData($businessId, $fecha, $categoryIds, $branchId);
 
         return response()->json(array_merge(['fecha' => $fecha], $result));
     }
@@ -260,14 +262,16 @@ class ReportController extends Controller
             'fecha'          => ['nullable', 'date'],
             'category_ids'   => ['nullable', 'array'],
             'category_ids.*' => ['integer'],
+            'branch_id'      => ['nullable', 'integer'],
         ]);
 
         $fecha       = $data['fecha'] ?? now()->toDateString();
         $categoryIds = array_map('intval', $data['category_ids'] ?? []);
         $business    = Auth::user()->business;
         $cashier     = Auth::user();
+        $branchId    = isset($data['branch_id']) ? (int) $data['branch_id'] : null;
 
-        $result = $this->buildDayData($business->id, $fecha, $categoryIds);
+        $result = $this->buildDayData($business->id, $fecha, $categoryIds, $branchId);
         $html   = $this->buildDayPdfHtml($business, $cashier, $fecha, $result['categories'], $result['totals']);
 
         return \Barryvdh\DomPDF\Facade\Pdf::loadHtml($html)
@@ -518,11 +522,12 @@ class ReportController extends Controller
 
     // ─── Helper: construir datos del día ──────────────────────────────────────
 
-    private function buildDayData(int $businessId, string $fecha, array $categoryIds): array
+    private function buildDayData(int $businessId, string $fecha, array $categoryIds, ?int $branchId = null): array
     {
         $sales = Sale::where('business_id', $businessId)
             ->where('status', 'paid')
             ->whereDate('accounting_date', $fecha)
+            ->when($branchId !== null, fn ($q) => $q->where('branch_id', $branchId))
             ->with(['items.product.category'])
             ->get(['id', 'rate_used']);
 
@@ -533,7 +538,8 @@ class ReportController extends Controller
             ->groupBy('product_id')
             ->pluck('avg_cost', 'product_id');
 
-        $byCat = [];
+        $byCat  = [];
+        $byProd = [];
 
         foreach ($sales as $sale) {
             $rate = (float) ($sale->rate_used ?? 1);
@@ -565,10 +571,24 @@ class ReportController extends Controller
                 $byCat[$catId]['vendido_bs']  += $subtotalUsd * $rate;
                 $byCat[$catId]['costo_usd']   += $costPerKg * $qty;
                 $byCat[$catId]['costo_bs']    += $costPerKg * $qty * $rate;
+
+                $prodId   = $item->product_id;
+                $prodName = $item->product?->name ?? 'Sin nombre';
+                if (!isset($byProd[$catId][$prodId])) {
+                    $byProd[$catId][$prodId] = [
+                        'producto'    => $prodName,
+                        'vendido_usd' => 0.0,
+                        'vendido_bs'  => 0.0,
+                        'costo_usd'   => 0.0,
+                    ];
+                }
+                $byProd[$catId][$prodId]['vendido_usd'] += $subtotalUsd;
+                $byProd[$catId][$prodId]['vendido_bs']  += $subtotalUsd * $rate;
+                $byProd[$catId][$prodId]['costo_usd']   += $costPerKg * $qty;
             }
         }
 
-        $categories = collect($byCat)->map(function (array $row): array {
+        $categories = collect($byCat)->map(function (array $row, int|string $catId) use ($byProd): array {
             $utilidadUsd = $row['vendido_usd'] - $row['costo_usd'];
             $utilidadBs  = $row['vendido_bs']  - $row['costo_bs'];
             $margen      = $row['vendido_usd'] > 0
@@ -583,6 +603,7 @@ class ReportController extends Controller
                 'utilidad_usd' => round($utilidadUsd, 2),
                 'utilidad_bs'  => round($utilidadBs, 2),
                 'margen_pct'   => $margen,
+                'productos'    => collect($byProd[$catId] ?? [])->values()->all(),
             ];
         })->values()->all();
 
