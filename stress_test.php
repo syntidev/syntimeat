@@ -921,6 +921,23 @@ DB::table('inventory_entries')->insert([
     'updated_at'  => now(),
 ]);
 
+$carneCanal = Product::where('business_id', $businessId)
+    ->where('name', 'Carne del Canal')
+    ->first();
+
+if ($carneCanal) {
+    InventoryEntry::create([
+        'business_id' => $businessId,
+        'product_id'  => $carneCanal->id,
+        'quantity_kg' => 500.0,
+        'waste_kg'    => 0,
+        'location'    => 'vitrina',
+        'notes'       => '[ST] Stock pool Carne del Canal',
+        'entered_at'  => now(),
+        'created_by'  => $user->id,
+    ]);
+}
+
 // 4.1 — 10 ventas rápidas consecutivas via SaleController::store() + pay()
 $montoPorVenta = 500.0; // Bs. por venta
 for ($i = 1; $i <= 10; $i++) {

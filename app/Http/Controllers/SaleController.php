@@ -192,8 +192,9 @@ class SaleController extends Controller
             if ($item['input_type'] !== 'weight') {
                 continue;
             }
+            $stockCheckId    = Product::find($item['product_id'])?->stock_product_id ?? $item['product_id'];
             $stockDisponible = InventoryEntry::where('business_id', $businessId)
-                ->where('product_id', $item['product_id'])
+                ->where('product_id', $stockCheckId)
                 ->selectRaw('SUM(quantity_kg - waste_kg) as total')
                 ->value('total');
 
