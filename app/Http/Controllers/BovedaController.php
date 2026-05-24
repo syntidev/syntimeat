@@ -92,16 +92,38 @@ class BovedaController extends Controller
             'costo_usd'    => ['required', 'numeric', 'min:0'],
             'supplier'     => ['nullable', 'string', 'max:100'],
             'entered_at'   => ['required', 'date'],
+            'kg_par'       => ['nullable', 'numeric', 'min:0.001'],
         ]);
 
         $businessId = Auth::user()->business_id;
         $userId     = Auth::id();
+        $kgPar      = isset($data['kg_par']) ? (float) $data['kg_par'] : null;
 
-        DB::transaction(function () use ($data, $businessId, $userId): void {
+        DB::transaction(function () use ($data, $businessId, $userId, $kgPar): void {
             $entry = BovedaEntry::create([
                 'business_id' => $businessId,
                 ...$data,
             ]);
+
+            // Si viene canal par, marcar Canal 1 y crear Canal 2
+            if ($kgPar !== null) {
+                $pairId = $entry->id;
+                $entry->update([
+                    'pair_id'     => $pairId,
+                    'description' => 'Canal 1',
+                ]);
+
+                $entry2 = BovedaEntry::create([
+                    'business_id'  => $businessId,
+                    'product_type' => $data['product_type'],
+                    'description'  => 'Canal 2',
+                    'kg_entrada'   => $kgPar,
+                    'costo_usd'    => $data['costo_usd'],
+                    'supplier'     => $data['supplier'] ?? null,
+                    'entered_at'   => $data['entered_at'],
+                    'pair_id'      => $pairId,
+                ]);
+            }
 
             // F2: crear espejo en inventory_entries(location=boveda) para trazabilidad.
             // Solo cuando existe un producto de catálogo con ese nombre en location=boveda.
@@ -127,6 +149,26 @@ class BovedaController extends Controller
                     'entered_at'      => $data['entered_at'],
                     'created_by'      => $userId,
                 ]);
+
+                // InventoryEntry para Canal 2 si aplica
+                if ($kgPar !== null) {
+                    $costoPorKgPar = $kgPar > 0
+                        ? round($data['costo_usd'] / $kgPar, 4)
+                        : null;
+
+                    InventoryEntry::create([
+                        'business_id'     => $businessId,
+                        'product_id'      => $product->id,
+                        'boveda_entry_id' => $entry2->id,
+                        'quantity_kg'     => $kgPar,
+                        'waste_kg'        => 0,
+                        'cost_per_kg_usd' => $costoPorKgPar,
+                        'location'        => 'boveda',
+                        'notes'           => 'Entrada bóveda #' . $entry2->id . ' (Canal 2)',
+                        'entered_at'      => $data['entered_at'],
+                        'created_by'      => $userId,
+                    ]);
+                }
             }
 
             ActivityLog::create([
@@ -135,7 +177,8 @@ class BovedaController extends Controller
                 'action'      => 'boveda.entry',
                 'model_type'  => 'BovedaEntry',
                 'model_id'    => $entry->id,
-                'description' => 'Entrada bóveda: ' . $data['product_type'] . ' — ' . $data['kg_entrada'] . ' kg',
+                'description' => 'Entrada bóveda: ' . $data['product_type'] . ' — ' . $data['kg_entrada'] . ' kg'
+                               . ($kgPar !== null ? ' + Canal 2: ' . $kgPar . ' kg' : ''),
             ]);
         });
 

@@ -54,6 +54,8 @@ const entradaForm = ref({
     costo_usd:         '',
     supplier:          '',
     entered_at:        localDateTimeString(),
+    conCanal2:         false,
+    kg_par:            '',
 });
 const entradaErrors = ref({});
 const OTRO_LABEL = 'Otro (libre)';
@@ -69,6 +71,8 @@ function openEntrada() {
         costo_usd:         '',
         supplier:          '',
         entered_at:        localDateTimeString(),
+        conCanal2:         false,
+        kg_par:            '',
     };
     showEntradaModal.value = true;
 }
@@ -76,6 +80,7 @@ async function saveEntrada() {
     if (savingEntrada.value) return;
     savingEntrada.value  = true;
     entradaErrors.value  = {};
+    const isRes = entradaForm.value.product_type === 'RES - Medio Canal';
     const payload = {
         product_type: isCustomType.value ? entradaForm.value.customProductType.trim() : entradaForm.value.product_type,
         description:  entradaForm.value.description,
@@ -83,6 +88,7 @@ async function saveEntrada() {
         costo_usd:    entradaForm.value.costo_usd,
         supplier:     entradaForm.value.supplier,
         entered_at:   entradaForm.value.entered_at,
+        ...(isRes && entradaForm.value.conCanal2 ? { kg_par: entradaForm.value.kg_par } : {}),
     };
     try {
         const res = await fetch(route('boveda.store'), {
@@ -577,7 +583,20 @@ async function deactivateProduct(product) {
                         <div class="form-grid">
                             <div class="form-field full">
                                 <label>Tipo de producto bóveda</label>
-                                <select v-model="entradaForm.product_type" class="form-select">
+                                <template v-if="bovedaProductosActivos.length > 10">
+                                    <input
+                                        v-model="entradaForm.product_type"
+                                        list="boveda-productos-list"
+                                        class="form-input"
+                                        placeholder="Escribe para buscar…"
+                                        autocomplete="off"
+                                    />
+                                    <datalist id="boveda-productos-list">
+                                        <option v-for="p in bovedaProductosActivos" :key="p.id" :value="p.name" />
+                                        <option :value="OTRO_LABEL" />
+                                    </datalist>
+                                </template>
+                                <select v-else v-model="entradaForm.product_type" class="form-select">
                                     <option v-for="p in bovedaProductosActivos" :key="p.id" :value="p.name">{{ p.name }}</option>
                                     <option :value="OTRO_LABEL">{{ OTRO_LABEL }}</option>
                                 </select>
@@ -588,6 +607,19 @@ async function deactivateProduct(product) {
                                 <input v-model="entradaForm.customProductType" type="text" class="form-input" maxlength="80" placeholder="Ej: Res Madurada, Cerdo Entero…" />
                                 <p v-if="entradaErrors.product_type && isCustomType" class="text-red-500 text-xs mt-1">{{ entradaErrors.product_type[0] }}</p>
                             </div>
+                            <!-- ── Canal par (solo Res) ───────────────────── -->
+                            <div v-if="entradaForm.product_type === 'RES - Medio Canal'" class="form-field full canal-par-row">
+                                <label class="canal-par-label">
+                                    <input v-model="entradaForm.conCanal2" type="checkbox" class="canal-par-check" />
+                                    ¿Viene con canal par?
+                                </label>
+                            </div>
+                            <div v-if="entradaForm.product_type === 'RES - Medio Canal' && entradaForm.conCanal2" class="form-field full">
+                                <label>Kg del canal par</label>
+                                <input v-model.number="entradaForm.kg_par" type="number" class="form-input" min="0.001" step="0.001" placeholder="0.000" />
+                                <span v-if="entradaErrors.kg_par" class="field-err">{{ entradaErrors.kg_par[0] }}</span>
+                            </div>
+                            <!-- ─────────────────────────────────────────── -->
                             <div class="form-field full">
                                 <label>Descripción (opcional)</label>
                                 <input v-model="entradaForm.description" type="text" class="form-input" maxlength="100" placeholder="Ej: Media canal #3" />
@@ -874,6 +906,9 @@ async function deactivateProduct(product) {
 
 /* ─── Formulario ─────────────────────────────────────────────────────────────*/
 .form-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; }
+.canal-par-row   { padding: 0.25rem 0; }
+.canal-par-label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; cursor: pointer; color: var(--text-primary); }
+.canal-par-check { width: 1rem; height: 1rem; accent-color: var(--brand); cursor: pointer; }
 .form-field { display: flex; flex-direction: column; gap: 0.3rem; }
 .form-field.full { grid-column: 1 / -1; }
 .form-field label { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
