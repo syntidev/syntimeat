@@ -35,14 +35,21 @@ class CatalogSeederChaguaramas extends Seeder
         // ─── BÓVEDA ───────────────────────────────────────────────────────────
 
         $bovedaItems = [
-            'Medio Canal Res',
-            'Canal Cerdo',
-            'Pollo Entero Congelado',
+            'RES - Medio Canal',
+            'POLLO - Entero Congelado',
+            'CERDO - Canal',
             'Jamón Pierna Sellado',
         ];
 
         foreach ($bovedaItems as $i => $nombre) {
-            $this->producto($bid, $branchId, $catBoveda->id, $nombre, 'weight', 'kg', 'boveda', $i);
+            $updated = Product::where('business_id', $bid)
+                ->where('location', 'boveda')
+                ->where('sort_order', $i)
+                ->update(['name' => $nombre]);
+
+            if (!$updated) {
+                $this->producto($bid, $branchId, $catBoveda->id, $nombre, 'weight', 'kg', 'boveda', $i);
+            }
 
             BovedaProduct::firstOrCreate(
                 ['business_id' => $bid, 'name' => $nombre],
