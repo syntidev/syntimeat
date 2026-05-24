@@ -119,6 +119,7 @@ class FabricaController extends Controller
                         ->where('active', true)
                         ->where('fabricable', false)
                         ->whereHas('category', fn ($q) => $q->where('name', $catName))
+                        ->when($catName === 'Res', fn ($q) => $q->whereIn('name', $resOrder))
                         ->get(['id', 'name'])
                         ->sortBy(fn ($p) => $catName === 'Res'
                             ? (array_search($p->name, $resOrder) !== false ? array_search($p->name, $resOrder) : 999)
