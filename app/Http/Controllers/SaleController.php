@@ -70,8 +70,9 @@ class SaleController extends Controller
 
         $stockMap = [];
         foreach ($products as $product) {
-            $net  = (float) ($stockIn[$product->id]  ?? 0);
-            $sold = (float) ($stockOut[$product->id] ?? 0);
+            $poolId = $product->stock_product_id ?? $product->id;
+            $net    = (float) ($stockIn[$poolId]  ?? 0);
+            $sold   = (float) ($stockOut[$poolId] ?? 0);
             $stockMap[$product->id] = round($net - $sold, 3);
         }
 

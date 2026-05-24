@@ -39,7 +39,8 @@ class DashboardController extends Controller
 
     public function data(Request $request): JsonResponse
     {
-        $businessId = Auth::user()->business->id;
+        $user       = Auth::user();
+        $businessId = $user->business->id;
 
         return response()->json($this->buildData($businessId));
     }
@@ -48,6 +49,9 @@ class DashboardController extends Controller
 
     private function buildData(int $businessId): array
     {
+        $user     = Auth::user();
+        $branchId = in_array($user->role, ['super_admin', 'admin']) ? null : $user->branch_id;
+
         $rate       = $this->rates->getTodayRate();
         $today      = now('America/Caracas')->toDateString();
         $dayStart   = Carbon::parse($today, 'America/Caracas')->startOfDay()->utc();
@@ -57,6 +61,7 @@ class DashboardController extends Controller
         $ventasHoyRaw = Sale::where('business_id', $businessId)
             ->where('status', 'paid')
             ->whereBetween('sold_at', [$dayStart, $dayEnd])
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->selectRaw('COUNT(*) as count, COALESCE(SUM(total_bs), 0) as total_bs, COALESCE(SUM(total_usd), 0) as total_usd')
             ->first();
 
@@ -72,6 +77,7 @@ class DashboardController extends Controller
             ->where('sales.business_id', $businessId)
             ->where('sales.status', 'paid')
             ->whereBetween('sales.sold_at', [$dayStart, $dayEnd])
+            ->when($branchId, fn ($q) => $q->where('sales.branch_id', $branchId))
             ->selectRaw('sale_items.product_id, sale_items.product_name, SUM(sale_items.quantity_value) as cantidad, SUM(sale_items.subtotal_usd * sales.rate_used) as monto_bs')
             ->groupBy('sale_items.product_id', 'sale_items.product_name')
             ->orderByDesc('monto_bs')
@@ -130,6 +136,7 @@ class DashboardController extends Controller
         // ── Últimas 8 ventas paid ─────────────────────────────────────────────
         $ultimasVentas = Sale::where('business_id', $businessId)
             ->where('status', 'paid')
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->withCount('items')
             ->orderByDesc('sold_at')
             ->limit(8)
@@ -155,6 +162,7 @@ class DashboardController extends Controller
         // ── Pedidos pendientes ────────────────────────────────────────────────
         $pedidosPendientes = Order::where('business_id', $businessId)
             ->where('status', 'pending')
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->count();
 
         // ── Ventas por categoría hoy ──────────────────────────────────────────
@@ -165,6 +173,7 @@ class DashboardController extends Controller
             ->where('sales.business_id', $businessId)
             ->where('sales.status', 'paid')
             ->whereBetween('sales.sold_at', [$dayStart, $dayEnd])
+            ->when($branchId, fn ($q) => $q->where('sales.branch_id', $branchId))
             ->groupBy('categories.id', 'categories.name')
             ->select(
                 'categories.id as category_id',
