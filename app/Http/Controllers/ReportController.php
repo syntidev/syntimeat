@@ -556,9 +556,10 @@ class ReportController extends Controller
                     ];
                 }
 
-                $subtotalUsd = (float) $item->subtotal_usd;
-                $costPerKg   = (float) ($avgCosts[$item->product_id] ?? 0);
-                $qty         = (float) $item->quantity_value;
+                $subtotalUsd   = (float) $item->subtotal_usd;
+                $costProductId = $item->product?->stock_product_id ?? $item->product_id;
+                $costPerKg     = (float) ($avgCosts[$costProductId] ?? 0);
+                $qty           = (float) $item->quantity_value;
 
                 $byCat[$catId]['vendido_usd'] += $subtotalUsd;
                 $byCat[$catId]['vendido_bs']  += $subtotalUsd * $rate;

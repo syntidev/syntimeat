@@ -2883,6 +2883,254 @@ try {
         get_class($e) . ': ' . $e->getMessage());
 }
 
+// ─── FASE 17 — Validación props Fábrica (flujo completo) ─────────────────────
+section('FASE 17 — FabricaController::index() — props despiecePendiente');
+
+$fabricaCtrl17 = app(\App\Http\Controllers\FabricaController::class);
+
+// Extrae el array de props del Inertia response (requiere X-Inertia: true)
+$getFabricaProps17 = function () use ($fabricaCtrl17): array {
+    $req = makeReq('/fabrica', 'GET', []);
+    $req->headers->set('X-Inertia', 'true');
+    $resp = $fabricaCtrl17->index();
+    $json = json_decode($resp->toResponse($req)->getContent(), true);
+    return $json['props'] ?? [];
+};
+
+// ── TEST 1 — RES ──────────────────────────────────────────────────────────────
+
+$f17ResEntry = null;
+try {
+    $f17ResEntry = DB::transaction(function () use ($businessId, $user, $TS) {
+        $e = BovedaEntry::create([
+            'business_id'  => $businessId,
+            'product_type' => 'RES - Medio Canal',
+            'description'  => "[ST] F17 Res {$TS}",
+            'kg_entrada'   => 100.0,
+            'costo_usd'    => 200.0,
+            'supplier'     => 'ST-Test',
+            'entered_at'   => now(),
+        ]);
+        ActivityLog::create([
+            'business_id' => $businessId,
+            'user_id'     => $user->id,
+            'action'      => 'stress_test.f17_boveda',
+            'model_type'  => BovedaEntry::class,
+            'model_id'    => $e->id,
+            'new_values'  => ['fase' => 17, 'test' => 'res'],
+        ]);
+        return $e;
+    });
+    pass('F17-T1 Crear entry RES - Medio Canal', 'BovedaEntry creada', "ID={$f17ResEntry->id}");
+} catch (\Throwable $e) {
+    fail('F17-T1 Crear entry RES - Medio Canal', 'BovedaEntry creada', get_class($e) . ': ' . $e->getMessage());
+}
+
+if ($f17ResEntry) {
+    // Surtir 80 kg → queda en despiecePendiente
+    $sRes = surtirBoveda($f17ResEntry, 80.0, $businessId, $user);
+    if ($sRes['ok']) {
+        pass('F17-T1 Surtir 80 kg Res', 'ok=true', "kg={$sRes['kg_surtido']} | despiece=" . ($sRes['requires_despiece'] ? 'sí' : 'no'));
+    } else {
+        fail('F17-T1 Surtir 80 kg Res', 'ok=true', 'ok=false: ' . ($sRes['error'] ?? 'sin detalle'));
+    }
+
+    try {
+        $props17  = $getFabricaProps17();
+        $pendList = collect($props17['despiecePendiente'] ?? []);
+        $resRow   = $pendList->firstWhere('id', $f17ResEntry->id);
+
+        if (!$resRow) {
+            fail('F17-T1 Entry en despiecePendiente', "id={$f17ResEntry->id} presente", 'No encontrada — revisar whereHas(bovedaProduct)');
+        } else {
+            pass('F17-T1 Entry en despiecePendiente', 'id presente', "product_type={$resRow['product_type']} ✓");
+
+            // Verificar nombres exactos (order-insensitive)
+            $nombresActuales  = collect($resRow['productos_vitrina'])->pluck('name')->sort()->values()->all();
+            $nombresEsperados = ['Carne del Canal', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
+            sort($nombresEsperados);
+
+            if ($nombresActuales === $nombresEsperados) {
+                pass('F17-T1 productos_vitrina Res — exactos',
+                    implode(', ', $nombresEsperados),
+                    implode(', ', $nombresActuales) . ' ✓');
+            } else {
+                fail('F17-T1 productos_vitrina Res — exactos',
+                    implode(', ', $nombresEsperados),
+                    'Actual: [' . implode(', ', $nombresActuales) . ']');
+            }
+
+            // Verificar ausencia de productos prohibidos
+            $prohibidos  = ['Premium', 'Primera', 'Segunda', 'Rabo', 'Recortes de Res'];
+            $encontrados = array_values(array_intersect($nombresActuales, $prohibidos));
+            if (empty($encontrados)) {
+                pass('F17-T1 Sin prohibidos en Res',
+                    'Premium/Primera/Segunda/Rabo/Recortes ausentes',
+                    'Ningún prohibido ✓');
+            } else {
+                fail('F17-T1 Sin prohibidos en Res',
+                    'Sin: ' . implode(', ', $prohibidos),
+                    'PRESENTES: ' . implode(', ', $encontrados));
+            }
+        }
+    } catch (\Throwable $e) {
+        fail('F17-T1 FabricaController::index() Res', 'props válidas sin excepción', get_class($e) . ': ' . $e->getMessage());
+    }
+}
+
+// ── TEST 2 — POLLO ────────────────────────────────────────────────────────────
+
+$f17PolloEntry = null;
+try {
+    $f17PolloEntry = DB::transaction(function () use ($businessId, $user, $TS) {
+        $e = BovedaEntry::create([
+            'business_id'  => $businessId,
+            'product_type' => 'POLLO - Entero Congelado',
+            'description'  => "[ST] F17 Pollo {$TS}",
+            'kg_entrada'   => 50.0,
+            'costo_usd'    => 80.0,
+            'supplier'     => 'ST-Test',
+            'entered_at'   => now(),
+        ]);
+        ActivityLog::create([
+            'business_id' => $businessId,
+            'user_id'     => $user->id,
+            'action'      => 'stress_test.f17_boveda',
+            'model_type'  => BovedaEntry::class,
+            'model_id'    => $e->id,
+            'new_values'  => ['fase' => 17, 'test' => 'pollo'],
+        ]);
+        return $e;
+    });
+    pass('F17-T2 Crear entry POLLO - Entero Congelado', 'BovedaEntry creada', "ID={$f17PolloEntry->id}");
+} catch (\Throwable $e) {
+    fail('F17-T2 Crear entry POLLO - Entero Congelado', 'BovedaEntry creada', get_class($e) . ': ' . $e->getMessage());
+}
+
+if ($f17PolloEntry) {
+    $sPollo = surtirBoveda($f17PolloEntry, 40.0, $businessId, $user);
+    if ($sPollo['ok']) {
+        pass('F17-T2 Surtir 40 kg Pollo', 'ok=true', "kg={$sPollo['kg_surtido']} | despiece=" . ($sPollo['requires_despiece'] ? 'sí' : 'no'));
+    } else {
+        fail('F17-T2 Surtir 40 kg Pollo', 'ok=true', 'ok=false: ' . ($sPollo['error'] ?? 'sin detalle'));
+    }
+
+    try {
+        $props17p  = $getFabricaProps17();
+        $pendListP = collect($props17p['despiecePendiente'] ?? []);
+        $polloRow  = $pendListP->firstWhere('id', $f17PolloEntry->id);
+
+        if (!$polloRow) {
+            fail('F17-T2 Entry en despiecePendiente', "id={$f17PolloEntry->id} presente", 'No encontrada');
+        } else {
+            pass('F17-T2 Entry en despiecePendiente', 'id presente', "product_type={$polloRow['product_type']} ✓");
+
+            // Batch-cargar productos con categoría para evitar N+1
+            $pvIds       = collect($polloRow['productos_vitrina'])->pluck('id')->all();
+            $pvCatNames  = Product::with('category')->whereIn('id', $pvIds)->get()
+                ->pluck('category.name', 'id')->all();
+
+            $soloCatPollo = !empty($pvCatNames) && collect($pvCatNames)->every(fn ($c) => $c === 'Pollo');
+            if ($soloCatPollo) {
+                pass('F17-T2 productos_vitrina son todos Pollo',
+                    'category=Pollo para todos',
+                    count($pvCatNames) . ' productos — cats: ' . implode(',', array_unique(array_values($pvCatNames))) . ' ✓');
+            } else {
+                fail('F17-T2 productos_vitrina son todos Pollo',
+                    'Solo category=Pollo',
+                    'Cats encontradas: ' . implode(', ', array_unique(array_values($pvCatNames))));
+            }
+
+            $ajenasPollo = array_filter(array_values($pvCatNames), fn ($c) => in_array($c, ['Res', 'Cerdo', 'Charcutería']));
+            if (empty($ajenasPollo)) {
+                pass('F17-T2 Sin productos Res/Cerdo/Charcutería en Pollo', 'Ninguna categoría ajena', 'Sin ajenas ✓');
+            } else {
+                fail('F17-T2 Sin productos Res/Cerdo/Charcutería en Pollo',
+                    'Sin Res/Cerdo/Charcutería',
+                    'Presentes: ' . implode(', ', array_unique($ajenasPollo)));
+            }
+        }
+    } catch (\Throwable $e) {
+        fail('F17-T2 FabricaController::index() Pollo', 'props válidas sin excepción', get_class($e) . ': ' . $e->getMessage());
+    }
+}
+
+// ── TEST 3 — CERDO ───────────────────────────────────────────────────────────
+
+$f17CerdoEntry = null;
+try {
+    $f17CerdoEntry = DB::transaction(function () use ($businessId, $user, $TS) {
+        $e = BovedaEntry::create([
+            'business_id'  => $businessId,
+            'product_type' => 'CERDO - Canal',
+            'description'  => "[ST] F17 Cerdo {$TS}",
+            'kg_entrada'   => 60.0,
+            'costo_usd'    => 120.0,
+            'supplier'     => 'ST-Test',
+            'entered_at'   => now(),
+        ]);
+        ActivityLog::create([
+            'business_id' => $businessId,
+            'user_id'     => $user->id,
+            'action'      => 'stress_test.f17_boveda',
+            'model_type'  => BovedaEntry::class,
+            'model_id'    => $e->id,
+            'new_values'  => ['fase' => 17, 'test' => 'cerdo'],
+        ]);
+        return $e;
+    });
+    pass('F17-T3 Crear entry CERDO - Canal', 'BovedaEntry creada', "ID={$f17CerdoEntry->id}");
+} catch (\Throwable $e) {
+    fail('F17-T3 Crear entry CERDO - Canal', 'BovedaEntry creada', get_class($e) . ': ' . $e->getMessage());
+}
+
+if ($f17CerdoEntry) {
+    $sCerdo = surtirBoveda($f17CerdoEntry, 50.0, $businessId, $user);
+    if ($sCerdo['ok']) {
+        pass('F17-T3 Surtir 50 kg Cerdo', 'ok=true', "kg={$sCerdo['kg_surtido']} | despiece=" . ($sCerdo['requires_despiece'] ? 'sí' : 'no'));
+    } else {
+        fail('F17-T3 Surtir 50 kg Cerdo', 'ok=true', 'ok=false: ' . ($sCerdo['error'] ?? 'sin detalle'));
+    }
+
+    try {
+        $props17c  = $getFabricaProps17();
+        $pendListC = collect($props17c['despiecePendiente'] ?? []);
+        $cerdoRow  = $pendListC->firstWhere('id', $f17CerdoEntry->id);
+
+        if (!$cerdoRow) {
+            fail('F17-T3 Entry en despiecePendiente', "id={$f17CerdoEntry->id} presente", 'No encontrada');
+        } else {
+            pass('F17-T3 Entry en despiecePendiente', 'id presente', "product_type={$cerdoRow['product_type']} ✓");
+
+            $pvIdsC      = collect($cerdoRow['productos_vitrina'])->pluck('id')->all();
+            $pvCatNamesC = Product::with('category')->whereIn('id', $pvIdsC)->get()
+                ->pluck('category.name', 'id')->all();
+
+            $soloCerdo = !empty($pvCatNamesC) && collect($pvCatNamesC)->every(fn ($c) => $c === 'Cerdo');
+            if ($soloCerdo) {
+                pass('F17-T3 productos_vitrina son todos Cerdo',
+                    'category=Cerdo para todos',
+                    count($pvCatNamesC) . ' productos ✓');
+            } else {
+                fail('F17-T3 productos_vitrina son todos Cerdo',
+                    'Solo category=Cerdo',
+                    'Cats: ' . implode(', ', array_unique(array_values($pvCatNamesC))));
+            }
+
+            $ajenasC = array_filter(array_values($pvCatNamesC), fn ($c) => $c !== 'Cerdo');
+            if (empty($ajenasC)) {
+                pass('F17-T3 Sin categorías ajenas en Cerdo', 'Solo Cerdo', 'Sin ajenas ✓');
+            } else {
+                fail('F17-T3 Sin categorías ajenas en Cerdo',
+                    'Solo category=Cerdo',
+                    'Ajenas: ' . implode(', ', array_unique($ajenasC)));
+            }
+        }
+    } catch (\Throwable $e) {
+        fail('F17-T3 FabricaController::index() Cerdo', 'props válidas sin excepción', get_class($e) . ': ' . $e->getMessage());
+    }
+}
+
 // ─── RESUMEN FINAL ────────────────────────────────────────────────────────────
 section('RESUMEN FINAL — Tabla de Resultados');
 printTable($results);
