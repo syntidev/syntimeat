@@ -106,12 +106,11 @@ class FabricaController extends Controller
                 // Categoría → productos vitrina que reciben los cortes
                 $catMap = [
                     'RES - Medio Canal'        => 'Res',
-                    'Res Entera'               => 'Res',
                     'CERDO - Canal'            => 'Cerdo',
                     'POLLO - Entero Congelado' => 'Pollo',
                 ];
                 $catName  = $catMap[$e->product_type] ?? null;
-                $resOrder = ['Premium', 'Primera', 'Segunda', 'Costilla', 'Hueso Redondo', 'Hueso Rojo', 'Rabo', 'Recortes de Res'];
+                $resOrder = ['Carne del Canal', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
 
                 $productos = $catName
                     ? Product::with('category')

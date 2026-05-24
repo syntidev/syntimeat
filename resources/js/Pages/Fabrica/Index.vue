@@ -134,7 +134,7 @@ const helpSteps = [
     {
         title: 'Despiece pendiente',
         body: 'Cuando en Bóveda se surte una pieza que requiere despiece (res, cerdo, pollo), aparece aquí automáticamente con los kg surtidos. Es la primera tarea del día: documentar los cortes antes de fabricar.',
-        tip: 'El sistema muestra cuántos kg van a cada corte (Premium, Primera, Costilla…). Lo que no se documente se registra como merma de despiece.',
+        tip: 'El sistema muestra cuántos kg van a cada corte (Carne del Canal, Costilla, Hueso Redondo, Hueso Rojo). Lo que no se documente se registra como merma de despiece.',
     },
     {
         title: 'Registrar cortes del despiece',
@@ -148,7 +148,7 @@ const helpSteps = [
     {
         title: 'Fabricar un lote',
         body: 'Para productos elaborados (chorizo, embutidos, cestas), selecciona el producto en las tarjetas, agrega los ingredientes que usaste con sus kg y costo, anota los kg producidos y guarda el lote.',
-        tip: 'Los ingredientes (incluyendo Recortes de Res del despiece) se descuentan del stock de vitrina al guardar. El producto fabricado se suma al inventario.',
+        tip: 'Los ingredientes se descuentan del stock de vitrina al guardar. El producto fabricado se suma al inventario.',
     },
     {
         title: 'Historial de lotes',
@@ -167,7 +167,7 @@ const helpFaqs = [
     },
     {
         q: '¿Qué son los ingredientes de un lote?',
-        a: 'Son los insumos de vitrina que se consumen para producir un lote. Por ejemplo, para chorizo usas Recortes de Res (que entraron del despiece), especias, etc. Al guardar el lote, esos kg se descuentan del stock de vitrina automáticamente.',
+        a: 'Son los insumos de vitrina que se consumen para producir un lote. Por ejemplo, para chorizo usas los cortes del despiece, especias, etc. Al guardar el lote, esos kg se descuentan del stock de vitrina automáticamente.',
     },
     {
         q: '¿Puedo registrar un lote sin hacer despiece antes?',
