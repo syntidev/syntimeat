@@ -30,6 +30,7 @@ class Product extends Model
         'active',
         'fabricable',
         'is_favorite',
+        'stock_product_id',
     ];
 
     protected function casts(): array

@@ -417,14 +417,19 @@ class SaleController extends Controller
             }
 
             // Descontar inventario solo para items tipo weight
+            // Eager-load product para acceder a stock_product_id sin N+1
+            $sale->load('items.product');
             foreach ($sale->items as $item) {
                 if ($item->input_type !== 'weight') {
                     continue;
                 }
 
+                // Si el producto apunta a un pool de stock, descontar del pool
+                $stockProductId = $item->product?->stock_product_id ?? $item->product_id;
+
                 InventoryEntry::create([
                     'business_id' => $businessId,
-                    'product_id'  => $item->product_id,
+                    'product_id'  => $stockProductId,
                     'quantity_kg' => -abs((float) $item->quantity_value),
                     'waste_kg'    => 0,
                     'location'    => 'vitrina',
@@ -482,14 +487,17 @@ class SaleController extends Controller
 
             // Revertir descuento de inventario solo si la venta estaba pagada
             if ($sale->getOriginal('status') === 'paid') {
+                $sale->load('items.product');
                 foreach ($sale->items as $item) {
                     if ($item->input_type !== 'weight') {
                         continue;
                     }
 
+                    $stockProductId = $item->product?->stock_product_id ?? $item->product_id;
+
                     InventoryEntry::create([
                         'business_id' => $businessId,
-                        'product_id'  => $item->product_id,
+                        'product_id'  => $stockProductId,
                         'quantity_kg' => abs((float) $item->quantity_value),
                         'waste_kg'    => 0,
                         'location'    => 'vitrina',

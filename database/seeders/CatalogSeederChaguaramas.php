@@ -76,6 +76,32 @@ class CatalogSeederChaguaramas extends Seeder
             $this->producto($bid, $branchId, $catRes->id, $nombre, 'weight', 'kg', 'vitrina', array_search($nombre, array_keys($resItems)), $fabricable, $precio);
         }
 
+        // ─── Pool de stock Res ────────────────────────────────────────────────
+        // Producto virtual de agrupación: Premium, Primera y Segunda
+        // descuentan inventario de este pool al vender.
+
+        $canalProduct = Product::updateOrCreate(
+            ['business_id' => $bid, 'name' => 'Carne del Canal'],
+            [
+                'branch_id'          => $branchId,
+                'category_id'        => $catRes->id,
+                'sale_mode'          => 'weight',
+                'base_unit_label'    => 'kg',
+                'location'           => 'vitrina',
+                'price_per_kg_usd'   => null,
+                'price_per_unit_usd' => null,
+                'fraction_allowed'   => true,
+                'fabricable'         => false,
+                'active'             => true,
+                'sort_order'         => 99,
+                'min_stock'          => 0,
+            ],
+        );
+
+        Product::where('business_id', $bid)
+            ->whereIn('name', ['Premium', 'Primera', 'Segunda'])
+            ->update(['stock_product_id' => $canalProduct->id]);
+
         // ─── POLLO (vitrina, weight) ──────────────────────────────────────────
 
         $polloItems = [
