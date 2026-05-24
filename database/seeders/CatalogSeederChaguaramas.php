@@ -30,8 +30,7 @@ class CatalogSeederChaguaramas extends Seeder
         $catCerdo     = $this->cat($bid, 'Cerdo',         '#8B5CF6', 3, 'CERDO');
         $catCharc     = $this->cat($bid, 'Charcutería',   '#06B6D4', 4, 'CHARCUTERIA');
         $catTrastes   = $this->cat($bid, 'Trastes',       '#F97316', 5, 'TRASTES');
-        $catEmbutidos = $this->cat($bid, 'Embutidos',     '#F59E0B', 6, 'EMBUTIDOS');
-        $catViveres  = $this->cat($bid, 'Víveres',      '#10B981', 7, 'DESPENSA');
+        $catViveres  = $this->cat($bid, 'Víveres',      '#10B981', 6, 'DESPENSA');
 
         // ─── BÓVEDA ───────────────────────────────────────────────────────────
 
@@ -62,7 +61,6 @@ class CatalogSeederChaguaramas extends Seeder
             'Hueso Redondo'  =>  2.00,
             'Hueso Rojo'     =>  1.50,
             'Rabo'           =>  4.00,
-            'Recortes de Res'=>  3.00,
             'Chorizo Criollo'=>  7.00,
         ];
 
@@ -94,14 +92,13 @@ class CatalogSeederChaguaramas extends Seeder
         $cerdoItems = [
             'Chuleta de Cerdo'  => 6.00,
             'Costilla de Cerdo' => 5.00,
-            'Recorte de Cerdo'  => 2.00,
         ];
 
         foreach ($cerdoItems as $nombre => $precio) {
             $this->producto($bid, $branchId, $catCerdo->id, $nombre, 'weight', 'kg', 'vitrina', array_search($nombre, array_keys($cerdoItems)), false, $precio);
         }
 
-        // ─── CHARCUTERÍA (vitrina, weight) ────────────────────────────────────
+        // ─── CHARCUTERÍA (vitrina, weight + unit) ────────────────────────────
 
         $charcItems = [
             'Jamón de Pierna' => 2.00,
@@ -112,6 +109,15 @@ class CatalogSeederChaguaramas extends Seeder
 
         foreach ($charcItems as $nombre => $precio) {
             $this->producto($bid, $branchId, $catCharc->id, $nombre, 'weight', 'kg', 'vitrina', array_search($nombre, array_keys($charcItems)), false, $precio);
+        }
+
+        $charcUnit = [
+            'Chorizo Nacional' => 2.00,
+            'Salchichón'       => 2.00,
+        ];
+
+        foreach ($charcUnit as $nombre => $precio) {
+            $this->producto($bid, $branchId, $catCharc->id, $nombre, 'unit', 'und', 'vitrina', count($charcItems) + array_search($nombre, array_keys($charcUnit)), false, $precio);
         }
 
         // ─── TRASTES (vitrina, weight) ────────────────────────────────────────
@@ -130,17 +136,6 @@ class CatalogSeederChaguaramas extends Seeder
 
         foreach ($trastes as $nombre => $precio) {
             $this->producto($bid, $branchId, $catTrastes->id, $nombre, 'weight', 'kg', 'vitrina', array_search($nombre, array_keys($trastes)), false, $precio);
-        }
-
-        // ─── EMBUTIDOS (vitrina, unit) ────────────────────────────────────────
-
-        $embutidos = [
-            'Chorizo Nacional' => 2.00,
-            'Salchichón'       => 2.00,
-        ];
-
-        foreach ($embutidos as $nombre => $precio) {
-            $this->producto($bid, $branchId, $catEmbutidos->id, $nombre, 'unit', 'und', 'vitrina', array_search($nombre, array_keys($embutidos)), false, $precio);
         }
 
         // ─── DESPENSA (despensa, unit) ────────────────────────────────────────
@@ -165,7 +160,6 @@ class CatalogSeederChaguaramas extends Seeder
             'Cerdo'       => 'CERDO',
             'Charcutería' => 'CHARCUTERIA',
             'Trastes'     => 'TRASTES',
-            'Embutidos'   => 'EMBUTIDOS',
             'Víveres'     => 'VIVERES',
         ];
 
