@@ -87,6 +87,8 @@ const dayFilters = reactive({
 const dayData    = ref({ categories: [], totals: {} })
 const dayLoading = ref(false)
 const dayError   = ref('')
+const expandedCats = ref(new Set())
+function toggleCat(cat) { expandedCats.value.has(cat) ? expandedCats.value.delete(cat) : expandedCats.value.add(cat) }
 
 const maxUtilidad = computed(() =>
     Math.max(...(dayData.value.categories ?? []).map(r => Math.abs(r.utilidad_usd)), 1)
@@ -468,14 +470,31 @@ const helpFaqs = [
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-for="row in dayData.categories" :key="row.categoria">
-                                    <td>{{ row.categoria }}</td>
+                                <template v-for="row in dayData.categories" :key="row.categoria">
+                                <tr class="cat-row" style="cursor:pointer" @click="toggleCat(row.categoria)">
+                                    <td>
+                                        <span class="cat-toggle">{{ expandedCats.has(row.categoria) ? '▼' : '▶' }}</span>
+                                        {{ row.categoria }}
+                                    </td>
                                     <td class="right amount">{{ fmtUsd(row.vendido_usd) }}</td>
                                     <td class="right muted">{{ fmtBs(row.vendido_bs) }}</td>
                                     <td class="right muted">{{ fmtUsd(row.costo_usd) }}</td>
                                     <td class="right" :class="row.utilidad_usd >= 0 ? 'text-green' : 'text-red'">{{ fmtUsd(row.utilidad_usd) }}</td>
                                     <td class="right">{{ row.margen_pct }}%</td>
                                 </tr>
+                                <template v-if="expandedCats.has(row.categoria)">
+                                    <tr v-for="p in row.productos" :key="p.producto" class="prod-row">
+                                        <td class="prod-name">↳ {{ p.producto }}</td>
+                                        <td class="right amount">{{ fmtUsd(p.vendido_usd) }}</td>
+                                        <td class="right muted">{{ fmtBs(p.vendido_bs) }}</td>
+                                        <td class="right muted">{{ fmtUsd(p.costo_usd) }}</td>
+                                        <td class="right" :class="(p.vendido_usd - p.costo_usd) >= 0 ? 'green' : 'red'">
+                                            {{ fmtUsd(p.vendido_usd - p.costo_usd) }}
+                                        </td>
+                                        <td></td>
+                                    </tr>
+                                </template>
+                                </template>
                                 <tr class="dia-totals-row">
                                     <td><strong>TOTAL</strong></td>
                                     <td class="right"><strong>{{ fmtUsd(dayData.totals.vendido_usd) }}</strong></td>
@@ -771,6 +790,20 @@ const helpFaqs = [
     padding-top: 0.6rem !important;
     padding-bottom: 0.6rem !important;
 }
+.cat-row:hover td { background: var(--bg-base); }
+.cat-toggle { display: inline-block; width: 1rem; font-size: 0.65rem; color: var(--text-muted); }
+.prod-row td {
+    background: color-mix(in srgb, var(--bg-card) 60%, var(--bg-base));
+    font-size: 0.8rem;
+    padding-top: 0.3rem !important;
+    padding-bottom: 0.3rem !important;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+    color: var(--text-secondary);
+}
+.prod-row:last-of-type td { border-bottom: 1px solid var(--border); }
+.prod-name { padding-left: 2rem !important; font-style: italic; }
+.green { color: var(--green, #10b981); }
+.red   { color: #ef4444; }
 
 /* ─── Bar chart ─────────────────────────────────────────────────────────────── */
 .bar-chart {
