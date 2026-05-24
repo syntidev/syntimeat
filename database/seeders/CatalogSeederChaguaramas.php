@@ -92,7 +92,7 @@ class CatalogSeederChaguaramas extends Seeder
                 'price_per_unit_usd' => null,
                 'fraction_allowed'   => true,
                 'fabricable'         => false,
-                'active'             => true,
+                'active'             => false,
                 'sort_order'         => 99,
                 'min_stock'          => 0,
             ],
