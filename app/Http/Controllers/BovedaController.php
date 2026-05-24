@@ -463,12 +463,12 @@ class BovedaController extends Controller
         $despieceCats = ['Res', 'Cerdo', 'Pollo'];
 
         $catMap = [
-            'Medio Canal Res'        => 'Res',
-            'Canal Cerdo'            => 'Cerdo',
-            'Pollo Entero Congelado' => 'Pollo',
+            'RES - Medio Canal'        => 'Res',
+            'CERDO - Canal'            => 'Cerdo',
+            'POLLO - Entero Congelado' => 'Pollo',
         ];
         $catName  = $catMap[$entry->product_type] ?? null;
-        $resOrder = ['Premium', 'Primera', 'Segunda', 'Costilla', 'Hueso Redondo', 'Hueso Rojo', 'Rabo', 'Recortes de Res'];
+        $resOrder = ['Carne del Canal', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
 
         $productos = Product::with('category')
             ->where('business_id', $businessId)
