@@ -53,7 +53,7 @@ class CatalogSeederChaguaramas extends Seeder
 
             BovedaProduct::firstOrCreate(
                 ['business_id' => $bid, 'name' => $nombre],
-                ['unit' => 'kg', 'requires_despiece' => true, 'active' => true],
+                ['unit' => 'kg', 'requires_despiece' => $nombre !== 'POLLO - Entero Congelado', 'active' => true],
             );
         }
 
