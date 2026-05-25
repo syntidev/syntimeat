@@ -239,6 +239,11 @@ class BovedaController extends Controller
         DB::transaction(function () use ($entry, $kg, $businessId, $userId, $requiresDespiece, $vitrinaProduct): void {
             $entry->increment('kg_surtido_vitrina', $kg);
 
+            if (! $requiresDespiece) {
+                $entry->despiece_completado_at = now();
+                $entry->save();
+            }
+
             $entry->refresh();
             if ((float) $entry->kg_disponible <= 0) {
                 $entry->update([
@@ -279,7 +284,6 @@ class BovedaController extends Controller
                     'entered_at'      => now(),
                     'created_by'      => $userId,
                 ]);
-                $entry->update(['despiece_completado_at' => now()]);
             }
 
             ActivityLog::create([
