@@ -132,50 +132,60 @@ const showHelp = ref(false);
 
 const helpSteps = [
     {
-        title: 'Despiece pendiente',
-        body: 'Cuando en Bóveda se surte una pieza que requiere despiece (res, cerdo, pollo), aparece aquí automáticamente con los kg surtidos. Es la primera tarea del día: documentar los cortes antes de fabricar.',
-        tip: 'El sistema muestra cuántos kg van a cada corte (Carne del Canal, Costilla, Hueso Redondo, Hueso Rojo). Lo que no se documente se registra como merma de despiece.',
+        title: 'Qué aparece en "Despiece pendiente"',
+        body: 'Aquí llegan automáticamente las piezas de Res y Cerdo que se surtieron desde Bóveda y requieren ser cortadas. El Pollo Entero Congelado NO aparece aquí — cuando se surte desde Bóveda va directo al inventario de vitrina sin pasar por este módulo.',
+        tip: 'Si surtiste un Medio Canal de Res y no ves la pieza aquí, revisa en Bóveda que el estado figure como "Surtido". El sistema la trae automáticamente.',
     },
     {
-        title: 'Registrar cortes del despiece',
-        body: 'Abre la pieza pendiente, ingresa los kg reales de cada corte según la balanza. El sistema calcula en tiempo real los kg documentados y la merma. Cuando cuadre, haz clic en "Registrar cortes".',
-        tip: 'No puedes ingresar más kg de los que se surtieron. El botón se bloquea si la suma excede el total.',
+        title: 'Cortes del Medio Canal (Res)',
+        body: 'Cuando se despieza un Medio Canal de Res, el sistema muestra exactamente 4 destinos: Carne del Canal, Costilla, Hueso Redondo y Hueso Rojo. Ingresa en cada uno los kg reales según la balanza.',
+        tip: 'Carne del Canal es el inventario base que alimenta las ventas de Premium, Primera y Segunda en el punto de venta. Cuando la cajera vende esos cortes, el sistema descuenta automáticamente de Carne del Canal — por eso es crítico registrar bien esos kg.',
     },
     {
-        title: 'Planilla de despiece (PDF)',
-        body: 'Al registrar, el sistema ofrece imprimir la planilla con todos los datos. Abre en otra pestaña pre-llenada con los kg reales. Usa Ctrl+P → "Guardar como PDF" para el control físico o digital del día.',
+        title: 'Cortes del Canal de Cerdo',
+        body: 'El Canal de Cerdo se despieza en los productos de la categoría Cerdo activos en vitrina (por ejemplo: Chuleta de Cerdo, Costilla de Cerdo). El procedimiento es el mismo: abres la pieza pendiente, ingresas los kg por corte y registras.',
+        tip: 'Lo que no documentes en ningún corte queda registrado automáticamente como merma de despiece. Es normal perder algo en hueso y grasa, pero si la merma es alta, revisa la balanza.',
+    },
+    {
+        title: 'Registrar los cortes',
+        body: 'Abre la pieza pendiente tocando su fila, ingresa los kg reales de cada corte según la balanza. El sistema suma en tiempo real y muestra la merma restante. Cuando todo cuadre, toca "Registrar cortes". El sistema actualiza el stock de vitrina y puedes imprimir la planilla PDF.',
+        tip: 'No puedes ingresar más kg de los que se surtieron. El botón se bloquea si la suma excede el total disponible.',
     },
     {
         title: 'Fabricar un lote',
-        body: 'Para productos elaborados (chorizo, embutidos, cestas), selecciona el producto en las tarjetas, agrega los ingredientes que usaste con sus kg y costo, anota los kg producidos y guarda el lote.',
-        tip: 'Los ingredientes se descuentan del stock de vitrina al guardar. El producto fabricado se suma al inventario.',
-    },
-    {
-        title: 'Historial de lotes',
-        body: 'En la pestaña Historial ves todos los lotes registrados con fecha, kg producidos, insumos usados, costo y operador. Sirve para trazabilidad y control de rendimiento.',
+        body: 'Esta sección es para productos elaborados como el Chorizo Criollo. Selecciona el producto fabricable en las tarjetas, agrega los ingredientes que usaste con sus kg y costo, anota los kg producidos y guarda el lote. Los ingredientes se descuentan del stock de vitrina al guardar.',
+        tip: 'Solo aparecen aquí los productos marcados como "fabricable" en el Catálogo. Si un producto no aparece, revisa esa configuración.',
     },
 ];
 
 const helpFaqs = [
     {
-        q: '¿Por qué aparece una pieza en "Despiece pendiente"?',
-        a: 'Porque en el módulo Bóveda se surtió esa pieza con flujo "Despiece". Eso significa que la carne salió de bóveda y ahora está en el área de corte esperando ser documentada. Hasta que registres los cortes, el stock de vitrina no se actualiza.',
+        q: '¿Por qué el Pollo no aparece en Despiece pendiente?',
+        a: 'Porque el Pollo Entero Congelado está configurado como "sin despiece requerido". Cuando en Bóveda se surte, los kg van directo al inventario de vitrina. No hace falta pasar por Fábrica — el pollo entra y sale como una pieza entera o picada sin proceso de corte documentado aquí.',
+    },
+    {
+        q: '¿Qué es "Carne del Canal" y por qué está en el despiece de Res?',
+        a: 'Carne del Canal es el inventario base de carne de res. Cuando se despieza un Medio Canal, una parte de los kg se asigna a Carne del Canal. Ese inventario es el que alimenta las ventas de Premium, Primera y Segunda en el punto de venta: cuando la cajera vende cualquiera de esos tres cortes, el sistema descuenta los kg de Carne del Canal automáticamente.',
     },
     {
         q: '¿Qué pasa con los kg que no documento en cortes?',
-        a: 'Se registran automáticamente como merma de despiece en la entrada de bóveda. Es normal: huesos, grasa descartada, pérdidas de sangre al cortar. El sistema los separa de la merma de almacenamiento para que puedas analizar cada tipo por separado.',
+        a: 'Se registran automáticamente como merma de despiece. Eso es normal: hueso, grasa descartada, pérdidas al cortar. El sistema los contabiliza aparte de la merma de almacenamiento en bóveda para que puedas ver cada tipo por separado en los reportes.',
+    },
+    {
+        q: '¿Cómo funciona el stock de Res en el punto de venta?',
+        a: 'Cuando la cajera vende Premium, Primera o Segunda, el sistema descuenta automáticamente del inventario de Carne del Canal. Ese inventario se alimenta cuando el carnicero hace el despiece del Medio Canal aquí en Fábrica. Por eso es importante registrar bien los cortes — si no hay kg en Carne del Canal, el POS bloqueará la venta por stock insuficiente.',
     },
     {
         q: '¿Qué son los ingredientes de un lote?',
-        a: 'Son los insumos de vitrina que se consumen para producir un lote. Por ejemplo, para chorizo usas los cortes del despiece, especias, etc. Al guardar el lote, esos kg se descuentan del stock de vitrina automáticamente.',
+        a: 'Son los insumos de vitrina que se consumen para producir un lote. Por ejemplo, para fabricar Chorizo Criollo usas carne de los cortes del despiece más los condimentos. Al guardar el lote, esos kg se descuentan del stock de vitrina automáticamente y el chorizo producido suma al inventario.',
     },
     {
-        q: '¿Puedo registrar un lote sin hacer despiece antes?',
-        a: 'Sí, si tienes ingredientes en stock de vitrina. El despiece y la fabricación son procesos independientes. El despiece alimenta el stock; la fabricación lo consume.',
+        q: '¿Puedo fabricar un lote sin haber hecho despiece antes?',
+        a: 'Sí, siempre que tengas ingredientes disponibles en el stock de vitrina. El despiece y la fabricación son procesos independientes. El despiece alimenta el stock; la fabricación lo consume. Si el stock marca cero, el sistema no te dejará guardar el lote.',
     },
     {
         q: '¿El % de rendimiento qué indica?',
-        a: 'Es la relación entre los kg producidos y los kg de ingredientes usados. Si usaste 10 kg de carne y obtuviste 8 kg de chorizo, el rendimiento es 80%. Te ayuda a detectar si una receta está dando buenas proporciones o hay pérdida excesiva.',
+        a: 'Es la relación entre los kg producidos y los kg de ingredientes usados en un lote. Si usaste 10 kg de carne y obtuviste 8 kg de chorizo, el rendimiento es 80%. Te sirve para detectar si una receta está dando buenas proporciones o si hay pérdida excesiva en el proceso.',
     },
 ];
 

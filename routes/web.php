@@ -93,8 +93,20 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
         Route::get('/reportes/consolidado/data', [ReportController::class, 'consolidatedData'])->name('reports.consolidated-data');
     });
 
-    // ── super_admin, admin y supervisor ──────────────────────────────────────
+    // ── Reportes — incluye analyst (rol de solo-lectura / contable) ───────────
     Route::middleware('role:super_admin,admin,owner,branch_admin,supervisor,analyst')->group(function () {
+        Route::get('/reportes', [ReportController::class, 'index'])->name('reports.index');
+        Route::get('/reportes/ventas', [ReportController::class, 'sales'])->name('reports.sales');
+        Route::get('/reportes/inventario', [ReportController::class, 'inventory'])->name('reports.inventory');
+        Route::get('/reportes/cierres', [ReportController::class, 'closings'])->name('reports.closings');
+        Route::get('/reportes/pedidos', [ReportController::class, 'orders'])->name('reports.orders');
+        Route::get('/reportes/dia', [ReportController::class, 'dayReport'])->name('reports.day');
+        Route::get('/reportes/pdf-dia', [ReportController::class, 'exportDayPdf'])->name('reports.day-pdf');
+        Route::get('/reportes/exportar', [ReportController::class, 'export'])->name('reports.export');
+    });
+
+    // ── Operativo + configuración — sin analyst ───────────────────────────────
+    Route::middleware('role:super_admin,admin,owner,branch_admin,supervisor')->group(function () {
         // Tasa manual
         Route::post('/tasa/manual', [SettingsController::class, 'setManualRate'])->name('rate.manual');
 
@@ -138,16 +150,6 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
         Route::post('/boveda/productos', [BovedaController::class, 'storeProduct'])->name('boveda.product.store');
         Route::put('/boveda/productos/{product}', [BovedaController::class, 'updateProduct'])->name('boveda.product.update');
         Route::delete('/boveda/productos/{product}', [BovedaController::class, 'destroyProduct'])->name('boveda.product.destroy');
-
-        // Reportes
-        Route::get('/reportes', [ReportController::class, 'index'])->name('reports.index');
-        Route::get('/reportes/ventas', [ReportController::class, 'sales'])->name('reports.sales');
-        Route::get('/reportes/inventario', [ReportController::class, 'inventory'])->name('reports.inventory');
-        Route::get('/reportes/cierres', [ReportController::class, 'closings'])->name('reports.closings');
-        Route::get('/reportes/pedidos', [ReportController::class, 'orders'])->name('reports.orders');
-        Route::get('/reportes/dia', [ReportController::class, 'dayReport'])->name('reports.day');
-        Route::get('/reportes/pdf-dia', [ReportController::class, 'exportDayPdf'])->name('reports.day-pdf');
-        Route::get('/reportes/exportar', [ReportController::class, 'export'])->name('reports.export');
 
         // Configuración — Métodos de Pago
         Route::get('/configuracion/metodos-pago', [PaymentMethodController::class, 'index'])->name('payment-methods.index');

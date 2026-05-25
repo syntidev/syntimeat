@@ -116,7 +116,11 @@ class FabricaController extends Controller
                     ? Product::with('category')
                         ->where('business_id', $businessId)
                         ->where('location', 'vitrina')
-                        ->where('active', true)
+                        ->when(
+                            $catName === 'Res',
+                            fn ($q) => $q->where(fn ($q2) => $q2->where('active', true)->orWhereIn('name', $resOrder)),
+                            fn ($q) => $q->where('active', true)
+                        )
                         ->where('fabricable', false)
                         ->whereHas('category', fn ($q) => $q->where('name', $catName))
                         ->when($catName === 'Res', fn ($q) => $q->whereIn('name', $resOrder))
@@ -138,7 +142,14 @@ class FabricaController extends Controller
                     'entered_at'         => $e->entered_at?->format('d/m/Y'),
                     'productos_vitrina'  => $productos,
                 ];
-            });
+            })
+            ->sortBy(fn ($e) => match($e['product_type']) {
+                'RES - Medio Canal'        => 0,
+                'POLLO - Entero Congelado' => 1,
+                'CERDO - Canal'            => 2,
+                default                    => 3,
+            })
+            ->values();
 
         $despieceHistorial = BovedaEntry::where('business_id', $businessId)
             ->whereNotNull('despiece_completado_at')

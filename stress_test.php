@@ -108,7 +108,7 @@ function printTable(array $results): void {
 // ─── FASE 1 — Setup ──────────────────────────────────────────────────────────
 section('FASE 1 — Setup y Autenticación');
 
-Auth::loginUsingId(1);
+Auth::loginUsingId(User::where('role','super_admin')->where('is_hidden',0)->value('id'));
 $user = Auth::user();
 $businessId = $user->business_id;
 $business   = $user->business;
@@ -923,20 +923,41 @@ DB::table('inventory_entries')->insert([
 
 $carneCanal = Product::where('business_id', $businessId)
     ->where('name', 'Carne del Canal')
+    ->where('location', 'vitrina')
     ->first();
 
-if ($carneCanal) {
-    InventoryEntry::create([
-        'business_id' => $businessId,
-        'product_id'  => $carneCanal->id,
-        'quantity_kg' => 500.0,
-        'waste_kg'    => 0,
-        'location'    => 'vitrina',
-        'notes'       => '[ST] Stock pool Carne del Canal',
-        'entered_at'  => now(),
-        'created_by'  => $user->id,
+if (! $carneCanal) {
+    // Carne del Canal no existe en DB — crear producto temporal [ST] para inyectar stock al pool
+    $anyCategory = \App\Models\Category::where('business_id', $businessId)->value('id');
+    $carneCanal = Product::create([
+        'business_id'        => $businessId,
+        'branch_id'          => null,
+        'category_id'        => $anyCategory,
+        'name'               => '[ST] Carne del Canal',
+        'sale_mode'          => 'weight',
+        'base_unit_label'    => 'kg',
+        'location'           => 'vitrina',
+        'price_per_kg_usd'   => null,
+        'price_per_unit_usd' => null,
+        'fraction_allowed'   => true,
+        'fabricable'         => false,
+        'active'             => false,
+        'sort_order'         => 99,
+        'min_stock'          => 0,
     ]);
+    echo "  ⚠️  Carne del Canal no encontrado — creado temporalmente como [ST] (ID={$carneCanal->id})\n";
 }
+
+InventoryEntry::create([
+    'business_id' => $businessId,
+    'product_id'  => $carneCanal->id,
+    'quantity_kg' => 500.0,
+    'waste_kg'    => 0,
+    'location'    => 'vitrina',
+    'notes'       => '[ST] Stock pool Carne del Canal',
+    'entered_at'  => now(),
+    'created_by'  => $user->id,
+]);
 
 // 4.1 — 10 ventas rápidas consecutivas via SaleController::store() + pay()
 $montoPorVenta = 500.0; // Bs. por venta
@@ -3037,35 +3058,13 @@ if ($f17PolloEntry) {
         $pendListP = collect($props17p['despiecePendiente'] ?? []);
         $polloRow  = $pendListP->firstWhere('id', $f17PolloEntry->id);
 
+        // POLLO - Entero Congelado tiene requires_despiece=false → NO debe aparecer en despiecePendiente
         if (!$polloRow) {
-            fail('F17-T2 Entry en despiecePendiente', "id={$f17PolloEntry->id} presente", 'No encontrada');
+            pass('F17-T2 Entry Pollo ausente de despiecePendiente', 'requires_despiece=false → no aparece', 'Correcto ✓');
         } else {
-            pass('F17-T2 Entry en despiecePendiente', 'id presente', "product_type={$polloRow['product_type']} ✓");
-
-            // Batch-cargar productos con categoría para evitar N+1
-            $pvIds       = collect($polloRow['productos_vitrina'])->pluck('id')->all();
-            $pvCatNames  = Product::with('category')->whereIn('id', $pvIds)->get()
-                ->pluck('category.name', 'id')->all();
-
-            $soloCatPollo = !empty($pvCatNames) && collect($pvCatNames)->every(fn ($c) => $c === 'Pollo');
-            if ($soloCatPollo) {
-                pass('F17-T2 productos_vitrina son todos Pollo',
-                    'category=Pollo para todos',
-                    count($pvCatNames) . ' productos — cats: ' . implode(',', array_unique(array_values($pvCatNames))) . ' ✓');
-            } else {
-                fail('F17-T2 productos_vitrina son todos Pollo',
-                    'Solo category=Pollo',
-                    'Cats encontradas: ' . implode(', ', array_unique(array_values($pvCatNames))));
-            }
-
-            $ajenasPollo = array_filter(array_values($pvCatNames), fn ($c) => in_array($c, ['Res', 'Cerdo', 'Charcutería']));
-            if (empty($ajenasPollo)) {
-                pass('F17-T2 Sin productos Res/Cerdo/Charcutería en Pollo', 'Ninguna categoría ajena', 'Sin ajenas ✓');
-            } else {
-                fail('F17-T2 Sin productos Res/Cerdo/Charcutería en Pollo',
-                    'Sin Res/Cerdo/Charcutería',
-                    'Presentes: ' . implode(', ', array_unique($ajenasPollo)));
-            }
+            fail('F17-T2 Entry Pollo ausente de despiecePendiente',
+                'No debe estar en despiecePendiente (requires_despiece=false)',
+                "id={$f17PolloEntry->id} encontrada — BUG: requires_despiece debería ser false");
         }
     } catch (\Throwable $e) {
         fail('F17-T2 FabricaController::index() Pollo', 'props válidas sin excepción', get_class($e) . ': ' . $e->getMessage());
@@ -3961,6 +3960,18 @@ try {
         ->where('name', 'like', '[ST] Cat Import%')
         ->delete();
     echo "  Categorías importadas [ST] eliminadas: {$stImportCats}\n";
+
+    // ── FASE 4 cleanup — pool Carne del Canal temporal ─────────────────────
+    $stCanalPool = Product::where('business_id', $businessId)
+        ->where('name', '[ST] Carne del Canal')
+        ->get();
+    foreach ($stCanalPool as $stCP) {
+        InventoryEntry::where('product_id', $stCP->id)->delete();
+        $stCP->delete();
+    }
+    if ($stCanalPool->count() > 0) {
+        echo "  Productos pool [ST] Carne del Canal eliminados: " . $stCanalPool->count() . "\n";
+    }
 
     echo "\n  Cleanup completo.\n";
 } catch (\Throwable $e) {
