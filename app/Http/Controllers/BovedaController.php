@@ -239,11 +239,19 @@ class BovedaController extends Controller
                     abort(422, 'Producto no encontrado en vitrina: ' . $request->input('pollo_tipo'));
                 }
             } else {
-                $keyword        = explode(' ', $entry->product_type)[0];
-                $vitrinaProduct = Product::where('business_id', $businessId)
-                    ->where('location', 'vitrina')
-                    ->where('name', 'like', '%' . $keyword . '%')
-                    ->first();
+                // 1) Preferir vitrina_product_id configurado en el producto bóveda
+                if ($bovedaProductType?->vitrina_product_id !== null) {
+                    $vitrinaProduct = Product::find($bovedaProductType->vitrina_product_id);
+                }
+
+                // 2) Fallback: búsqueda LIKE por primera palabra del tipo
+                if ($vitrinaProduct === null) {
+                    $keyword        = explode(' ', $entry->product_type)[0];
+                    $vitrinaProduct = Product::where('business_id', $businessId)
+                        ->where('location', 'vitrina')
+                        ->where('name', 'like', '%' . $keyword . '%')
+                        ->first();
+                }
 
                 if ($vitrinaProduct === null) {
                     return response()->json([
