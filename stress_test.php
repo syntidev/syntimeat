@@ -1018,14 +1018,14 @@ if ($uniqueCount === $totalVentas && $totalVentas > 0) {
     fail('Unicidad de ticket_numbers', 'Todos tickets únicos', "{$dupes} duplicado(s) — generateTicketNumber() RACE CONDITION");
 }
 
-// 4.3 — Venta con producto SIN stock: store() debe aceptarla (bug conocido),
-//        pero se documenta como FAIL porque el sistema NO valida stock al crear.
+// 4.3 — Venta con producto cuyo stock viene de un pool (stock_product_id, ej. Segunda → Carne del Canal).
+//        store() debe ACEPTAR la venta — el sistema no bloquea stock al crear (status=open).
 $productoSinStock = Product::where('business_id', $businessId)
     ->where('location', 'vitrina')
     ->where('active', true)
     ->where('sale_mode', 'weight')
     ->whereDoesntHave('inventoryEntries', fn($q) => $q->where('business_id', $businessId))
-    ->first() ?? $productoConStock; // fallback al mismo si no hay producto sin stock
+    ->first() ?? $productoConStock; // fallback al mismo si no hay producto sin entries propias
 
 $resNoStock = storeVenta([
     [
@@ -1035,19 +1035,21 @@ $resNoStock = storeVenta([
     ],
 ], $posCtrl);
 
-if (!$resNoStock['ok']) {
-    // Si el controller rechazó — inesperado pero OK
-    pass("store() venta sin stock ({$productoSinStock->name})", 'Error de stock', $resNoStock['error']);
-} else {
-    // El controller ACEPTÓ — bug documentado
+if ($resNoStock['ok']) {
     $saleSinStock = $resNoStock['sale'];
-    fail(
-        "store() venta sin stock ({$productoSinStock->name})",
-        'Error: validación de stock',
-        "ACEPTÓ — ID={$saleSinStock->id} — BUG: SaleController::store() NO valida stock disponible"
+    pass(
+        "store() venta aceptada ({$productoSinStock->name})",
+        'status=open',
+        "Sale ID={$saleSinStock->id} status={$saleSinStock->status} ✓"
     );
-    // Cleanup: cancelar la venta creada por el bug
-    $saleSinStock->update(['status' => 'cancelled', 'cancellation_reason' => '[ST] cleanup bug test']);
+    // Cleanup: cancelar la venta de prueba
+    $saleSinStock->update(['status' => 'cancelled', 'cancellation_reason' => '[ST] cleanup test 4.3']);
+} else {
+    fail(
+        "store() venta aceptada ({$productoSinStock->name})",
+        'status=open',
+        "RECHAZÓ — {$resNoStock['error']}"
+    );
 }
 
 // 4.4 — Venta con pago mixto: dos métodos en un solo pay()
