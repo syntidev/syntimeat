@@ -1,5 +1,19 @@
 # SYSTEM MAP — SYNTImeat
-Generado: 2026-05-22
+Actualizado: 2026-05-24
+Versión anterior: 2026-05-22
+Cambios desde v. anterior marcados con ▲
+
+---
+
+## PRODUCCIÓN
+
+| Campo | Valor |
+|-------|-------|
+| URL | https://meat.synti.cloud |
+| VPS | 187.124.241.213 (Ubuntu 24.04 — Hostinger KVM1) |
+| DB | syntimeat_db / syntimeat / SyntiMeat2026! |
+| Branch git | main |
+| Stress test | 18 fases (ver §10) |
 
 ---
 
@@ -9,21 +23,34 @@ Generado: 2026-05-22
 | Línea | Método | Verb | Ruta |
 |-------|--------|------|------|
 | 22 | `index()` | GET | /boveda |
-| 85 | `store()` | POST | /boveda |
-| 144 | `surte()` | PATCH | /boveda/{entry}/surtir |
-| 258 | `close()` | PATCH | /boveda/{entry}/cerrar |
-| 284 | `registerMerma()` | PATCH | /boveda/{entry}/merma |
-| 327 | `storeProduct()` | POST | /boveda/productos |
-| 362 | `updateProduct()` | PUT | /boveda/productos/{product} |
-| 399 | `plantillaDespiece()` | GET | /boveda/{entry}/plantilla |
-| 450 | `destroyProduct()` | DELETE | /boveda/productos/{product} |
+| 86 | `store()` | POST | /boveda |
+| 188 | `surte()` | PATCH | /boveda/{entry}/surtir |
+| 306 | `close()` | PATCH | /boveda/{entry}/cerrar |
+| 334 | `registerMerma()` | PATCH | /boveda/{entry}/merma |
+| 379 | `storeProduct()` | POST | /boveda/productos |
+| 416 | `updateProduct()` | PUT | /boveda/productos/{product} |
+| 455 | `plantillaDespiece()` | GET | /boveda/{entry}/plantilla |
+| 506 | `destroyProduct()` | DELETE | /boveda/productos/{product} |
 
 **Request validated fields:**
-- `store()`: product_type, description, kg_entrada, costo_usd, supplier, entered_at
+- `store()`: product_type, description, kg_entrada, costo_usd, supplier, entered_at, ▲ kg_par (nullable, numeric, min:0.001)
 - `surte()`: peso_real
 - `registerMerma()`: peso_actual
 - `storeProduct()`: name, unit, requires_despiece, vitrina_product_id
 - `updateProduct()`: name, unit, requires_despiece, vitrina_product_id
+
+▲ **Canal 1 / Canal 2 (pair_id):** Cuando product_type = 'RES - Medio Canal' y se envía kg_par, `store()` crea DOS BovedaEntries con `pair_id` cruzado (cada una apunta al ID de la otra). La segunda entrada hereda `costo_usd` prorrateado por peso.
+
+**catMap en plantillaDespiece():**
+```php
+$catMap = [
+    'RES - Medio Canal'        => 'Res',
+    'CERDO - Canal'            => 'Cerdo',
+    'POLLO - Entero Congelado' => 'Pollo',
+];
+$resOrder = ['Carne del Canal', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
+```
+Nota: plantillaDespiece() NO tiene filtro `whereIn($resOrder)` — muestra todos los productos vitrina Res en el PDF.
 
 **Inertia::render props (`index()`):**
 - activas, historial, bovedaProducts, productosVitrina, kpis{entradasActivas, kgDisponible, costoActivo, surtidoHoy}
@@ -41,6 +68,22 @@ Generado: 2026-05-22
 - `store()`: output_product_id, output_kg, output_units, inputs[].product_id, inputs[].quantity_kg, inputs[].cost_usd, notes, produced_at
 - `storeDespiece()`: boveda_entry_id, cortes[].product_id (Rule::exists scoped a business_id), cortes[].kg, notes
 
+▲ **catMap actualizado:**
+```php
+$catMap = [
+    'RES - Medio Canal'        => 'Res',
+    'CERDO - Canal'            => 'Cerdo',
+    'POLLO - Entero Congelado' => 'Pollo',
+];
+```
+
+▲ **resOrder (4 cortes Res — filtro UI):**
+```php
+$resOrder = ['Carne del Canal', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
+// Filtro: ->when($catName === 'Res', fn($q) => $q->whereIn('name', $resOrder))
+```
+Premium, Primera, Segunda excluidos del UI de despiece. Solo aparecen 4 cortes Res en Fábrica.
+
 **Inertia::render props (`index()`):**
 - fabricables, ingredientes, stockMap, historial, despiecePendiente, despieceHistorial
 
@@ -55,6 +98,17 @@ Generado: 2026-05-22
 | `cancel()` | PATCH | /pos/ventas/{sale}/cancelar |
 | `void()` | PATCH | /ventas/{sale}/anular |
 | `historial()` | GET | /ventas |
+
+▲ **Patrón pool stock_product_id en pay() y cancel():**
+```php
+$sale->load('items.product');
+foreach ($sale->items as $item) {
+    if ($item->input_type !== 'weight') continue;
+    $stockProductId = $item->product?->stock_product_id ?? $item->product_id;
+    InventoryEntry::create(['product_id' => $stockProductId, ...]);
+}
+```
+Premium, Primera y Segunda descuentan inventario de 'Carne del Canal' (su stock_product_id), no de sí mismos.
 
 **Request validated fields:**
 - `store()`: items[].product_id, items[].input_type, items[].amount_bs, items[].quantity_value, origin, channel, status, client_name, client_phone, client_id
@@ -79,7 +133,7 @@ Generado: 2026-05-22
 **Request validated fields:**
 - `open()`: opening_amount_bs
 - `close()`: counted_cash_bs, notes
-- `movement()`: type (in/out), amount_bs, concept
+- `movement()`: type (in/out/corte), amount_bs, concept
 - `confirmClose()`: counted_cash_bs, notes
 
 **Inertia::render props (`index()`):**
@@ -95,6 +149,8 @@ Generado: 2026-05-22
 | `update()` | PUT | /catalogo/productos/{product} |
 | `destroy()` | DELETE | /catalogo/productos/{product} |
 | `toggleFavorite()` | PATCH | /catalogo/productos/{product}/favorito |
+| `downloadProductTemplate()` | GET | /catalogo/plantilla-productos |
+| ▲ `importProducts()` | POST | /catalogo/importar |
 | `storeCategory()` | POST | /catalogo/categorias |
 | `updateCategory()` | PUT | /catalogo/categorias/{category} |
 | `destroyCategory()` | DELETE | /catalogo/categorias/{category} |
@@ -104,6 +160,8 @@ Generado: 2026-05-22
 
 **Request validated fields (store/update producto):**
 - name, sku, category_id, subcategory_id, sale_mode, price_per_kg_usd, price_per_unit_usd, location, active, fabricable, image (file)
+
+▲ **importProducts():** Importa productos desde CSV/Excel. Devuelve JSON `{imported, updated, total, errors[]}`. Hace upsert por nombre dentro del business.
 
 **Inertia::render props (`index()`):**
 - categories (con subcategorías), products
@@ -129,6 +187,8 @@ Generado: 2026-05-22
 |--------|------|------|
 | `index()` | GET | /dashboard |
 | `data()` | GET | /dashboard/data (JSON) |
+
+▲ **Filtro branch_id por rol:** data() filtra ventas por branch_id según rol del usuario. Owner/super_admin ven todas las sucursales.
 
 **Inertia::render props (`index()`):**
 - ventas_hoy, top_productos, stock_critico, ultimas_ventas, caja_activa, tasa_hoy, pedidos_pendientes, categorias_hoy, utilidad_boveda
@@ -172,7 +232,14 @@ Generado: 2026-05-22
 | `consolidatedData()` | GET | /reportes/consolidado/data (JSON) |
 | `export()` | GET | /reportes/exportar (XLSX) |
 
-**Filtros comunes:** date_from, date_to, cashier_id, payment_method, status
+▲ **buildDayData() — costo con pool stock_product_id:**
+```php
+$costProductId = $item->product?->stock_product_id ?? $item->product_id;
+$costPerKg     = (float) ($avgCosts[$costProductId] ?? 0);
+```
+Premium/Primera/Segunda usan el costo de 'Carne del Canal' para calcular utilidad correctamente.
+
+**Filtros comunes:** date_from, date_to, cashier_id, payment_method, status, ▲ branch_id
 
 ---
 
@@ -205,6 +272,7 @@ Generado: 2026-05-22
 | `destroyTerminal()` | DELETE | /configuracion/terminales/{terminal} |
 | `ticket()` | GET | /configuracion/ticket |
 | `updateTicket()` | POST | /configuracion/ticket |
+| ▲ `hardware()` (closure) | GET | /configuracion/hardware |
 | `branches()` | GET | /configuracion/sucursales |
 | `storeBranch()` | POST | /configuracion/sucursales |
 | `updateBranch()` | PUT | /configuracion/sucursales/{branch} |
@@ -248,10 +316,41 @@ Generado: 2026-05-22
 
 ---
 
+### ▲ TeamController (NUEVO)
+| Método | Verb | Ruta |
+|--------|------|------|
+| `index()` | GET | /configuracion/equipo (aprox.) |
+| `store()` | POST | — |
+| `update()` | PUT | — |
+| `toggleActive()` | PATCH | — |
+| `killSession()` | PATCH | — |
+| `destroy()` | DELETE | — |
+
+Gestión de usuarios del equipo (toggle activo, matar sesión, CRUD).
+
+---
+
+### ▲ BranchController (NUEVO)
+| Método | Verb | Ruta |
+|--------|------|------|
+| `index()` | GET | — |
+| `store()` | POST | — |
+| `update()` | PUT | — |
+| `assignUser()` | PATCH | /sucursales/{branch}/asignar |
+| `unassignUser()` | PATCH | /sucursales/{branch}/desasignar |
+
+Asignación de usuarios a sucursales.
+
+---
+
 ## 2. Models
 
 ### Business
 **fillable:** name, legal_name, rif, logo_path, address, city, state, phone, currency_default, rate_source, rate_margin, weight_unit, ticket_prefix, ticket_footer, sale_capture_mode, line_input_mode, preticket_enabled, preticket_expiry_minutes, price_lock_policy, onboarding_completed, active, max_branches, settings, theme_color
+
+▲ **Nueva columna DB:** `subscription_active` (boolean, default true) — kill switch del sistema. Usada por CheckSubscription middleware.
+
+▲ **Columnas ahora nullable:** legal_name, rif, theme_color, phone, city, state, address (fix 2026-05-23).
 
 **casts:** rate_margin:decimal:2, preticket_enabled:bool, onboarding_completed:bool, active:bool, max_branches:int, settings:array
 
@@ -275,7 +374,9 @@ Generado: 2026-05-22
 ### User
 **fillable:** name, email, password, business_id, branch_id, role, theme, is_active, session_token, access_start, access_end, access_days
 
-**roles:** super_admin, owner, branch_admin, analyst, supervisor, cashier, admin
+▲ **Nueva columna DB:** `is_hidden` (boolean, default false) — oculta usuario de listings públicos (usado por super_admin).
+
+**roles activos:** super_admin, owner, branch_admin, supervisor, analyst, cashier, admin
 
 **casts:** email_verified_at:datetime, password:hashed, access_days:array
 
@@ -292,7 +393,9 @@ Generado: 2026-05-22
 ---
 
 ### Product
-**fillable:** business_id, branch_id, category_id, subcategory_id, name, sku, barcode, sale_mode, base_unit_label, fraction_allowed, price_per_kg_usd, price_per_unit_usd, min_stock, location, image_path, sort_order, active, fabricable, is_favorite
+▲ **fillable actualizado:** business_id, branch_id, category_id, subcategory_id, name, sku, barcode, sale_mode, base_unit_label, fraction_allowed, price_per_kg_usd, price_per_unit_usd, min_stock, location, image_path, sort_order, active, fabricable, is_favorite, **stock_product_id**
+
+▲ **stock_product_id:** unsignedBigInteger nullable. Cuando != null, el descuento de inventario (pay/cancel) y el cálculo de costos (buildDayData) se hacen contra ese product_id en lugar del producto vendido. Patrón "pool de stock". Premium, Primera y Segunda apuntan a 'Carne del Canal'.
 
 **casts:** fraction_allowed:bool, fabricable:bool, price_per_kg_usd:decimal:2, price_per_unit_usd:decimal:2, active:bool, is_favorite:bool
 
@@ -311,6 +414,8 @@ Generado: 2026-05-22
 
 ### Sale
 **fillable:** business_id, ticket_number, status, total_usd, payment_method, amount_received_usd, change_usd, rate_used, total_bs, notes, sold_at, cashier_id, cash_register_id, cancelled_at, cancelled_by, cancellation_reason, client_name, client_phone, client_id, origin, channel, delivery_status, delivery_confirmed_at, payment_status, order_id
+
+▲ **Nueva columna DB:** `accounting_date` (date nullable) — fecha contable para ventas después del corte bancario (7pm → contabiliza el día siguiente).
 
 **with:** items (eager)
 
@@ -352,6 +457,8 @@ Generado: 2026-05-22
 ### CashRegister
 **fillable:** business_id, branch_id, name, opened_at, closed_at, opening_amount_usd, opening_amount_bs, expected_cash_usd, counted_cash_usd, difference_usd, rate_at_opening, notes, opened_by, closed_by
 
+▲ **Columnas ahora nullable:** opened_at, opening_amount_usd, opened_by (fix 2026-05-22).
+
 **relaciones:**
 | Tipo | Método | Modelo |
 |------|--------|--------|
@@ -383,7 +490,9 @@ Generado: 2026-05-22
 ### BovedaEntry
 **fillable:** business_id, product_type, description, kg_entrada, costo_usd, waste_kg, kg_surtido_vitrina, supplier, entered_at, closed_at, despiece_completado_at
 
-**casts:** kg_disponible:decimal:3 (columna generada DB = kg_entrada - kg_surtido_vitrina - waste_kg)
+▲ **Nueva columna DB:** `pair_id` (unsignedBigInteger nullable) — apunta al ID de la entrada hermana en el par Canal 1/Canal 2. Ambas entradas se referencian mutuamente.
+
+**casts:** kg_entrada:decimal:3, costo_usd:decimal:2, waste_kg:decimal:3, kg_surtido_vitrina:decimal:3, kg_disponible:decimal:3 (GENERATED VIRTUAL = kg_entrada - kg_surtido_vitrina - waste_kg)
 
 **relaciones:** belongsTo business(), hasMany inventoryEntries(), hasOne bovedaProduct() (FK: name↔product_type)
 
@@ -393,6 +502,12 @@ Generado: 2026-05-22
 
 ### BovedaProduct
 **fillable:** business_id, name, unit, active, sort_order, requires_despiece, vitrina_product_id
+
+**Catálogo Chaguaramas activo:**
+- RES - Medio Canal (requires_despiece: true)
+- POLLO - Entero Congelado (requires_despiece: false)
+- CERDO - Canal (requires_despiece: true)
+- Jamón Pierna Sellado (requires_despiece: true)
 
 **relaciones:** belongsTo business()
 
@@ -414,6 +529,8 @@ Generado: 2026-05-22
 
 ### Category
 **fillable:** business_id, name, icon, color, macro_category, sort_order, active
+
+**macro_category valores Chaguaramas:** BOVEDA, RES, POLLO, CERDO, CHARCUTERIA, TRASTES, DESPENSA
 
 **relaciones:** belongsTo business(), hasMany subcategories() (ordered by sort_order), hasMany products()
 
@@ -447,7 +564,7 @@ Generado: 2026-05-22
 
 **scopes:** scopeUsd(), scopeEur()
 
-**nota:** UPDATED_AT = null
+**nota:** UPDATED_AT = null | Conexión readonly `synticorex` DB (SYNTIWEB_DB_*)
 
 ---
 
@@ -477,8 +594,8 @@ Generado: 2026-05-22
 ### CurrencyFetcherService
 | Método | Firma | Propósito |
 |--------|-------|-----------|
-| `fetchUSD()` | `(): array{success, rate, source}` | Obtiene BCV oficial USD — fuentes: dolarapi.com → brecha-cambiaria.com |
-| `fetchEUR()` | `(): array{success, rate, source}` | Obtiene BCV oficial EUR — mismas fuentes |
+| `fetchUSD()` | `(): array{success, rate, source}` | BCV oficial USD — dolarapi.com → brecha-cambiaria.com |
+| `fetchEUR()` | `(): array{success, rate, source}` | BCV oficial EUR — mismas fuentes |
 
 ---
 
@@ -489,11 +606,26 @@ Generado: 2026-05-22
 | `EnsureRole` | `role` | Verifica que `user->role` esté en los roles permitidos, abort 403 si no |
 | `CheckOnboarding` | `check.onboarding` | Redirige a /setup si business no tiene onboarding_completed |
 | `EnforceUserSession` | (global) | Verifica is_active, sesión única por token, días habilitados, ventana horaria |
-| `HandleInertiaRequests` | (global) | Inyecta auth.user, flash, tasa en shared props de Inertia |
+| `HandleInertiaRequests` | (global) | Inyecta auth.user, flash, tasa, banking_alert en shared props de Inertia |
+| ▲ `CheckSubscription` | `subscription` | Kill switch: si business.subscription_active=false → logout + mensaje mantenimiento |
+
+**Stack middleware autenticado:**  `['auth', 'verified', 'check.onboarding', 'subscription']`
 
 ---
 
-## 5. Rutas
+## 5. Artisan Commands
+
+| Comando | Clase | Propósito |
+|---------|-------|-----------|
+| `dollar:fetch` | UpdateDollarRate | Consulta BCV y persiste tasa USD/EUR |
+| ▲ `cash:banking-alert` | BankingAlertCommand | Guarda alerta corte bancario en caché (--minutes=20\|10\|0) |
+| `demo:reset` | ResetDemoData | Resetea datos demo (desarrollo) |
+
+**Alerta bancaria:** El comando escribe en cache `banking_alert` → HandleInertiaRequests lo inyecta en shared props → AppLayout lo muestra como banner global en POS.
+
+---
+
+## 6. Rutas
 
 ### Públicas (sin auth)
 | URI | Verb | Controller@método | Nombre |
@@ -502,11 +634,15 @@ Generado: 2026-05-22
 | /setup | GET | OnboardingController@show | onboarding |
 | /setup/{step} | POST | OnboardingController@store | onboarding.step |
 
-### Autenticadas — Todos los roles (super_admin, admin, cashier)
+### Autenticadas — middleware base: `auth, verified, check.onboarding, subscription`
+
+#### Todos los roles (`super_admin,admin,owner,branch_admin,supervisor,analyst,cashier`)
 | URI | Verb | Controller@método | Nombre |
 |-----|------|-------------------|--------|
 | /dashboard | GET | DashboardController@index | dashboard |
 | /dashboard/data | GET | DashboardController@data | dashboard.data |
+| ▲ /set-branch | POST | closure | branch.set |
+| /caja/cierre | GET | CashRegisterController@dayClose | cash.day-close |
 | /pos | GET | SaleController@index | pos.index |
 | /pos/ventas | POST | SaleController@store | sales.store |
 | /pos/ventas/{sale}/pagar | PATCH | SaleController@pay | sales.pay |
@@ -516,15 +652,14 @@ Generado: 2026-05-22
 | /caja/abrir | POST | CashRegisterController@open | cash.open |
 | /caja/{register}/cerrar | POST | CashRegisterController@close | cash.close |
 | /caja/{register}/movimiento | POST | CashRegisterController@movement | cash.movement |
-| /caja/cierre | GET | CashRegisterController@dayClose | cash.day-close |
+| /clientes/buscar | GET | ClientController@search | clients.search |
 | /clientes | GET | ClientController@index | clients.index |
 | /clientes | POST | ClientController@store | clients.store |
-| /clientes/buscar | GET | ClientController@search | clients.search |
 | /clientes/{client} | GET | ClientController@show | clients.show |
 | /clientes/{client} | PUT | ClientController@update | clients.update |
 | /pedidos | GET | OrderController@index | orders.index |
-| /pedidos | POST | OrderController@store | orders.store |
 | /pedidos/delivery | GET | OrderController@deliveryIndex | orders.delivery |
+| /pedidos | POST | OrderController@store | orders.store |
 | /pedidos/{order}/cobrar | PATCH | OrderController@collect | orders.collect |
 | /pedidos/{order}/despachar | PATCH | OrderController@dispatch | orders.dispatch |
 | /pedidos/{order}/cancelar | PATCH | OrderController@cancel | orders.cancel |
@@ -534,81 +669,71 @@ Generado: 2026-05-22
 | /profile | PATCH | ProfileController@update | profile.update |
 | /profile | DELETE | ProfileController@destroy | profile.destroy |
 
-### super_admin + admin
-| URI | Verb | Controller@método | Nombre |
-|-----|------|-------------------|--------|
-| /tasa/manual | POST | SettingsController@setManualRate | rate.manual |
-| /caja/cierre/{register} | POST | CashRegisterController@confirmClose | cash.confirm-close |
-| /ventas/{sale}/anular | PATCH | SaleController@void | sales.void |
-| /catalogo | GET | CatalogController@index | catalog.index |
-| /catalogo/productos | POST | CatalogController@store | catalog.store |
-| /catalogo/productos/{product} | PUT | CatalogController@update | catalog.update |
-| /catalogo/productos/{product} | DELETE | CatalogController@destroy | catalog.destroy |
-| /catalogo/productos/{product}/favorito | PATCH | CatalogController@toggleFavorite | catalog.product.favorite |
-| /catalogo/categorias | POST | CatalogController@storeCategory | catalog.category.store |
-| /catalogo/categorias/{category} | PUT | CatalogController@updateCategory | catalog.category.update |
-| /catalogo/categorias/{category} | DELETE | CatalogController@destroyCategory | catalog.category.destroy |
-| /catalogo/subcategorias | POST | CatalogController@storeSubcategory | catalog.subcategory.store |
-| /catalogo/subcategorias/{subcategory} | PUT | CatalogController@updateSubcategory | catalog.subcategory.update |
-| /catalogo/subcategorias/{subcategory} | DELETE | CatalogController@destroySubcategory | catalog.subcategory.destroy |
-| /fabrica | GET | FabricaController@index | fabrica.index |
-| /fabrica | POST | FabricaController@store | fabrica.store |
-| /fabrica/despiece | POST | FabricaController@storeDespiece | fabrica.despiece |
-| /inventario | GET | InventoryController@index | inventory.index |
-| /inventario | POST | InventoryController@store | inventory.store |
-| /boveda | GET | BovedaController@index | boveda.index |
-| /boveda | POST | BovedaController@store | boveda.store |
-| /boveda/{entry}/surtir | PATCH | BovedaController@surte | boveda.surte |
-| /boveda/{entry}/cerrar | PATCH | BovedaController@close | boveda.close |
-| /boveda/{entry}/merma | PATCH | BovedaController@registerMerma | boveda.merma |
-| /boveda/{entry}/plantilla | GET | BovedaController@plantillaDespiece | boveda.plantilla |
-| /boveda/productos | POST | BovedaController@storeProduct | boveda.product.store |
-| /boveda/productos/{product} | PUT | BovedaController@updateProduct | boveda.product.update |
-| /boveda/productos/{product} | DELETE | BovedaController@destroyProduct | boveda.product.destroy |
-| /reportes | GET | ReportController@index | reports.index |
-| /reportes/ventas | GET | ReportController@sales | reports.sales |
-| /reportes/inventario | GET | ReportController@inventory | reports.inventory |
-| /reportes/cierres | GET | ReportController@closings | reports.closings |
-| /reportes/pedidos | GET | ReportController@orders | reports.orders |
-| /reportes/dia | GET | ReportController@dayReport | reports.day |
-| /reportes/pdf-dia | GET | ReportController@exportDayPdf | reports.day-pdf |
-| /reportes/exportar | GET | ReportController@export | reports.export |
-| /configuracion/metodos-pago | GET | PaymentMethodController@index | payment-methods.index |
-| /configuracion/metodos-pago | POST | PaymentMethodController@store | payment-methods.store |
-| /configuracion/metodos-pago/{pm} | PUT | PaymentMethodController@update | payment-methods.update |
-| /configuracion/metodos-pago/{pm}/toggle | PATCH | PaymentMethodController@toggle | payment-methods.toggle |
-| /configuracion/metodos-pago/{pm} | DELETE | PaymentMethodController@destroy | payment-methods.destroy |
-| /configuracion/metodos-pago/reorder | POST | PaymentMethodController@reorder | payment-methods.reorder |
-| /configuracion/general | GET | SettingsController@general | settings.general |
-| /configuracion/general | POST | SettingsController@updateGeneral | settings.general.update |
-| /configuracion/cajas | GET | SettingsController@cashRegisters | settings.cash-registers |
-| /configuracion/cajas | POST | SettingsController@storeCashRegister | settings.cash-registers.store |
-| /configuracion/terminales | GET | SettingsController@terminals | settings.terminals |
-| /configuracion/ticket | GET | SettingsController@ticket | settings.ticket |
-| /configuracion/ticket | POST | SettingsController@updateTicket | settings.ticket.update |
-| /configuracion/sucursales | GET | SettingsController@branches | settings.branches |
-| /configuracion/sucursales | POST | SettingsController@storeBranch | settings.branches.store |
-| /contingencia | GET | ContingencyController@index | contingency.index |
-| /contingencia/importar-ventas | POST | ContingencyController@importSales | contingency.import-sales |
-| /contingencia/importar-inventario | POST | ContingencyController@importInventory | contingency.import-inventory |
-
-### Solo super_admin + owner
+#### Solo `super_admin, owner`
 | URI | Verb | Controller@método | Nombre |
 |-----|------|-------------------|--------|
 | /reportes/consolidado | GET | ReportController@consolidated | reports.consolidated |
 | /reportes/consolidado/data | GET | ReportController@consolidatedData | reports.consolidated-data |
 
-### Solo super_admin
-| URI | Verb | Controller@método | Nombre |
-|-----|------|-------------------|--------|
-| /configuracion/usuarios | GET | SettingsController@users | settings.users |
-| /configuracion/usuarios | POST | SettingsController@storeUser | settings.users.store |
-| /configuracion/usuarios/{user} | PUT | SettingsController@updateUser | settings.users.update |
-| /configuracion/usuarios/{user} | DELETE | SettingsController@destroyUser | settings.users.destroy |
+#### `super_admin,admin,owner,branch_admin,supervisor,analyst`
+| URI | Verb | Nombre |
+|-----|------|--------|
+| /tasa/manual | POST | rate.manual |
+| /caja/cierre/{register} | POST | cash.confirm-close |
+| /ventas/{sale}/anular | PATCH | sales.void |
+| /catalogo | GET | catalog.index |
+| /catalogo/productos | POST | catalog.store |
+| /catalogo/productos/{product} | PUT | catalog.update |
+| /catalogo/productos/{product} | DELETE | catalog.destroy |
+| /catalogo/productos/{product}/favorito | PATCH | catalog.product.favorite |
+| ▲ /catalogo/importar | POST | catalog.import |
+| /catalogo/categorias | POST/PUT/DELETE | catalog.category.* |
+| /catalogo/subcategorias | POST/PUT/DELETE | catalog.subcategory.* |
+| /fabrica | GET/POST | fabrica.index / fabrica.store |
+| /fabrica/despiece | POST | fabrica.despiece |
+| /inventario | GET/POST | inventory.index / inventory.store |
+| /boveda | GET/POST | boveda.index / boveda.store |
+| /boveda/{entry}/surtir | PATCH | boveda.surte |
+| /boveda/{entry}/cerrar | PATCH | boveda.close |
+| /boveda/{entry}/merma | PATCH | boveda.merma |
+| /boveda/{entry}/plantilla | GET | boveda.plantilla |
+| /boveda/productos | POST/PUT/DELETE | boveda.product.* |
+| /reportes | GET + JSON endpoints | reports.* |
+| /configuracion/metodos-pago | GET/POST/PUT/PATCH/DELETE | payment-methods.* |
+| /configuracion/general | GET/POST | settings.general |
+| /configuracion/cajas | GET/POST/PUT/DELETE | settings.cash-registers.* |
+| /configuracion/terminales | GET/POST/PUT/DELETE | settings.terminals.* |
+| /configuracion/ticket | GET/POST | settings.ticket |
+| ▲ /configuracion/hardware | GET | settings.hardware |
+| /configuracion/sucursales | GET/POST/PUT | settings.branches.* |
+| /contingencia | GET + POST importar | contingency.* |
+
+#### Solo `super_admin`
+| URI | Verb | Nombre |
+|-----|------|--------|
+| /configuracion/usuarios | GET/POST/PUT/DELETE | settings.users.* |
 
 ---
 
-## 6. Vue Pages
+## 7. Roles y Permisos (AppLayout.vue)
+
+```javascript
+const rolePermissions = {
+    super_admin:  // todos
+    owner:        ['dashboard','pos','inventory','boveda','fabrica','orders','sales','dayclose','catalog','clients','contingency','users','settings','cash'],
+    branch_admin: ['dashboard','pos','inventory','boveda','fabrica','orders','sales','dayclose','catalog','clients','contingency','users','settings','cash'],
+    supervisor:   ['dashboard','pos','cash','sales','dayclose','inventory','catalog','boveda','fabrica','orders','clients','reports','contingency'],
+    analyst:      ['dashboard','sales','dayclose','cash','reports','inventory','catalog','clients','orders','contingency'],
+    admin:        // todos excepto super_admin features
+    cashier:      // pos, caja, pedidos, clientes
+}
+```
+
+**navOwner:** Nav alternativo para owner y branch_admin — prioriza Panel Empresarial arriba.
+
+---
+
+## 8. Vue Pages
 
 ### POS/Index.vue
 **props:** products, categories, cashRegister, todayRate, paymentMethods, ticketPrefix, stockMap, posShowKg, businessInfo, ticketPrefs
@@ -622,12 +747,16 @@ Generado: 2026-05-22
 
 **refs principales:** tab, flash, showEntradaModal, entradaForm, showSurtirModal, surtirEntry, surtirForm, surtirErrors, despiecePendiente, closing, showProductModal, editingProduct, productForm, localBovedaProducts, showHelp
 
+▲ **entradaForm ahora incluye:** conCanal2 (boolean), kg_par (number) — visibles solo cuando product_type === 'RES - Medio Canal'
+
 ---
 
 ### Fabrica/Index.vue
 **props:** fabricables, ingredientes, stockMap, historial, despiecePendiente, despieceHistorial
 
 **refs principales:** tab, showModal, modalProduct, ingredSearch, despieceExpanded, despieceForms, despieceErrors, despieceSaving, despieceFlash, despiecePdfEntry, showHelp
+
+▲ **helpSteps actualizado:** Menciona 'Carne del Canal, Costilla, Hueso Redondo, Hueso Rojo' como los 4 cortes Res (Premium/Primera/Segunda eliminados del texto).
 
 ---
 
@@ -638,13 +767,10 @@ Generado: 2026-05-22
 
 ---
 
-### Cash/DayClose.vue
-**props:** (leída desde CashRegisterController@dayClose)
-
----
-
 ### Catalog/Index.vue
 **props:** categories, products
+
+▲ **Nuevo:** Botón importar productos (CSV/Excel) → POST /catalogo/importar. Botón descarga plantilla → GET /catalogo/plantilla-productos.
 
 **refs principales:** activeTab, searchQuery, showModal, editProduct, submitting, selectedImagePreview, mainTab, showCatModal, editCategory, showSubModal, editSubcat, subParentId, showHelp
 
@@ -653,28 +779,20 @@ Generado: 2026-05-22
 ### Inventory/Index.vue
 **props:** products, categories, todayEntries, stockMap, lastEntryMap, kpis
 
-**refs principales:** search, filterCat, filterStatus, sortKey, sortDir, currentPage, drawerProduct, showModal, selectedCategory, showHelp
-
 ---
 
 ### Dashboard.vue
 **props:** ventas_hoy, top_productos, stock_critico, ultimas_ventas, caja_activa, tasa_hoy, pedidos_pendientes, categorias_hoy, utilidad_boveda
-
-**refs principales:** d (reactive snapshot de props), barsVisible, selectedCats, horaActual
 
 ---
 
 ### Sales/Index.vue
 **props:** sales, totals, cashiers, paymentMethods, filters
 
-**refs principales:** filterDate, filterCashier, filterPayment
-
 ---
 
 ### Orders/Index.vue
 **props:** pedidosActivos, historial, cobrosPendientes, products, paymentMethods, paymentTerminals, todayRate, kpis
-
-**refs principales:** pedidos (reactive copy), showModal, cobroModal
 
 ---
 
@@ -693,13 +811,13 @@ Generado: 2026-05-22
 
 ---
 
-### Contingency/Index.vue
-**props:** (sin props externas — descarga archivos)
+### Settings/Hardware.vue ▲ (NUEVA)
+Página de configuración de hardware (scanner EAN-13, balanza, impresora térmica). Sin props externas — informativa.
 
 ---
 
-### Settings/* (General, Team, Users, PaymentMethods, CashRegisters, Terminals, Ticket, Branches)
-**patrón común:** props de configuración del módulo correspondiente, sin refs de estado complejo
+### Contingency/Index.vue
+**props:** (sin props externas — descarga archivos)
 
 ---
 
@@ -708,7 +826,7 @@ Generado: 2026-05-22
 
 ---
 
-## 7. Migraciones
+## 9. Migraciones
 
 | Archivo | Tabla | Operación |
 |---------|-------|-----------|
@@ -744,112 +862,4 @@ Generado: 2026-05-22
 | 2026_05_12_000013 | sales | ADD delivery_status, delivery fields |
 | 2026_05_12_000014 | products | ADD location |
 | 2026_05_13_000015 | boveda_entries | CREATE |
-| 2026_05_13_000016 | boveda_entries | NORMALIZE (agregar kg_surtido_vitrina, refactor) |
-| 2026_05_13_000017 | boveda_products | CREATE |
-| 2026_05_13_000018 | despiece_items | ADD tipo |
-| 2026_05_13_165047 | boveda_entries | ADD waste_kg |
-| 2026_05_13_190001 | inventory_entries | ADD boveda_entry_id |
-| 2026_05_13_190002 | boveda_entries | ADD kg_disponible columna GENERATED VIRTUAL |
-| 2026_05_13_190003 | sale_items | ADD subtotal_bs |
-| 2026_05_13_200001 | categories | ADD macro_category |
-| 2026_05_13_200002 | fabrica_batches | CREATE |
-| 2026_05_13_200003 | fabrica_inputs | CREATE |
-| 2026_05_13_210001 | products | ADD fabricable |
-| 2026_05_13_210002 | fabrica_inputs | ADD product_id |
-| 2026_05_13_220001 | branches | CREATE |
-| 2026_05_13_220002 | users | EXPAND roles ENUM |
-| 2026_05_13_220003 | sales, inventory_entries, etc. | ADD branch_id |
-| 2026_05_13_230001 | products | ADD cost_per_unit_usd |
-| 2026_05_14_000001 | sales | ADD payment_status, order_id |
-| 2026_05_14_010001 | businesses | ADD max_branches |
-| 2026_05_14_050743 | sales | ADD 'credit' al ENUM origin |
-| 2026_05_14_065526 | products | ADD branch_id |
-| 2026_05_14_071527 | users | ADD team fields (position, avatar…) |
-| 2026_05_14_074358 | users | ADD access_days JSON |
-| 2026_05_14_080924 | clients | RENAME client_code → cedula |
-| 2026_05_14_100001 | cash_registers | ADD opening_amount_bs |
-| 2026_05_14_180427 | boveda_products | ADD requires_despiece, vitrina_product_id |
-| 2026_05_14_194421 | boveda_entries | ADD despiece_completado_at |
-| 2026_05_15_000001 | products | DROP cost fields legacy |
-| 2026_05_16_000001 | cash_movements | ADD 'corte' al ENUM type |
-| 2026_05_16_000002 | cash_movements | ADD amount_bs |
-| 2026_05_16_000003 | products | ADD is_favorite |
-
-**Total: 65 migraciones**
-
----
-
-## 8. Seeders
-
-| Seeder | Propósito |
-|--------|-----------|
-| `DatabaseSeeder` | Orquestador principal — llama a los demás en orden |
-| `PaymentMethodSeeder` | Métodos de pago base: efectivo Bs, efectivo USD, transferencia, pago móvil, punto de venta |
-| `CatalogSeeder` | Categorías y productos genéricos de demostración |
-| `CatalogSeederChaguaramas` | Catálogo real de Chaguaramas: Res/Pollo/Cerdo/Charcutería/Trastes con precios USD |
-| `ChaguaramasBaseSeeder` | Datos base del negocio piloto: business, admin user, configuración |
-| `InventorySeeder` | Entradas de inventario de prueba para vitrina |
-| `TestFlowSeeder` | Flujo completo de prueba (22 checks): boveda → despiece → vitrina → POS → cierre — fixture de certificación |
-
----
-
-## 9. Variables de entorno (.env keys)
-
-```
-APP_NAME
-APP_ENV
-APP_KEY
-APP_DEBUG
-APP_URL
-APP_LOCALE
-APP_FALLBACK_LOCALE
-APP_FAKER_LOCALE
-APP_MAINTENANCE_DRIVER
-BCRYPT_ROUNDS
-LOG_CHANNEL
-LOG_STACK
-LOG_DEPRECATIONS_CHANNEL
-LOG_LEVEL
-DB_CONNECTION
-DB_HOST
-DB_PORT
-DB_DATABASE
-DB_USERNAME
-DB_PASSWORD
-SYNTIWEB_DB_HOST
-SYNTIWEB_DB_PORT
-SYNTIWEB_DB_DATABASE
-SYNTIWEB_DB_USERNAME
-SYNTIWEB_DB_PASSWORD
-DOLLAR_FALLBACK_RATE
-SESSION_DRIVER
-SESSION_LIFETIME
-SESSION_ENCRYPT
-SESSION_PATH
-SESSION_DOMAIN
-BROADCAST_CONNECTION
-FILESYSTEM_DISK
-QUEUE_CONNECTION
-CACHE_STORE
-MEMCACHED_HOST
-REDIS_CLIENT
-REDIS_HOST
-REDIS_PASSWORD
-REDIS_PORT
-MAIL_MAILER
-MAIL_SCHEME
-MAIL_HOST
-MAIL_PORT
-MAIL_USERNAME
-MAIL_PASSWORD
-MAIL_FROM_ADDRESS
-MAIL_FROM_NAME
-AWS_ACCESS_KEY_ID
-AWS_SECRET_ACCESS_KEY
-AWS_DEFAULT_REGION
-AWS_BUCKET
-AWS_USE_PATH_STYLE_ENDPOINT
-VITE_APP_NAME
-```
-
-**Notable:** `SYNTIWEB_DB_*` = conexión readonly a synticorex (dollar_rates). `DOLLAR_FALLBACK_RATE` = tasa de último recurso (default 40.00).
+| 2026_05_13_000016 | boveda_entries | NOR

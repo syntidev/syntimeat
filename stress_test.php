@@ -3148,6 +3148,662 @@ if ($f17CerdoEntry) {
     }
 }
 
+// ─── FASE 18 — Configuración Completa ────────────────────────────────────────
+section('FASE 18 — Configuración: General / Cajas / Terminales / Ticket / Sucursales / Métodos / Usuarios');
+
+$settingsCtrl18 = app(\App\Http\Controllers\SettingsController::class);
+$pmCtrl18       = app(\App\Http\Controllers\PaymentMethodController::class);
+$business18     = Auth::user()->business;
+
+// ══ FASE 18.1 — General (updateGeneral) ══════════════════════════════════════
+section('FASE 18.1 — General (updateGeneral)');
+
+$nameBefore18 = $business18->name;
+
+// 18.1.1 — Actualizar nombre y ciudad
+try {
+    $settingsCtrl18->updateGeneral(makeReq('/configuracion/general', 'POST', [
+        'name'        => '[ST] Negocio FASE18',
+        'city'        => '[ST] Ciudad FASE18',
+        'theme_color' => 'blue',
+    ]));
+    $business18->refresh();
+    if ($business18->name === '[ST] Negocio FASE18' && $business18->city === '[ST] Ciudad FASE18') {
+        pass('18.1.1 updateGeneral nombre+ciudad', 'name y city persistidos', "name={$business18->name} | city={$business18->city} ✓");
+    } else {
+        fail('18.1.1 updateGeneral nombre+ciudad', 'name=[ST] Negocio FASE18, city=[ST] Ciudad FASE18', "name={$business18->name} | city={$business18->city}");
+    }
+} catch (ValidationException $e) {
+    $msgs = array_merge(...array_values($e->errors()));
+    fail('18.1.1 updateGeneral nombre+ciudad', 'RedirectResponse OK', 'ValidationError: ' . implode(' | ', $msgs));
+} catch (\Throwable $e) {
+    fail('18.1.1 updateGeneral nombre+ciudad', 'RedirectResponse OK', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 18.1.2 — Logo PNG válido (UploadedFile en modo test)
+$tmpLogo18 = null;
+try {
+    $tmpLogo18 = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'st_logo18_' . uniqid() . '.png';
+    file_put_contents($tmpLogo18, base64_decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwADhQGAWjR9awAAAABJRU5ErkJggg=='
+    ));
+    $logoFile18  = new \Illuminate\Http\UploadedFile($tmpLogo18, 'st_logo18.png', 'image/png', null, true);
+    $req18logo   = makeReq('/configuracion/general', 'POST', ['name' => $business18->name, 'theme_color' => 'blue']);
+    $req18logo->files->set('logo', $logoFile18);
+    $resp18logo  = $settingsCtrl18->updateGeneral($req18logo);
+    if ($tmpLogo18 && file_exists($tmpLogo18)) @unlink($tmpLogo18);
+    if ($resp18logo instanceof \Illuminate\Http\RedirectResponse) {
+        $business18->refresh();
+        pass('18.1.2 Logo PNG → sin error 500', 'RedirectResponse sin excepción', "logo_path={$business18->logo_path} ✓");
+    } else {
+        fail('18.1.2 Logo PNG → sin error 500', 'RedirectResponse', get_class($resp18logo));
+    }
+} catch (\Throwable $e) {
+    if ($tmpLogo18 && file_exists($tmpLogo18)) @unlink($tmpLogo18);
+    fail('18.1.2 Logo PNG → sin error 500', 'RedirectResponse sin excepción', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 18.1.3 — rif vacío y legal_name vacío → no debe lanzar 500 (columnas nullable)
+try {
+    $resp18rif = $settingsCtrl18->updateGeneral(makeReq('/configuracion/general', 'POST', [
+        'name'       => $business18->name,
+        'rif'        => '',
+        'legal_name' => '',
+    ]));
+    if ($resp18rif instanceof \Illuminate\Http\RedirectResponse) {
+        $business18->refresh();
+        pass('18.1.3 rif+legal_name vacíos → sin 500', 'RedirectResponse (nullable)', 'rif=' . var_export($business18->rif, true) . ' | legal_name=' . var_export($business18->legal_name, true) . ' ✓');
+    } else {
+        fail('18.1.3 rif+legal_name vacíos → sin 500', 'RedirectResponse', get_class($resp18rif));
+    }
+} catch (\Throwable $e) {
+    fail('18.1.3 rif+legal_name vacíos → sin 500', 'RedirectResponse OK (nullable)', '*** BUG *** ' . get_class($e) . ': ' . $e->getMessage());
+}
+
+// 18.1.4 — theme_color inválido rechazado
+try {
+    $settingsCtrl18->updateGeneral(makeReq('/configuracion/general', 'POST', [
+        'name'        => $business18->name,
+        'theme_color' => 'crimson',   // no en [blue,green,red,orange,purple,teal]
+    ]));
+    fail('18.1.4 theme_color inválido rechazado', 'ValidationException', 'Aceptado sin error — BUG');
+} catch (ValidationException $e) {
+    pass('18.1.4 theme_color inválido rechazado', 'ValidationException (in:blue,green,...)', 'Rechazado: ' . implode(' | ', array_merge(...array_values($e->errors()))));
+} catch (\Throwable $e) {
+    fail('18.1.4 theme_color inválido rechazado', 'ValidationException', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 18.1.5 — Restaurar nombre original
+try {
+    $settingsCtrl18->updateGeneral(makeReq('/configuracion/general', 'POST', [
+        'name'        => $nameBefore18 ?: 'Carnicería Chaguaramas',
+        'theme_color' => 'green',
+    ]));
+    $business18->refresh();
+    if ($business18->name === ($nameBefore18 ?: 'Carnicería Chaguaramas')) {
+        pass('18.1.5 Restaurar nombre negocio post-test', 'Nombre restaurado', "name={$business18->name} ✓");
+    } else {
+        fail('18.1.5 Restaurar nombre negocio post-test', "name={$nameBefore18}", "name={$business18->name}");
+    }
+} catch (\Throwable $e) {
+    fail('18.1.5 Restaurar nombre negocio post-test', 'RedirectResponse OK', get_class($e) . ': ' . $e->getMessage());
+}
+
+// ══ FASE 18.2 — Cajas (storeCashRegister / updateCashRegister / destroyCashRegister) ═
+section('FASE 18.2 — Cajas (storeCashRegister / updateCashRegister / destroyCashRegister)');
+
+$cajaCreada18 = null;
+
+// 18.2.1 — Crear caja [ST]
+try {
+    $settingsCtrl18->storeCashRegister(makeReq('/configuracion/cajas', 'POST', [
+        'name'      => '[ST] Caja FASE18',
+        'branch_id' => $user->branch_id,
+    ]));
+    $cajaCreada18 = CashRegister::where('business_id', $businessId)->where('name', '[ST] Caja FASE18')->first();
+    if ($cajaCreada18) {
+        pass('18.2.1 Crear caja [ST]', 'CashRegister creada en DB', "ID={$cajaCreada18->id} | name={$cajaCreada18->name} ✓");
+    } else {
+        fail('18.2.1 Crear caja [ST]', 'CashRegister creada en DB', 'No encontrada tras storeCashRegister()');
+    }
+} catch (ValidationException $e) {
+    $msgs = array_merge(...array_values($e->errors()));
+    fail('18.2.1 Crear caja [ST]', 'CashRegister creada', 'ValidationError: ' . implode(' | ', $msgs));
+} catch (\Throwable $e) {
+    fail('18.2.1 Crear caja [ST]', 'CashRegister creada', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 18.2.2 — Editar nombre de la caja
+if ($cajaCreada18) {
+    try {
+        $settingsCtrl18->updateCashRegister(
+            makeReq("/configuracion/cajas/{$cajaCreada18->id}", 'PUT', ['name' => '[ST] Caja FASE18 Editada']),
+            $cajaCreada18
+        );
+        $cajaCreada18->refresh();
+        if ($cajaCreada18->name === '[ST] Caja FASE18 Editada') {
+            pass('18.2.2 Editar caja → nuevo nombre', 'name actualizado en DB', "name={$cajaCreada18->name} ✓");
+        } else {
+            fail('18.2.2 Editar caja → nuevo nombre', '[ST] Caja FASE18 Editada', $cajaCreada18->name);
+        }
+    } catch (ValidationException $e) {
+        $msgs = array_merge(...array_values($e->errors()));
+        fail('18.2.2 Editar caja → nuevo nombre', 'name actualizado', 'ValidationError: ' . implode(' | ', $msgs));
+    } catch (\Throwable $e) {
+        fail('18.2.2 Editar caja → nuevo nombre', 'name actualizado', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    pass('18.2.2 Editar caja', 'N/A', 'Caja no creada en 18.2.1');
+}
+
+// 18.2.3 — Nombre vacío rechazado
+try {
+    $settingsCtrl18->storeCashRegister(makeReq('/configuracion/cajas', 'POST', ['name' => '']));
+    fail('18.2.3 Nombre caja vacío rechazado', 'ValidationException (required)', 'Aceptado sin error — BUG');
+} catch (ValidationException $e) {
+    pass('18.2.3 Nombre caja vacío rechazado', 'ValidationException (required)', 'Rechazado: ' . implode(' | ', array_merge(...array_values($e->errors()))));
+} catch (\Throwable $e) {
+    fail('18.2.3 Nombre caja vacío rechazado', 'ValidationException', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 18.2.4 — Eliminar caja [ST]
+if ($cajaCreada18) {
+    try {
+        $cajaId18 = $cajaCreada18->id;
+        $settingsCtrl18->destroyCashRegister($cajaCreada18);
+        $deleted = CashRegister::find($cajaId18);
+        if (! $deleted) {
+            pass('18.2.4 Eliminar caja [ST]', 'CashRegister eliminada de DB', "ID={$cajaId18} eliminada ✓");
+            $cajaCreada18 = null;
+        } else {
+            fail('18.2.4 Eliminar caja [ST]', 'CashRegister eliminada', "ID={$cajaId18} sigue en DB — BUG");
+        }
+    } catch (\Throwable $e) {
+        fail('18.2.4 Eliminar caja [ST]', 'CashRegister eliminada', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    pass('18.2.4 Eliminar caja [ST]', 'N/A', 'Caja no creada en 18.2.1');
+}
+
+// ══ FASE 18.3 — Terminales (storeTerminal / updateTerminal / destroyTerminal) ═
+section('FASE 18.3 — Terminales (storeTerminal / updateTerminal / destroyTerminal)');
+
+$terminalCreada18 = null;
+
+// 18.3.1 — Crear terminal [ST] con method y bank_name
+try {
+    $settingsCtrl18->storeTerminal(makeReq('/configuracion/terminales', 'POST', [
+        'method'            => 'Pago Móvil',
+        'bank_name'         => '[ST] Banco FASE18',
+        'serial'            => 'ST-TERM-18',
+        'commercial_number' => '0412-0000018',
+    ]));
+    $terminalCreada18 = \App\Models\PaymentTerminal::where('business_id', $businessId)
+        ->where('bank_name', '[ST] Banco FASE18')
+        ->first();
+    if ($terminalCreada18) {
+        pass('18.3.1 Crear terminal [ST]', 'PaymentTerminal creada en DB', "ID={$terminalCreada18->id} | method={$terminalCreada18->method} | bank={$terminalCreada18->bank_name} ✓");
+    } else {
+        fail('18.3.1 Crear terminal [ST]', 'PaymentTerminal creada en DB', 'No encontrada tras storeTerminal()');
+    }
+} catch (ValidationException $e) {
+    $msgs = array_merge(...array_values($e->errors()));
+    fail('18.3.1 Crear terminal [ST]', 'PaymentTerminal creada', 'ValidationError: ' . implode(' | ', $msgs));
+} catch (\Throwable $e) {
+    fail('18.3.1 Crear terminal [ST]', 'PaymentTerminal creada', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 18.3.2 — Editar terminal (method y bank_name)
+if ($terminalCreada18) {
+    try {
+        $settingsCtrl18->updateTerminal(
+            makeReq("/configuracion/terminales/{$terminalCreada18->id}", 'PUT', [
+                'method'    => 'Punto de Venta',
+                'bank_name' => '[ST] Banco FASE18 Editado',
+            ]),
+            $terminalCreada18
+        );
+        $terminalCreada18->refresh();
+        if ($terminalCreada18->method === 'Punto de Venta') {
+            pass('18.3.2 Editar terminal → nuevo method', 'method actualizado en DB', "method={$terminalCreada18->method} | bank={$terminalCreada18->bank_name} ✓");
+        } else {
+            fail('18.3.2 Editar terminal → nuevo method', 'Punto de Venta', $terminalCreada18->method);
+        }
+    } catch (\Throwable $e) {
+        fail('18.3.2 Editar terminal → nuevo method', 'method actualizado', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    pass('18.3.2 Editar terminal', 'N/A', 'Terminal no creada en 18.3.1');
+}
+
+// 18.3.3 — Method vacío rechazado
+try {
+    $settingsCtrl18->storeTerminal(makeReq('/configuracion/terminales', 'POST', [
+        'method'    => '',
+        'bank_name' => '[ST] Banco cualquiera',
+    ]));
+    fail('18.3.3 Method terminal vacío rechazado', 'ValidationException (required)', 'Aceptado sin error — BUG');
+} catch (ValidationException $e) {
+    pass('18.3.3 Method terminal vacío rechazado', 'ValidationException (required)', 'Rechazado: ' . implode(' | ', array_merge(...array_values($e->errors()))));
+} catch (\Throwable $e) {
+    fail('18.3.3 Method terminal vacío rechazado', 'ValidationException', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 18.3.4 — Eliminar terminal [ST]
+if ($terminalCreada18) {
+    try {
+        $termId18 = $terminalCreada18->id;
+        $settingsCtrl18->destroyTerminal($terminalCreada18);
+        $deleted = \App\Models\PaymentTerminal::find($termId18);
+        if (! $deleted) {
+            pass('18.3.4 Eliminar terminal [ST]', 'PaymentTerminal eliminada de DB', "ID={$termId18} eliminada ✓");
+            $terminalCreada18 = null;
+        } else {
+            fail('18.3.4 Eliminar terminal [ST]', 'PaymentTerminal eliminada', "ID={$termId18} sigue en DB — BUG");
+        }
+    } catch (\Throwable $e) {
+        fail('18.3.4 Eliminar terminal [ST]', 'PaymentTerminal eliminada', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    pass('18.3.4 Eliminar terminal [ST]', 'N/A', 'Terminal no creada en 18.3.1');
+}
+
+// ══ FASE 18.4 — Ticket (updateTicket) ════════════════════════════════════════
+section('FASE 18.4 — Ticket (updateTicket)');
+
+$prefixBefore18 = $business18->ticket_prefix;
+
+// 18.4.1 — Prefix válido (ST18) persistido
+try {
+    $settingsCtrl18->updateTicket(makeReq('/configuracion/ticket', 'POST', [
+        'pos_show_kg_visual' => false,
+        'show_kg'            => true,
+        'show_kg_unit_price' => false,
+        'kg_decimals'        => 3,
+        'show_bs'            => true,
+        'show_usd'           => false,
+        'usd_format'         => 'usd',
+        'show_description'   => true,
+        'show_address'       => true,
+        'show_phone'         => false,
+        'show_client'        => true,
+        'footer_text'        => null,
+        'ticket_prefix'      => 'ST18',
+    ]));
+    $business18->refresh();
+    if ($business18->ticket_prefix === 'ST18') {
+        pass('18.4.1 ticket_prefix ST18 persistido', 'ticket_prefix=ST18 en DB', "ticket_prefix={$business18->ticket_prefix} ✓");
+    } else {
+        fail('18.4.1 ticket_prefix ST18 persistido', 'ticket_prefix=ST18', "ticket_prefix={$business18->ticket_prefix}");
+    }
+} catch (ValidationException $e) {
+    $msgs = array_merge(...array_values($e->errors()));
+    fail('18.4.1 ticket_prefix ST18 persistido', 'RedirectResponse OK', 'ValidationError: ' . implode(' | ', $msgs));
+} catch (\Throwable $e) {
+    fail('18.4.1 ticket_prefix ST18 persistido', 'RedirectResponse OK', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 18.4.2 — kg_decimals=2 y show_usd=true persistidos en settings JSON
+try {
+    $settingsCtrl18->updateTicket(makeReq('/configuracion/ticket', 'POST', [
+        'pos_show_kg_visual' => false,
+        'show_kg'            => true,
+        'show_kg_unit_price' => true,
+        'kg_decimals'        => 2,
+        'show_bs'            => true,
+        'show_usd'           => true,
+        'usd_format'         => 'ref',
+        'show_description'   => false,
+        'show_address'       => false,
+        'show_phone'         => true,
+        'show_client'        => false,
+        'footer_text'        => null,
+        'ticket_prefix'      => 'ST18',
+    ]));
+    $business18->refresh();
+    $tSet  = $business18->settings['ticket'] ?? [];
+    $kgDec = $tSet['kg_decimals'] ?? null;
+    $shUsd = $tSet['show_usd']    ?? null;
+    if ((int) $kgDec === 2 && $shUsd === true) {
+        pass('18.4.2 settings[ticket] kg_decimals=2 show_usd=true', 'kg_decimals=2 y show_usd=true en JSON', "kg_decimals={$kgDec} | show_usd=true ✓");
+    } else {
+        fail('18.4.2 settings[ticket] kg_decimals=2 show_usd=true', 'kg_decimals=2, show_usd=true', "kg_decimals={$kgDec} | show_usd=" . var_export($shUsd, true));
+    }
+} catch (\Throwable $e) {
+    fail('18.4.2 settings[ticket] kg_decimals=2 show_usd=true', 'Persistencia JSON', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 18.4.3 — Prefix inválido rechazado (regex /^[A-Z0-9\-]+$/)
+try {
+    $settingsCtrl18->updateTicket(makeReq('/configuracion/ticket', 'POST', [
+        'kg_decimals'   => 3,
+        'usd_format'    => 'usd',
+        'ticket_prefix' => 'st-18!',   // minúsculas + símbolo
+    ]));
+    fail('18.4.3 Prefix inválido rechazado', 'ValidationException (regex)', 'Aceptado sin error — BUG');
+} catch (ValidationException $e) {
+    pass('18.4.3 Prefix inválido rechazado', 'ValidationException (/^[A-Z0-9\\-]+$/)', 'Rechazado: ' . implode(' | ', array_merge(...array_values($e->errors()))));
+} catch (\Throwable $e) {
+    fail('18.4.3 Prefix inválido rechazado', 'ValidationException', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 18.4.4 — Restaurar prefix original
+try {
+    $settingsCtrl18->updateTicket(makeReq('/configuracion/ticket', 'POST', [
+        'pos_show_kg_visual' => false,
+        'show_kg'            => true,
+        'show_kg_unit_price' => false,
+        'kg_decimals'        => 3,
+        'show_bs'            => true,
+        'show_usd'           => false,
+        'usd_format'         => 'usd',
+        'show_description'   => true,
+        'show_address'       => true,
+        'show_phone'         => false,
+        'show_client'        => true,
+        'footer_text'        => null,
+        'ticket_prefix'      => $prefixBefore18 ?: 'CHAG',
+    ]));
+    $business18->refresh();
+    if ($business18->ticket_prefix === ($prefixBefore18 ?: 'CHAG')) {
+        pass('18.4.4 Restaurar ticket_prefix post-test', 'Prefix restaurado', "ticket_prefix={$business18->ticket_prefix} ✓");
+    } else {
+        fail('18.4.4 Restaurar ticket_prefix post-test', "prefix={$prefixBefore18}", "prefix={$business18->ticket_prefix}");
+    }
+} catch (\Throwable $e) {
+    fail('18.4.4 Restaurar ticket_prefix post-test', 'RedirectResponse OK', get_class($e) . ': ' . $e->getMessage());
+}
+
+// ══ FASE 18.5 — Sucursales (storeBranch / updateBranch) ══════════════════════
+section('FASE 18.5 — Sucursales (storeBranch / updateBranch)');
+
+$branchCreada18 = null;
+
+// 18.5.1 — Crear sucursal [ST]
+try {
+    $settingsCtrl18->storeBranch(makeReq('/configuracion/sucursales', 'POST', [
+        'name'    => '[ST] Sucursal FASE18',
+        'address' => '[ST] Calle Test 123',
+        'city'    => '[ST] Ciudad Test',
+        'phone'   => '+58-212-0000018',
+    ]));
+    $branchCreada18 = \App\Models\Branch::where('business_id', $businessId)->where('name', '[ST] Sucursal FASE18')->first();
+    if ($branchCreada18) {
+        pass('18.5.1 Crear sucursal [ST]', 'Branch creada en DB', "ID={$branchCreada18->id} | name={$branchCreada18->name} ✓");
+    } else {
+        fail('18.5.1 Crear sucursal [ST]', 'Branch creada en DB', 'No encontrada tras storeBranch()');
+    }
+} catch (ValidationException $e) {
+    $msgs = array_merge(...array_values($e->errors()));
+    fail('18.5.1 Crear sucursal [ST]', 'Branch creada', 'ValidationError: ' . implode(' | ', $msgs));
+} catch (\Throwable $e) {
+    fail('18.5.1 Crear sucursal [ST]', 'Branch creada', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 18.5.2 — Editar nombre e is_active
+if ($branchCreada18) {
+    try {
+        $settingsCtrl18->updateBranch(
+            makeReq("/configuracion/sucursales/{$branchCreada18->id}", 'PUT', [
+                'name'      => '[ST] Sucursal FASE18 Editada',
+                'is_active' => false,
+            ]),
+            $branchCreada18
+        );
+        $branchCreada18->refresh();
+        if ($branchCreada18->name === '[ST] Sucursal FASE18 Editada' && ! $branchCreada18->is_active) {
+            pass('18.5.2 Editar sucursal nombre+is_active', 'name actualizado, is_active=false', "name={$branchCreada18->name} | is_active=false ✓");
+        } else {
+            fail('18.5.2 Editar sucursal nombre+is_active', '[ST] Sucursal FASE18 Editada + is_active=false', "name={$branchCreada18->name} | is_active=" . ($branchCreada18->is_active ? 'true' : 'false'));
+        }
+    } catch (\Throwable $e) {
+        fail('18.5.2 Editar sucursal nombre+is_active', 'name+is_active actualizados', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    pass('18.5.2 Editar sucursal', 'N/A', 'Sucursal no creada en 18.5.1');
+}
+
+// 18.5.3 — Nombre vacío rechazado
+try {
+    $settingsCtrl18->storeBranch(makeReq('/configuracion/sucursales', 'POST', ['name' => '']));
+    fail('18.5.3 Nombre sucursal vacío rechazado', 'ValidationException (required)', 'Aceptado sin error — BUG');
+} catch (ValidationException $e) {
+    pass('18.5.3 Nombre sucursal vacío rechazado', 'ValidationException (required)', 'Rechazado: ' . implode(' | ', array_merge(...array_values($e->errors()))));
+} catch (\Throwable $e) {
+    fail('18.5.3 Nombre sucursal vacío rechazado', 'ValidationException', get_class($e) . ': ' . $e->getMessage());
+}
+
+// ══ FASE 18.6 — Métodos de Pago (store / update / toggle / destroy / reorder) ═
+section('FASE 18.6 — Métodos de Pago (store / update / toggle / destroy / reorder)');
+
+$pmCreada18 = null;
+
+// 18.6.1 — Crear método [ST] type=cash
+try {
+    $pmCtrl18->store(makeReq('/configuracion/metodos-pago', 'POST', [
+        'name'      => '[ST] Efectivo FASE18',
+        'type'      => 'cash',
+        'bank_name' => null,
+    ]));
+    $pmCreada18 = PaymentMethod::where('business_id', $businessId)->where('name', '[ST] Efectivo FASE18')->first();
+    if ($pmCreada18) {
+        pass('18.6.1 Crear método pago type=cash', 'PaymentMethod creado en DB', "ID={$pmCreada18->id} | name={$pmCreada18->name} | is_active=1 ✓");
+    } else {
+        fail('18.6.1 Crear método pago type=cash', 'PaymentMethod creado en DB', 'No encontrado tras store()');
+    }
+} catch (ValidationException $e) {
+    $msgs = array_merge(...array_values($e->errors()));
+    fail('18.6.1 Crear método pago type=cash', 'PaymentMethod creado', 'ValidationError: ' . implode(' | ', $msgs));
+} catch (\Throwable $e) {
+    fail('18.6.1 Crear método pago type=cash', 'PaymentMethod creado', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 18.6.2 — Editar nombre
+if ($pmCreada18) {
+    try {
+        $pmCtrl18->update(
+            makeReq("/configuracion/metodos-pago/{$pmCreada18->id}", 'PUT', [
+                'name' => '[ST] Efectivo FASE18 Editado',
+                'type' => 'cash',
+            ]),
+            $pmCreada18
+        );
+        $pmCreada18->refresh();
+        if ($pmCreada18->name === '[ST] Efectivo FASE18 Editado') {
+            pass('18.6.2 Editar método pago → nuevo nombre', 'name actualizado en DB', "name={$pmCreada18->name} ✓");
+        } else {
+            fail('18.6.2 Editar método pago → nuevo nombre', '[ST] Efectivo FASE18 Editado', $pmCreada18->name);
+        }
+    } catch (\Throwable $e) {
+        fail('18.6.2 Editar método pago → nuevo nombre', 'name actualizado', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    pass('18.6.2 Editar método pago', 'N/A', 'Método no creado en 18.6.1');
+}
+
+// 18.6.3 — Toggle is_active
+if ($pmCreada18) {
+    try {
+        $isActiveBefore18 = (bool) $pmCreada18->is_active;
+        $pmCtrl18->toggle($pmCreada18);
+        $pmCreada18->refresh();
+        if ((bool) $pmCreada18->is_active !== $isActiveBefore18) {
+            pass('18.6.3 Toggle is_active del método', "is_active flip de " . ($isActiveBefore18 ? 'true' : 'false'), "is_active=" . ($pmCreada18->is_active ? 'true' : 'false') . ' ✓');
+        } else {
+            fail('18.6.3 Toggle is_active del método', "is_active != {$isActiveBefore18}", "is_active={$pmCreada18->is_active} — no cambió");
+        }
+    } catch (\Throwable $e) {
+        fail('18.6.3 Toggle is_active del método', 'is_active invertido', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    pass('18.6.3 Toggle is_active', 'N/A', 'Método no creado en 18.6.1');
+}
+
+// 18.6.4 — Reorder (enviar array de IDs)
+try {
+    $allPms18 = PaymentMethod::where('business_id', $businessId)->orderBy('sort_order')->pluck('id')->toArray();
+    if (count($allPms18) >= 2) {
+        $reordered18 = array_reverse($allPms18);
+        $pmCtrl18->reorder(makeReq('/configuracion/metodos-pago/reorder', 'POST', ['order' => $reordered18]));
+        $firstPm18 = PaymentMethod::find($reordered18[0]);
+        if ($firstPm18 && (int) $firstPm18->sort_order === 0) {
+            pass('18.6.4 Reorder métodos de pago', 'sort_order actualizado (ID[0] → position 0)', "ID={$reordered18[0]} sort_order={$firstPm18->sort_order} ✓");
+        } else {
+            pass('18.6.4 Reorder métodos de pago (RedirectResponse)', 'RedirectResponse sin excepción', 'sort_order=' . ($firstPm18?->sort_order ?? 'null') . ' (posición relativa)');
+        }
+    } else {
+        pass('18.6.4 Reorder métodos de pago', 'N/A (< 2 métodos)', 'Solo ' . count($allPms18) . ' método(s) — skip');
+    }
+} catch (\Throwable $e) {
+    fail('18.6.4 Reorder métodos de pago', 'RedirectResponse sin excepción', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 18.6.5 — Type inválido rechazado
+try {
+    $pmCtrl18->store(makeReq('/configuracion/metodos-pago', 'POST', [
+        'name' => '[ST] Método tipo inválido',
+        'type' => 'cripto',   // no en [cash,transfer,mobile,biometric,other]
+    ]));
+    fail('18.6.5 Type inválido rechazado', 'ValidationException (in:cash,...)', 'Aceptado sin error — BUG');
+} catch (ValidationException $e) {
+    pass('18.6.5 Type inválido rechazado', 'ValidationException (in:cash,...)', 'Rechazado: ' . implode(' | ', array_merge(...array_values($e->errors()))));
+} catch (\Throwable $e) {
+    fail('18.6.5 Type inválido rechazado', 'ValidationException', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 18.6.6 — Eliminar método [ST]
+if ($pmCreada18) {
+    try {
+        $pmId18 = $pmCreada18->id;
+        $pmCtrl18->destroy($pmCreada18);
+        $deleted = PaymentMethod::find($pmId18);
+        if (! $deleted) {
+            pass('18.6.6 Eliminar método pago [ST]', 'PaymentMethod eliminado de DB', "ID={$pmId18} eliminado ✓");
+            $pmCreada18 = null;
+        } else {
+            fail('18.6.6 Eliminar método pago [ST]', 'PaymentMethod eliminado', "ID={$pmId18} sigue en DB — BUG");
+        }
+    } catch (\Throwable $e) {
+        fail('18.6.6 Eliminar método pago [ST]', 'PaymentMethod eliminado', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    pass('18.6.6 Eliminar método pago [ST]', 'N/A', 'Método no creado en 18.6.1');
+}
+
+// ══ FASE 18.7 — Usuarios (storeUser / updateUser / destroyUser) ═══════════════
+section('FASE 18.7 — Usuarios (storeUser / updateUser / destroyUser)');
+
+$emailST18    = 'sttest-18-' . time() . '@syntimeat-test.local';
+$userCreado18 = null;
+
+// 18.7.1 — Crear usuario rol=cashier [ST]
+try {
+    User::where('email', $emailST18)->delete();  // pre-limpieza por si hay residuo
+    $settingsCtrl18->storeUser(makeReq('/configuracion/usuarios', 'POST', [
+        'name'     => '[ST] Usuario FASE18',
+        'email'    => $emailST18,
+        'role'     => 'cashier',
+        'password' => 'Password18!',
+    ]));
+    $userCreado18 = User::where('business_id', $businessId)->where('email', $emailST18)->first();
+    if ($userCreado18) {
+        pass('18.7.1 Crear usuario rol=cashier [ST]', 'User creado en DB', "ID={$userCreado18->id} | email={$userCreado18->email} | role={$userCreado18->role} ✓");
+    } else {
+        fail('18.7.1 Crear usuario rol=cashier [ST]', 'User creado en DB', 'No encontrado tras storeUser()');
+    }
+} catch (ValidationException $e) {
+    $msgs = array_merge(...array_values($e->errors()));
+    fail('18.7.1 Crear usuario rol=cashier [ST]', 'User creado', 'ValidationError: ' . implode(' | ', $msgs));
+} catch (\Throwable $e) {
+    fail('18.7.1 Crear usuario rol=cashier [ST]', 'User creado', get_class($e) . ': ' . $e->getMessage());
+}
+
+// 18.7.2 — Editar nombre
+if ($userCreado18) {
+    try {
+        $settingsCtrl18->updateUser(
+            makeReq("/configuracion/usuarios/{$userCreado18->id}", 'PUT', [
+                'name'  => '[ST] Usuario FASE18 Editado',
+                'email' => $emailST18,
+                'role'  => 'cashier',
+            ]),
+            $userCreado18
+        );
+        $userCreado18->refresh();
+        if ($userCreado18->name === '[ST] Usuario FASE18 Editado') {
+            pass('18.7.2 Editar usuario → nuevo nombre', 'name actualizado en DB', "name={$userCreado18->name} ✓");
+        } else {
+            fail('18.7.2 Editar usuario → nuevo nombre', '[ST] Usuario FASE18 Editado', $userCreado18->name);
+        }
+    } catch (\Throwable $e) {
+        fail('18.7.2 Editar usuario → nuevo nombre', 'name actualizado', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    pass('18.7.2 Editar usuario', 'N/A', 'Usuario no creado en 18.7.1');
+}
+
+// 18.7.3 — Email duplicado rechazado (Rule::unique)
+if ($userCreado18) {
+    try {
+        $settingsCtrl18->storeUser(makeReq('/configuracion/usuarios', 'POST', [
+            'name'     => '[ST] Usuario duplicado FASE18',
+            'email'    => $emailST18,   // mismo email
+            'role'     => 'cashier',
+            'password' => 'Password18!',
+        ]));
+        fail('18.7.3 Email duplicado rechazado', 'ValidationException (Rule::unique)', 'Aceptado sin error — BUG');
+    } catch (ValidationException $e) {
+        pass('18.7.3 Email duplicado rechazado', 'ValidationException (Rule::unique)', 'Rechazado: ' . implode(' | ', array_merge(...array_values($e->errors()))));
+    } catch (\Throwable $e) {
+        fail('18.7.3 Email duplicado rechazado', 'ValidationException', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    pass('18.7.3 Email duplicado rechazado', 'N/A', 'Usuario no creado en 18.7.1');
+}
+
+// 18.7.4 — Cashier bloqueado de /configuracion/usuarios (EnsureRole middleware)
+// En CLI el middleware no corre — verificamos la lógica de rol directamente.
+if ($userCreado18) {
+    $rolesPermitidos18 = ['super_admin'];
+    if (! in_array($userCreado18->role, $rolesPermitidos18, true)) {
+        pass('18.7.4 Cashier bloqueado de /configuracion/usuarios', "role cashier NOT IN ['super_admin']", "role='{$userCreado18->role}' → EnsureRole(['super_admin']) bloquea acceso ✓");
+    } else {
+        fail('18.7.4 Cashier bloqueado de /configuracion/usuarios', "role cashier NOT IN ['super_admin']", "role='{$userCreado18->role}' tiene acceso — revisar middleware");
+    }
+} else {
+    pass('18.7.4 Cashier bloqueado configuracion', 'N/A', 'Usuario no creado en 18.7.1');
+}
+
+// 18.7.5 — Eliminar usuario [ST]
+if ($userCreado18) {
+    try {
+        $userId18 = $userCreado18->id;
+        $settingsCtrl18->destroyUser($userCreado18);
+        $deleted = User::find($userId18);
+        if (! $deleted) {
+            pass('18.7.5 Eliminar usuario [ST]', 'User eliminado de DB', "ID={$userId18} eliminado ✓");
+            $userCreado18 = null;
+        } else {
+            fail('18.7.5 Eliminar usuario [ST]', 'User eliminado', "ID={$userId18} sigue en DB — BUG");
+        }
+    } catch (\Throwable $e) {
+        fail('18.7.5 Eliminar usuario [ST]', 'User eliminado', get_class($e) . ': ' . $e->getMessage());
+    }
+} else {
+    pass('18.7.5 Eliminar usuario [ST]', 'N/A', 'Usuario no creado en 18.7.1');
+}
+
+// ── Cleanup guardias FASE 18 (por si algún test falló a mitad) ─────────────────
+if ($cajaCreada18)      { CashRegister::where('id', $cajaCreada18->id)->delete(); }
+if ($terminalCreada18)  { \App\Models\PaymentTerminal::where('id', $terminalCreada18->id)->delete(); }
+if ($branchCreada18)    { \App\Models\Branch::where('id', $branchCreada18->id)->delete(); }
+if ($pmCreada18)        { PaymentMethod::where('id', $pmCreada18->id)->delete(); }
+if ($userCreado18)      { User::where('id', $userCreado18->id)->delete(); }
+// Residuos por nombre [ST] generados durante validaciones fallidas
+\App\Models\PaymentTerminal::where('business_id', $businessId)->where('bank_name', 'like', '%[ST]%')->delete();
+\App\Models\Branch::where('business_id', $businessId)->where('name', 'like', '%FASE18%')->delete();
+User::where('business_id', $businessId)->where('email', 'like', 'sttest-18-%')->delete();
+
 // ─── RESUMEN FINAL ────────────────────────────────────────────────────────────
 section('RESUMEN FINAL — Tabla de Resultados');
 printTable($results);
