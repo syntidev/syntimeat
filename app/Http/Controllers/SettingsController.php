@@ -89,7 +89,7 @@ class SettingsController extends Controller
         $users = User::where('business_id', $business->id)
             ->where('role', '!=', 'super_admin')
             ->orderBy('name')
-            ->get(['id', 'name', 'email', 'role', 'created_at']);
+            ->get(['id', 'name', 'email', 'role', 'permissions', 'created_at']);
 
         return Inertia::render('Settings/Users', [
             'users' => $users,
@@ -123,10 +123,12 @@ class SettingsController extends Controller
         $this->authorizeBusinessOwnership($user);
 
         $data = $request->validate([
-            'name'     => ['required', 'string', 'max:255'],
-            'email'    => ['required', 'email', Rule::unique('users', 'email')->ignore($user->id)],
-            'role'     => ['required', Rule::in(['admin', 'cashier', 'supervisor'])],
-            'password' => ['nullable', 'string', 'min:8'],
+            'name'          => ['required', 'string', 'max:255'],
+            'email'         => ['required', 'email', Rule::unique('users', 'email')->ignore($user->id)],
+            'role'          => ['required', Rule::in(['admin', 'cashier', 'supervisor'])],
+            'password'      => ['nullable', 'string', 'min:8'],
+            'permissions'   => ['nullable', 'array'],
+            'permissions.*' => [Rule::in(['dashboard', 'pos', 'cash', 'sales', 'dayclose', 'orders', 'clients', 'inventory', 'catalog', 'boveda', 'fabrica', 'contingency', 'reports', 'settings', 'users'])],
         ]);
 
         if (empty($data['password'])) {

@@ -12,10 +12,11 @@ const showModal = ref(false)
 const editUser  = ref(null)
 
 const form = useForm({
-    name:     '',
-    email:    '',
-    role:     'cashier',
-    password: '',
+    name:        '',
+    email:       '',
+    role:        'cashier',
+    password:    '',
+    permissions: [],
 })
 
 const roleLabels = {
@@ -29,10 +30,69 @@ const roleBadgeClass = {
     cashier:    'badge-gray',
 }
 
+// ─── Permisos por módulo ────────────────────────────────────────────────────────
+const MODULES = [
+    { key: 'dashboard',   label: 'Dashboard' },
+    { key: 'pos',         label: 'POS' },
+    { key: 'cash',        label: 'Caja' },
+    { key: 'sales',       label: 'Ventas del Día' },
+    { key: 'dayclose',    label: 'Cierre del Día' },
+    { key: 'orders',      label: 'Pedidos' },
+    { key: 'clients',     label: 'Clientes' },
+    { key: 'inventory',   label: 'Inventario' },
+    { key: 'catalog',     label: 'Catálogo' },
+    { key: 'boveda',      label: 'Bóveda' },
+    { key: 'fabrica',     label: 'Fábrica' },
+    { key: 'contingency', label: 'Contingencia' },
+    { key: 'reports',     label: 'Reportes' },
+    { key: 'settings',    label: 'Configuración' },
+    { key: 'users',       label: 'Usuarios' },
+]
+const ALL_KEYS = MODULES.map(m => m.key)
+const PRESETS = {
+    cajero:         ['dashboard', 'pos', 'cash', 'sales', 'dayclose', 'orders', 'clients', 'inventory', 'contingency'],
+    contadora:      ALL_KEYS.filter(k => k !== 'users'),
+    admin_sucursal: ALL_KEYS.filter(k => k !== 'users'),
+    dueno:          [...ALL_KEYS],
+}
+// Espejo de rolePermissions de AppLayout — pre-llena los checkboxes con el acceso efectivo actual cuando permissions es null
+const rolePermissions = {
+    admin:        ['dashboard', 'pos', 'inventory', 'boveda', 'fabrica', 'orders', 'sales', 'dayclose', 'catalog', 'clients', 'contingency', 'users', 'settings', 'cash'],
+    owner:        ['dashboard', 'pos', 'inventory', 'boveda', 'fabrica', 'orders', 'sales', 'dayclose', 'catalog', 'clients', 'contingency', 'users', 'settings', 'cash'],
+    branch_admin: ['dashboard', 'pos', 'inventory', 'boveda', 'fabrica', 'orders', 'sales', 'dayclose', 'catalog', 'clients', 'contingency', 'users', 'settings', 'cash'],
+    supervisor:   ['dashboard', 'pos', 'cash', 'sales', 'dayclose', 'inventory', 'catalog', 'boveda', 'fabrica', 'orders', 'clients', 'reports', 'contingency'],
+    analyst:      ['dashboard', 'pos', 'inventory', 'boveda', 'fabrica', 'orders', 'sales', 'dayclose', 'catalog', 'clients', 'contingency', 'settings', 'cash', 'reports'],
+    cashier:      ['dashboard', 'pos', 'cash', 'sales', 'dayclose', 'orders', 'clients', 'inventory', 'contingency'],
+}
+
+const selectedPreset = ref('personalizado')
+
+function sameSet(a, b) {
+    if (a.length !== b.length) return false
+    const sb = new Set(b)
+    return a.every(x => sb.has(x))
+}
+function detectPreset(perms) {
+    for (const key of ['cajero', 'contadora', 'admin_sucursal', 'dueno']) {
+        if (sameSet(perms, PRESETS[key])) return key
+    }
+    return 'personalizado'
+}
+function applyPreset(key) {
+    selectedPreset.value = key
+    if (key !== 'personalizado') {
+        form.permissions = [...PRESETS[key]]
+    }
+}
+function onPermToggle() {
+    selectedPreset.value = detectPreset(form.permissions)
+}
+
 function openNew() {
     editUser.value = null
     form.reset()
     form.role = 'cashier'
+    selectedPreset.value = 'personalizado'
     showModal.value = true
 }
 
@@ -42,6 +102,9 @@ function openEdit(user) {
     form.email    = user.email
     form.role     = user.role
     form.password = ''
+    const perms = Array.isArray(user.permissions) ? user.permissions : (rolePermissions[user.role] ?? [])
+    form.permissions = [...perms]
+    selectedPreset.value = detectPreset(form.permissions)
     showModal.value = true
 }
 
@@ -203,6 +266,26 @@ const helpFaqs = [
                             <input v-model="form.password" type="password" :class="inputClass" placeholder="Mínimo 8 caracteres" autocomplete="new-password" />
                             <p v-if="form.errors.password" :class="errorClass">{{ form.errors.password }}</p>
                         </div>
+
+                        <!-- Panel de permisos — solo al editar -->
+                        <div v-if="editUser" class="perm-panel">
+                            <label :class="labelClass">Permisos de acceso</label>
+                            <select :value="selectedPreset" @change="applyPreset($event.target.value)" :class="inputClass">
+                                <option value="cajero">Cajero</option>
+                                <option value="contadora">Contadora</option>
+                                <option value="admin_sucursal">Admin Sucursal</option>
+                                <option value="dueno">Dueño</option>
+                                <option value="personalizado">Personalizado</option>
+                            </select>
+                            <div class="perm-grid">
+                                <label v-for="m in MODULES" :key="m.key" class="perm-check">
+                                    <input type="checkbox" :value="m.key" v-model="form.permissions" @change="onPermToggle" />
+                                    <span>{{ m.label }}</span>
+                                </label>
+                            </div>
+                            <p v-if="form.errors.permissions" :class="errorClass">{{ form.errors.permissions }}</p>
+                        </div>
+
                         <div class="modal__footer">
                             <button type="button" class="btn-secondary" @click="closeModal">Cancelar</button>
                             <button type="submit" class="btn-primary" :disabled="form.processing">
@@ -278,4 +361,11 @@ const helpFaqs = [
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary:hover:not(:disabled) { opacity: 0.9; }
 .btn-secondary { display: inline-flex; align-items: center; padding: 0.5rem 1rem; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-secondary); font-size: 0.875rem; font-weight: 500; border-radius: 8px; cursor: pointer; }
+
+/* ── Panel de permisos ──────────────────────────────────────────────────── */
+.perm-panel { display: flex; flex-direction: column; gap: 0.5rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+.perm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem 0.75rem; margin-top: 0.25rem; }
+@media (min-width: 480px) { .perm-grid { grid-template-columns: 1fr 1fr 1fr; } }
+.perm-check { display: flex; align-items: center; gap: 0.5rem; min-height: 40px; padding: 0.25rem 0; font-size: 0.8125rem; color: var(--text-secondary); cursor: pointer; }
+.perm-check input { width: 18px; height: 18px; accent-color: var(--brand); cursor: pointer; flex-shrink: 0; }
 </style>

@@ -81,8 +81,12 @@ const rolePermissions = {
     cashier:      ['dashboard','pos','cash','sales','dayclose','orders','clients','inventory','contingency'],
 }
 function canAccess(permission) {
-    const role = user.value?.role ?? 'admin'
-    // Si el rol no está mapeado aún (migración pendiente) → acceso total
+    const role  = user.value?.role ?? 'admin'
+    const perms = user.value?.permissions
+    // Permisos personalizados por usuario tienen prioridad; si es null → fallback al rol
+    if (Array.isArray(perms)) {
+        return perms.includes(permission)
+    }
     return (rolePermissions[role] ?? rolePermissions['admin']).includes(permission)
 }
 
