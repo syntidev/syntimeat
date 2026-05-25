@@ -10,6 +10,7 @@ const props = defineProps({
     historial:        { type: Array,  default: () => [] },
     bovedaProducts:   { type: Array,  default: () => [] },
     productosVitrina: { type: Array,  default: () => [] },
+    categorias:       { type: Array,  default: () => [] },
     kpis:             { type: Object, default: () => ({}) },
 });
 
@@ -122,6 +123,13 @@ const DESPIECE_KEY      = 'boveda_despiece_pendiente';
 const isPollo           = computed(() => surtirEntry.value?.product_type === 'POLLO - Entero Congelado');
 const despiecePendiente = ref(null);
 
+// ─── Modal Crear Producto Vitrina (fallback cuando surte() no encuentra producto) ──
+const showVitrinaProductModal  = ref(false);
+const productoFaltante         = ref(null);   // { nombre }
+const savingVitrinaProduct     = ref(false);
+const vitrinaProductErrors     = ref({});
+const vitrinaProductForm       = ref({ name: '', price_per_kg_usd: '', category_id: null });
+
 const mermaPreview = computed(() => {
     if (!surtirEntry.value || !surtirForm.value.peso_real) return null;
     const diff = round3(surtirEntry.value.kg_disponible - parseFloat(surtirForm.value.peso_real || 0));
@@ -159,6 +167,14 @@ async function saveSurtir() {
         });
         if (res.status === 422) {
             const body = await res.json();
+            // Error específico: producto no existe en vitrina → abrir modal de creación
+            if (body.error && body.error.includes('No existe producto en vitrina')) {
+                productoFaltante.value       = { nombre: surtirEntry.value.product_type };
+                vitrinaProductForm.value     = { name: surtirEntry.value.product_type, price_per_kg_usd: '', category_id: null };
+                vitrinaProductErrors.value   = {};
+                showVitrinaProductModal.value = true;
+                return;
+            }
             surtirErrors.value = body.errors ?? {};
             return;
         }
@@ -177,6 +193,38 @@ async function saveSurtir() {
         alert(e?.message ?? 'Error al surtir');
     } finally {
         savingSurtir.value = false;
+    }
+}
+
+async function saveVitrinaProduct() {
+    if (savingVitrinaProduct.value) return;
+    savingVitrinaProduct.value  = true;
+    vitrinaProductErrors.value  = {};
+    try {
+        const res = await fetch(route('catalog.store'), {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json' },
+            body:    JSON.stringify({
+                name:             vitrinaProductForm.value.name,
+                category_id:      vitrinaProductForm.value.category_id,
+                sale_mode:        'weight',
+                price_per_kg_usd: vitrinaProductForm.value.price_per_kg_usd,
+            }),
+        });
+        if (res.status === 422) {
+            const body = await res.json();
+            vitrinaProductErrors.value = body.errors ?? {};
+            return;
+        }
+        if (!res.ok) throw new Error('Error al crear el producto en vitrina');
+        showVitrinaProductModal.value = false;
+        productoFaltante.value        = null;
+        showFlash('Producto creado en vitrina. Reintentando surtido…');
+        await saveSurtir();
+    } catch (e) {
+        alert(e?.message ?? 'Error al crear producto');
+    } finally {
+        savingVitrinaProduct.value = false;
     }
 }
 
@@ -742,6 +790,70 @@ async function deactivateProduct(product) {
             </Transition>
         </Teleport>
 
+
+        <!-- ── Modal Crear Producto Vitrina ──────────────────────────────── -->
+        <Teleport to="body">
+            <Transition name="mo">
+                <div v-if="showVitrinaProductModal" class="modal-bg">
+                    <div class="modal-box modal-sm">
+                        <div class="modal-header">
+                            <h3>Crear producto en vitrina</h3>
+                            <button class="close-btn" @click="showVitrinaProductModal = false">×</button>
+                        </div>
+
+                        <p class="surtir-info">
+                            El producto <strong>{{ productoFaltante?.nombre }}</strong> no existe en vitrina.
+                            Completa los datos para crearlo y continuar con el surtido automáticamente.
+                        </p>
+
+                        <div class="form-grid">
+                            <div class="form-field full">
+                                <label>Nombre del producto</label>
+                                <input
+                                    v-model="vitrinaProductForm.name"
+                                    type="text"
+                                    class="form-input"
+                                    maxlength="120"
+                                    autofocus
+                                />
+                                <span v-if="vitrinaProductErrors.name" class="field-err">{{ vitrinaProductErrors.name[0] }}</span>
+                            </div>
+                            <div class="form-field full">
+                                <label>Precio por kg (USD)</label>
+                                <input
+                                    v-model.number="vitrinaProductForm.price_per_kg_usd"
+                                    type="number"
+                                    class="form-input"
+                                    min="0"
+                                    step="0.01"
+                                    placeholder="0.00"
+                                />
+                                <span v-if="vitrinaProductErrors.price_per_kg_usd" class="field-err">{{ vitrinaProductErrors.price_per_kg_usd[0] }}</span>
+                            </div>
+                            <div class="form-field full">
+                                <label>Categoría</label>
+                                <select v-model="vitrinaProductForm.category_id" class="form-select">
+                                    <option :value="null">— Seleccionar categoría —</option>
+                                    <option v-for="c in categorias" :key="c.id" :value="c.id">{{ c.name }}</option>
+                                </select>
+                                <span v-if="vitrinaProductErrors.category_id" class="field-err">{{ vitrinaProductErrors.category_id[0] }}</span>
+                            </div>
+                        </div>
+
+                        <div class="modal-actions">
+                            <button class="btn-ghost" @click="showVitrinaProductModal = false">Cancelar</button>
+                            <button
+                                class="btn-brand"
+                                :disabled="savingVitrinaProduct || !vitrinaProductForm.name.trim() || !vitrinaProductForm.price_per_kg_usd || !vitrinaProductForm.category_id"
+                                @click="saveVitrinaProduct"
+                            >
+                                {{ savingVitrinaProduct ? 'Creando…' : 'Crear y continuar surtido' }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </Transition>
+        </Teleport>
 
         <!-- ── Modal Producto Bóveda ─────────────────────────────────────── -->
         <Teleport to="body">

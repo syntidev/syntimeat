@@ -34,6 +34,7 @@ class AccesoRolesTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config(['database.default' => 'mysql']);
 
         $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class);
         $this->withoutMiddleware([

@@ -8,6 +8,7 @@ use App\Models\ActivityLog;
 use App\Models\BovedaEntry;
 use App\Models\BovedaProduct;
 use App\Models\Business;
+use App\Models\Category;
 use App\Models\InventoryEntry;
 use App\Models\Product;
 use Illuminate\Http\Request;
@@ -69,11 +70,18 @@ class BovedaController extends Controller
             ->get()
             ->sum(fn ($log) => (float) (($log->new_values ?? [])['kg_surtir'] ?? 0));
 
+        $categorias = Category::where('business_id', $businessId)
+            ->where('active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
         return Inertia::render('Boveda/Index', [
             'activas'          => $activas,
             'historial'        => $historial,
             'bovedaProducts'   => $bovedaProducts,
             'productosVitrina' => $productosVitrina,
+            'categorias'       => $categorias,
             'kpis'             => [
                 'entradasActivas' => $activas->count(),
                 'kgDisponible'    => round((float) $kgDisponibleTotal, 3),
