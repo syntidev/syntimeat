@@ -202,7 +202,8 @@ async function saveVitrinaProduct() {
     vitrinaProductErrors.value  = {};
     try {
         const res = await fetch(route('catalog.store'), {
-            method:  'POST',
+            method:      'POST',
+            credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json' },
             body:    JSON.stringify({
                 name:             vitrinaProductForm.value.name,
@@ -241,12 +242,14 @@ async function linkVitrinaProduct(name, vitrinaProductId) {
     try {
         const res = existing
             ? await fetch(route('boveda.product.update', { product: existing.id }), {
-                method:  'PUT',
+                method:      'PUT',
+                credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json' },
                 body:    JSON.stringify({ name, requires_despiece: false, vitrina_product_id: vitrinaProductId }),
             })
             : await fetch(route('boveda.product.store'), {
-                method:  'POST',
+                method:      'POST',
+                credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json' },
                 body:    JSON.stringify({ name, requires_despiece: false, vitrina_product_id: vitrinaProductId }),
             });
