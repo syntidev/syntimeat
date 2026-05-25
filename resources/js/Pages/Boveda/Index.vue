@@ -236,6 +236,10 @@ const helpSteps = [
         tip: 'Usa Descripción para identificar la pieza: "Media canal #1 — García". Si entran dos canales el mismo día, podrás saber exactamente cuál es cuál.',
     },
     {
+        title: 'Tipo de producto',
+        body: 'Selecciona el tipo de pieza que entró. Si es Res, Pollo o Cerdo, selecciona la opción correspondiente. Si compraste algo diferente — como Chuleta Ahumada, Jamón especial, o cualquier otro producto — selecciona \'Otro (libre)\' y escribe el nombre exacto. Lo importante es que el nombre que escribes aquí coincida con el nombre que configuraste en \'Productos bóveda\'.',
+    },
+    {
         title: 'Surtir a vitrina',
         body: 'Cuando sacas la pieza de bóveda para cortarla, ponla en la balanza y anota el peso real. Haz clic en Surtir e ingresa ese peso. El sistema descuenta los kg de la entrada y calcula la merma de almacenamiento solo.',
         tip: 'La merma es automática: si la pieza tenía 50 kg disponibles y la balanza marca 48 kg al sacarla, el sistema registra 2 kg de merma de almacenamiento. Tú no calculas nada.',
@@ -602,9 +606,13 @@ async function deactivateProduct(product) {
                                 </template>
                                 <select v-else v-model="entradaForm.product_type" class="form-select">
                                     <option v-for="p in bovedaProductosActivos" :key="p.id" :value="p.name">{{ p.name }}</option>
-                                    <option :value="OTRO_LABEL">{{ OTRO_LABEL }}</option>
+                                    <option :value="OTRO_LABEL">Otro tipo de producto</option>
                                 </select>
                                 <span v-if="entradaErrors.product_type && !isCustomType" class="field-err">{{ entradaErrors.product_type[0] }}</span>
+                                <p v-if="entradaForm.product_type === OTRO_LABEL" class="field-hint">
+                                    Escribe el nombre exacto del producto tal como lo configuraste en "Productos bóveda".
+                                    Ejemplo: Chuleta Ahumada, Jamón Especial, etc.
+                                </p>
                             </div>
                             <div v-if="isCustomType" class="form-field full">
                                 <label>Especificar tipo</label>
@@ -928,7 +936,8 @@ async function deactivateProduct(product) {
 .form-input, .form-select { padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text-primary); font-size: 0.88rem; font-family: inherit; width: 100%; box-sizing: border-box; }
 .form-input:focus, .form-select:focus { outline: none; border-color: var(--brand); }
 .input-error { border-color: #ef4444 !important; }
-.field-err { font-size: 0.75rem; color: #ef4444; }
+.field-err  { font-size: 0.75rem; color: #ef4444; }
+.field-hint { font-size: 0.75rem; color: var(--text-muted); margin: 0.15rem 0 0; line-height: 1.4; }
 
 .surtir-info { font-size: 0.88rem; color: var(--text-muted); margin: 0; padding: 0.6rem; background: var(--bg); border-radius: 8px; }
 .surtir-info strong { color: var(--brand); }
