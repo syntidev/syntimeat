@@ -115,10 +115,11 @@ async function saveEntrada() {
 // ─── Modal Surtir ─────────────────────────────────────────────────────────────
 const showSurtirModal   = ref(false);
 const surtirEntry       = ref(null);
-const surtirForm        = ref({ peso_real: '' });
+const surtirForm        = ref({ peso_real: '', pollo_tipo: '' });
 const surtirErrors      = ref({});
 const savingSurtir      = ref(false);
 const DESPIECE_KEY      = 'boveda_despiece_pendiente';
+const isPollo           = computed(() => surtirEntry.value?.product_type === 'POLLO - Entero Congelado');
 const despiecePendiente = ref(null);
 
 const mermaPreview = computed(() => {
@@ -140,7 +141,7 @@ onMounted(() => {
 function openSurtir(entry) {
     surtirEntry.value     = entry;
     surtirErrors.value    = {};
-    surtirForm.value      = { peso_real: '' };
+    surtirForm.value      = { peso_real: '', pollo_tipo: '' };
     showSurtirModal.value = true;
 }
 async function saveSurtir() {
@@ -151,7 +152,10 @@ async function saveSurtir() {
         const res = await fetch(route('boveda.surte', { entry: surtirEntry.value.id }), {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json' },
-            body: JSON.stringify(surtirForm.value),
+            body: JSON.stringify({
+                peso_real:  surtirForm.value.peso_real,
+                ...(isPollo.value ? { pollo_tipo: surtirForm.value.pollo_tipo } : {}),
+            }),
         });
         if (res.status === 422) {
             const body = await res.json();
@@ -706,11 +710,20 @@ async function deactivateProduct(product) {
                             <span class="merma-preview__eq">(el sistema la registra solo)</span>
                         </div>
 
+                        <div v-if="isPollo" class="form-field full" style="margin-top: 0.5rem;">
+                            <label>Tipo de pollo</label>
+                            <select v-model="surtirForm.pollo_tipo" class="form-select" required>
+                                <option value="">-- Selecciona el tipo --</option>
+                                <option value="Pollo Entero Tipo A">Pollo Entero Tipo A</option>
+                                <option value="Pollo Entero Tipo B">Pollo Entero Tipo B</option>
+                            </select>
+                        </div>
+
                         <div class="modal-actions">
                             <button class="btn-ghost" @click="showSurtirModal = false">Cancelar</button>
                             <button
                                 class="btn-brand"
-                                :disabled="savingSurtir || excedeLimite || !surtirForm.peso_real"
+                                :disabled="savingSurtir || excedeLimite || !surtirForm.peso_real || (isPollo && !surtirForm.pollo_tipo)"
                                 @click="saveSurtir"
                             >
                                 {{ savingSurtir ? 'Registrando…' : 'Registrar surtido' }}

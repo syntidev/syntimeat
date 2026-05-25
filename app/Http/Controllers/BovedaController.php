@@ -194,6 +194,12 @@ class BovedaController extends Controller
             'peso_real' => ['required', 'numeric', 'min:0'],
         ]);
 
+        if ($entry->product_type === 'POLLO - Entero Congelado') {
+            $request->validate([
+                'pollo_tipo' => ['required', 'string', 'in:Pollo Entero Tipo A,Pollo Entero Tipo B'],
+            ]);
+        }
+
         $disponible = round(
             (float) $entry->kg_entrada - (float) $entry->kg_surtido_vitrina - (float) $entry->waste_kg,
             3
@@ -223,16 +229,27 @@ class BovedaController extends Controller
 
         $vitrinaProduct = null;
         if (! $requiresDespiece) {
-            $keyword        = explode(' ', $entry->product_type)[0];
-            $vitrinaProduct = Product::where('business_id', $businessId)
-                ->where('location', 'vitrina')
-                ->where('name', 'like', '%' . $keyword . '%')
-                ->first();
+            if ($entry->product_type === 'POLLO - Entero Congelado') {
+                $vitrinaProduct = Product::where('business_id', $businessId)
+                    ->where('location', 'vitrina')
+                    ->where('name', $request->input('pollo_tipo'))
+                    ->first();
 
-            if ($vitrinaProduct === null) {
-                return response()->json([
-                    'error' => 'No existe producto en vitrina para ' . $entry->product_type . '. Créalo primero en Catálogo.',
-                ], 422);
+                if ($vitrinaProduct === null) {
+                    abort(422, 'Producto no encontrado en vitrina: ' . $request->input('pollo_tipo'));
+                }
+            } else {
+                $keyword        = explode(' ', $entry->product_type)[0];
+                $vitrinaProduct = Product::where('business_id', $businessId)
+                    ->where('location', 'vitrina')
+                    ->where('name', 'like', '%' . $keyword . '%')
+                    ->first();
+
+                if ($vitrinaProduct === null) {
+                    return response()->json([
+                        'error' => 'No existe producto en vitrina para ' . $entry->product_type . '. Créalo primero en Catálogo.',
+                    ], 422);
+                }
             }
         }
 
