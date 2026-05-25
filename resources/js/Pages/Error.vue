@@ -9,7 +9,7 @@ const props = defineProps({
 
 const info = computed(() => {
     const map = {
-        403: { icon: Lock,          titulo: 'Acceso restringido',   mensaje: 'No tienes permiso para ver esta página. Si crees que es un error, comunícate con el administrador de tu sucursal.' },
+        403: { icon: Lock,          titulo: 'Acceso restringido',   mensaje: 'No tienes permisos para acceder a esta sección. Si necesitas acceso, contacta al administrador.' },
         404: { icon: Search,        titulo: 'Página no encontrada', mensaje: 'La dirección que buscas no existe o fue movida.' },
         500: { icon: AlertTriangle, titulo: 'Error del servidor',   mensaje: 'Algo salió mal en el servidor. Intenta de nuevo en unos momentos.' },
         503: { icon: Wrench,        titulo: 'En mantenimiento',     mensaje: 'El sistema está en mantenimiento. Vuelve pronto.' },

@@ -85,6 +85,18 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
         Route::patch('/pedidos/{order}/cancelar', [OrderController::class, 'cancel'])->name('orders.cancel');
         Route::patch('/pedidos/{sale}/delivery-cobrado', [OrderController::class, 'confirmDelivery'])->name('sales.delivery-confirm');
         Route::patch('/ventas/{sale}/cobrar-pendiente', [OrderController::class, 'collectPending'])->name('sales.collect-pending');
+
+        // Inventario — todos los roles operativos (incluye cashier y analyst)
+        Route::get('/inventario', [InventoryController::class, 'index'])->name('inventory.index');
+        Route::post('/inventario', [InventoryController::class, 'store'])->name('inventory.store');
+
+        // Contingencia — todos los roles operativos (incluye cashier y analyst)
+        Route::get('/contingencia', [ContingencyController::class, 'index'])->name('contingency.index');
+        Route::get('/contingencia/formato-papel', [ContingencyController::class, 'downloadForm'])->name('contingency.form');
+        Route::get('/contingencia/plantilla-ventas', [ContingencyController::class, 'downloadTemplate'])->name('contingency.sales-template');
+        Route::get('/contingencia/plantilla-inventario', [ContingencyController::class, 'downloadInventoryTemplate'])->name('contingency.inventory-template');
+        Route::post('/contingencia/importar-ventas', [ContingencyController::class, 'importSales'])->name('contingency.import-sales');
+        Route::post('/contingencia/importar-inventario', [ContingencyController::class, 'importInventory'])->name('contingency.import-inventory');
     });
 
     // ── Panel Empresarial — solo super_admin / owner (vista multi-sucursal) ───
@@ -105,16 +117,20 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
         Route::get('/reportes/exportar', [ReportController::class, 'export'])->name('reports.export');
     });
 
-    // ── Operativo + configuración — sin analyst ───────────────────────────────
-    Route::middleware('role:super_admin,admin,owner,branch_admin,supervisor')->group(function () {
-        // Tasa manual
-        Route::post('/tasa/manual', [SettingsController::class, 'setManualRate'])->name('rate.manual');
+    // ── Operativo + configuración — incluye analyst (módulos) ─────────────────
+    Route::middleware('role:super_admin,admin,owner,branch_admin,supervisor,analyst')->group(function () {
 
-        // Cierre del Día — confirmar solo admin/super_admin
-        Route::post('/caja/cierre/{register}', [CashRegisterController::class, 'confirmClose'])->name('cash.confirm-close');
+        // Acciones de caja/venta sensibles — excluye analyst (anular, confirmar cierre, tasa)
+        Route::middleware('role:super_admin,admin,owner,branch_admin,supervisor')->group(function () {
+            // Tasa manual
+            Route::post('/tasa/manual', [SettingsController::class, 'setManualRate'])->name('rate.manual');
 
-        // Anular venta
-        Route::patch('/ventas/{sale}/anular', [SaleController::class, 'void'])->name('sales.void');
+            // Cierre del Día — confirmar solo admin/super_admin
+            Route::post('/caja/cierre/{register}', [CashRegisterController::class, 'confirmClose'])->name('cash.confirm-close');
+
+            // Anular venta
+            Route::patch('/ventas/{sale}/anular', [SaleController::class, 'void'])->name('sales.void');
+        });
 
         // Catálogo
         Route::get('/catalogo', [CatalogController::class, 'index'])->name('catalog.index');
@@ -135,10 +151,6 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
         Route::get('/fabrica',           [FabricaController::class, 'index'])->name('fabrica.index');
         Route::post('/fabrica',          [FabricaController::class, 'store'])->name('fabrica.store');
         Route::post('/fabrica/despiece', [FabricaController::class, 'storeDespiece'])->name('fabrica.despiece');
-
-        // Inventario
-        Route::get('/inventario', [InventoryController::class, 'index'])->name('inventory.index');
-        Route::post('/inventario', [InventoryController::class, 'store'])->name('inventory.store');
 
         // Bóveda
         Route::get('/boveda', [BovedaController::class, 'index'])->name('boveda.index');
@@ -176,17 +188,12 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
             Route::post('/ticket',  [SettingsController::class, 'updateTicket'])->name('ticket.update');
             Route::get('/hardware', fn () => inertia('Settings/Hardware'))->name('hardware');
             Route::get('/sucursales',             [SettingsController::class, 'branches'])->name('branches');
-            Route::post('/sucursales',            [SettingsController::class, 'storeBranch'])->name('branches.store');
-            Route::put('/sucursales/{branch}',    [SettingsController::class, 'updateBranch'])->name('branches.update');
+            // Crear/editar sucursales — excluye analyst (no puede crear ni editar sucursales)
+            Route::middleware('role:super_admin,admin,owner,branch_admin,supervisor')->group(function () {
+                Route::post('/sucursales',            [SettingsController::class, 'storeBranch'])->name('branches.store');
+                Route::put('/sucursales/{branch}',    [SettingsController::class, 'updateBranch'])->name('branches.update');
+            });
         });
-
-        // Contingencia
-        Route::get('/contingencia', [ContingencyController::class, 'index'])->name('contingency.index');
-        Route::get('/contingencia/formato-papel', [ContingencyController::class, 'downloadForm'])->name('contingency.form');
-        Route::get('/contingencia/plantilla-ventas', [ContingencyController::class, 'downloadTemplate'])->name('contingency.sales-template');
-        Route::get('/contingencia/plantilla-inventario', [ContingencyController::class, 'downloadInventoryTemplate'])->name('contingency.inventory-template');
-        Route::post('/contingencia/importar-ventas', [ContingencyController::class, 'importSales'])->name('contingency.import-sales');
-        Route::post('/contingencia/importar-inventario', [ContingencyController::class, 'importInventory'])->name('contingency.import-inventory');
     });
 
     // ── Solo super_admin ──────────────────────────────────────────────────────

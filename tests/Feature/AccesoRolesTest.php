@@ -281,20 +281,78 @@ class AccesoRolesTest extends TestCase
             ->assertStatus(200);
     }
 
-    /** Test 16 — Analyst bloqueado en Bóveda */
-    public function test_analyst_bloqueado_boveda(): void
+    /** Test 16 — Analyst accede a Bóveda (igual que branch_admin) */
+    public function test_analyst_accede_boveda(): void
     {
-        $this->actingAs($this->analyst)
+        $this->actingAs($this->analyst, 'web')
             ->get('/boveda')
+            ->assertStatus(200);
+    }
+
+    /** Test 17 — Analyst accede a Configuración General */
+    public function test_analyst_accede_configuracion_general(): void
+    {
+        $this->actingAs($this->analyst, 'web')
+            ->get('/configuracion/general')
+            ->assertStatus(200);
+    }
+
+    /** Test 18 — Analyst accede a Fábrica */
+    public function test_analyst_accede_fabrica(): void
+    {
+        $this->actingAs($this->analyst, 'web')
+            ->get('/fabrica')
+            ->assertStatus(200);
+    }
+
+    /** Test 19 — Analyst accede a Catálogo */
+    public function test_analyst_accede_catalogo(): void
+    {
+        $this->actingAs($this->analyst, 'web')
+            ->get('/catalogo')
+            ->assertStatus(200);
+    }
+
+    /** Test 20 — Analyst bloqueado al crear sucursal (no puede crear sucursales) */
+    public function test_analyst_bloqueado_crear_sucursal(): void
+    {
+        $this->actingAs($this->analyst, 'web')
+            ->post('/configuracion/sucursales', ['name' => '[ST] Sucursal Analyst'])
             ->assertStatus(403);
     }
 
-    /** Test 17 — Analyst bloqueado en Configuración General */
-    public function test_analyst_bloqueado_configuracion_general(): void
+    /** Test 21 — Analyst bloqueado en gestión de usuarios (solo super_admin) */
+    public function test_analyst_bloqueado_usuarios(): void
     {
-        $this->actingAs($this->analyst)
-            ->get('/configuracion/general')
+        $this->actingAs($this->analyst, 'web')
+            ->get('/configuracion/usuarios')
             ->assertStatus(403);
+    }
+
+    /** Test 22 — Analyst bloqueado al fijar tasa manual (acción sensible de caja) */
+    public function test_analyst_bloqueado_tasa_manual(): void
+    {
+        $this->actingAs($this->analyst, 'web')
+            ->post('/tasa/manual', ['rate' => 50])
+            ->assertStatus(403);
+    }
+
+    // ─── CAJERO — accesos nuevos ───────────────────────────────────────────────
+
+    /** Test 23 — Cajero accede a Inventario */
+    public function test_cajero_accede_inventario(): void
+    {
+        $this->actingAs($this->cajero, 'web')
+            ->get('/inventario')
+            ->assertStatus(200);
+    }
+
+    /** Test 24 — Cajero accede a Contingencia */
+    public function test_cajero_accede_contingencia(): void
+    {
+        $this->actingAs($this->cajero, 'web')
+            ->get('/contingencia')
+            ->assertStatus(200);
     }
 
     // ─── SUPER ADMIN ──────────────────────────────────────────────────────────

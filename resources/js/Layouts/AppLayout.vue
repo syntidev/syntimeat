@@ -77,8 +77,8 @@ const rolePermissions = {
     owner:        ['dashboard','pos','inventory','boveda','fabrica','orders','sales','dayclose','catalog','clients','contingency','users','settings','cash'],
     branch_admin: ['dashboard','pos','inventory','boveda','fabrica','orders','sales','dayclose','catalog','clients','contingency','users','settings','cash'],
     supervisor:   ['dashboard','pos','cash','sales','dayclose','inventory','catalog','boveda','fabrica','orders','clients','reports','contingency'],
-    analyst:      ['dashboard','sales','dayclose','cash','reports','inventory','catalog','clients','orders','contingency'],
-    cashier:      ['pos','cash','sales','dayclose','inventory','catalog','orders','clients','contingency'],
+    analyst:      ['dashboard','pos','inventory','boveda','fabrica','orders','sales','dayclose','catalog','clients','contingency','settings','cash','reports'],
+    cashier:      ['dashboard','pos','cash','sales','dayclose','orders','clients','inventory','contingency'],
 }
 function canAccess(permission) {
     const role = user.value?.role ?? 'admin'
