@@ -133,23 +133,23 @@ const showHelp = ref(false);
 const helpSteps = [
     {
         title: 'Qué aparece en "Despiece pendiente"',
-        body: 'Aquí llegan automáticamente las piezas de Res y Cerdo que se surtieron desde Bóveda y requieren ser cortadas. El Pollo Entero Congelado NO aparece aquí — cuando se surte desde Bóveda va directo al inventario de vitrina sin pasar por este módulo.',
-        tip: 'Si surtiste un Medio Canal de Res y no ves la pieza aquí, revisa en Bóveda que el estado figure como "Surtido". El sistema la trae automáticamente.',
+        body: 'Aquí llegan automáticamente las piezas de Res y Cerdo que se surtieron desde Bóveda. Solo estos dos tipos requieren despiece. El Pollo Entero Congelado nunca aparece aquí — al surtirse desde Bóveda va directo al inventario de vitrina.',
+        tip: 'Si surtiste un Medio Canal de Res y no ves la pieza aquí, verifica en Bóveda que el estado diga "Surtido". El sistema la trae automáticamente.',
     },
     {
-        title: 'Cortes del Medio Canal (Res)',
-        body: 'Cuando se despieza un Medio Canal de Res, el sistema muestra exactamente 4 destinos: Carne del Canal, Costilla, Hueso Redondo y Hueso Rojo. Ingresa en cada uno los kg reales según la balanza.',
-        tip: 'Carne del Canal es el inventario base que alimenta las ventas de Premium, Primera y Segunda en el punto de venta. Cuando la cajera vende esos cortes, el sistema descuenta automáticamente de Carne del Canal — por eso es crítico registrar bien esos kg.',
+        title: 'Res — 4 cortes exactos y fijos',
+        body: 'El Medio Canal de Res siempre se despieza en 4 destinos fijos: Carne del Canal, Costilla, Hueso Redondo y Hueso Rojo. Ingresa los kg reales según la balanza en cada uno.',
+        tip: 'Carne del Canal es el inventario base de toda la venta de res en el POS. Cuando la cajera vende Premium, Primera o Segunda, el sistema descuenta automáticamente de Carne del Canal. Regístralo bien.',
     },
     {
-        title: 'Cortes del Canal de Cerdo',
-        body: 'El Canal de Cerdo se despieza en los productos de la categoría Cerdo activos en vitrina (por ejemplo: Chuleta de Cerdo, Costilla de Cerdo). El procedimiento es el mismo: abres la pieza pendiente, ingresas los kg por corte y registras.',
-        tip: 'Lo que no documentes en ningún corte queda registrado automáticamente como merma de despiece. Es normal perder algo en hueso y grasa, pero si la merma es alta, revisa la balanza.',
+        title: 'Cerdo — todos los cortes de la categoría',
+        body: 'El Canal de Cerdo se despieza en todos los productos activos de la categoría Cerdo en vitrina (Chuleta de Cerdo, Costilla de Cerdo, etc.). El procedimiento es el mismo: abre la pieza pendiente, ingresa los kg por corte y registra.',
+        tip: 'Si falta algún producto de cerdo en la lista, verifica que esté activo en el Catálogo de vitrina con la categoría "Cerdo".',
     },
     {
-        title: 'Registrar los cortes',
-        body: 'Abre la pieza pendiente tocando su fila, ingresa los kg reales de cada corte según la balanza. El sistema suma en tiempo real y muestra la merma restante. Cuando todo cuadre, toca "Registrar cortes". El sistema actualiza el stock de vitrina y puedes imprimir la planilla PDF.',
-        tip: 'No puedes ingresar más kg de los que se surtieron. El botón se bloquea si la suma excede el total disponible.',
+        title: 'La merma se calcula sola',
+        body: 'Los kg que no documentes en ningún corte quedan registrados automáticamente como merma de despiece. El sistema los muestra en tiempo real mientras ingresas los cortes. Hueso, grasa y recortes siempre generan algo de merma — es normal.',
+        tip: 'Si la merma es muy alta, revisa que no te hayas saltado un corte. El botón de guardar se bloquea si la suma supera el total disponible.',
     },
     {
         title: 'Fabricar un lote',
@@ -161,23 +161,23 @@ const helpSteps = [
 const helpFaqs = [
     {
         q: '¿Por qué el Pollo no aparece en Despiece pendiente?',
-        a: 'Porque el Pollo Entero Congelado está configurado como "sin despiece requerido". Cuando en Bóveda se surte, los kg van directo al inventario de vitrina. No hace falta pasar por Fábrica — el pollo entra y sale como una pieza entera o picada sin proceso de corte documentado aquí.',
+        a: 'Porque el Pollo Entero Congelado no requiere despiece. Cuando se surte desde Bóveda, los kg van directo al inventario de vitrina. No hace falta pasar por Fábrica.',
     },
     {
-        q: '¿Qué es "Carne del Canal" y por qué está en el despiece de Res?',
-        a: 'Carne del Canal es el inventario base de carne de res. Cuando se despieza un Medio Canal, una parte de los kg se asigna a Carne del Canal. Ese inventario es el que alimenta las ventas de Premium, Primera y Segunda en el punto de venta: cuando la cajera vende cualquiera de esos tres cortes, el sistema descuenta los kg de Carne del Canal automáticamente.',
+        q: '¿Qué es "Carne del Canal" y por qué es tan importante?',
+        a: 'Carne del Canal es el inventario base de carne de res. Cuando la cajera vende Premium, Primera o Segunda en el punto de venta, el sistema descuenta automáticamente de Carne del Canal. Si ese inventario llega a cero, el POS bloquea la venta. Por eso es crítico registrar bien esos kg al despiezar.',
+    },
+    {
+        q: '¿La Res y el Cerdo tienen los mismos cortes?',
+        a: 'No. La Res siempre tiene exactamente 4 cortes fijos: Carne del Canal, Costilla, Hueso Redondo y Hueso Rojo. El Cerdo usa todos los productos activos de la categoría Cerdo en vitrina, así que los destinos dependen de tu catálogo.',
     },
     {
         q: '¿Qué pasa con los kg que no documento en cortes?',
-        a: 'Se registran automáticamente como merma de despiece. Eso es normal: hueso, grasa descartada, pérdidas al cortar. El sistema los contabiliza aparte de la merma de almacenamiento en bóveda para que puedas ver cada tipo por separado en los reportes.',
+        a: 'Se registran automáticamente como merma de despiece. Es normal: hueso, grasa descartada, pérdidas al cortar. El sistema los contabiliza por separado para que puedas verlos en los reportes.',
     },
     {
         q: '¿Cómo funciona el stock de Res en el punto de venta?',
-        a: 'Cuando la cajera vende Premium, Primera o Segunda, el sistema descuenta automáticamente del inventario de Carne del Canal. Ese inventario se alimenta cuando el carnicero hace el despiece del Medio Canal aquí en Fábrica. Por eso es importante registrar bien los cortes — si no hay kg en Carne del Canal, el POS bloqueará la venta por stock insuficiente.',
-    },
-    {
-        q: '¿Qué son los ingredientes de un lote?',
-        a: 'Son los insumos de vitrina que se consumen para producir un lote. Por ejemplo, para fabricar Chorizo Criollo usas carne de los cortes del despiece más los condimentos. Al guardar el lote, esos kg se descuentan del stock de vitrina automáticamente y el chorizo producido suma al inventario.',
+        a: 'Cuando el carnicero hace el despiece aquí en Fábrica, los kg de Carne del Canal se suman al inventario. Desde ahí, el POS descuenta automáticamente cada vez que la cajera vende Premium, Primera o Segunda. Si no hay kg en Carne del Canal, el POS bloquea esa venta.',
     },
     {
         q: '¿Puedo fabricar un lote sin haber hecho despiece antes?',

@@ -318,50 +318,61 @@ const showHelp = ref(false);
 
 const helpSteps = [
     {
-        title: 'Registrar entrada',
-        body: 'Cuando llega una pieza entera (canal de res, canal de cerdo, caja de pollos), regístrala con el peso exacto en kg, el costo en dólares y el proveedor.',
-        tip: 'Usa Descripción para identificar la pieza: "Media canal #1 — García". Si entran dos canales el mismo día, podrás saber exactamente cuál es cuál.',
+        title: 'Tipos de entrada en Bóveda',
+        body: 'Registra toda carne que llega al almacenamiento frío. Hay cuatro tipos: Res - Medio Canal (pasa a despiece en Fábrica), Pollo - Entero Congelado (va directo a vitrina al surtir), Cerdo - Canal (pasa a despiece en Fábrica), y Otro (libre) para cualquier producto diferente que también va directo a vitrina.',
+        tip: 'El tipo que selecciones determina si la pieza pasa por Fábrica o va directo a vitrina. Selecciónalo bien antes de guardar.',
     },
     {
-        title: 'Tipo de producto',
-        body: 'Selecciona el tipo de pieza que entró. Si es Res, Pollo o Cerdo, selecciona la opción correspondiente. Si compraste algo diferente — como Chuleta Ahumada, Jamón especial, o cualquier otro producto — selecciona \'Otro (libre)\' y escribe el nombre exacto. Lo importante es que el nombre que escribes aquí coincida con el nombre que configuraste en \'Productos bóveda\'.',
+        title: 'Surtir Res o Cerdo → va a Fábrica',
+        body: 'Cuando llevas el Medio Canal de Res o el Canal de Cerdo al área de corte, pésalo y registra el peso en "Surtir". El sistema lo envía automáticamente a Fábrica y Despiece para que el carnicero documente cada corte.',
+        tip: 'Si no ves la pieza en Fábrica después de surtir, verifica que el estado en Bóveda diga "Surtido".',
     },
     {
-        title: 'Surtir a vitrina',
-        body: 'Cuando sacas la pieza de bóveda para cortarla, ponla en la balanza y anota el peso real. Haz clic en Surtir e ingresa ese peso. El sistema descuenta los kg de la entrada y calcula la merma de almacenamiento solo.',
-        tip: 'La merma es automática: si la pieza tenía 50 kg disponibles y la balanza marca 48 kg al sacarla, el sistema registra 2 kg de merma de almacenamiento. Tú no calculas nada.',
+        title: 'Surtir Pollo → directo a vitrina',
+        body: 'Al surtir un Pollo Entero Congelado, el sistema te pregunta si es Tipo A o Tipo B. Selecciona la opción correcta y los kg van directo al inventario de vitrina. El Pollo nunca pasa por Fábrica.',
+        tip: 'Tipo A y Tipo B son las dos presentaciones de pollo que manejas en vitrina. Si tienes dudas sobre cuál es cuál, consulta con tu supervisor antes de confirmar.',
     },
     {
-        title: 'Despiece en Fábrica',
-        body: 'Si la pieza requiere despiece (res, cerdo, pollo), después de surtir verás un aviso con el botón "Ir a Fábrica". Allí documentas cuántos kg quedaron en cada corte (Premium, Primera, Costilla, etc.).',
-        tip: 'Lo que no documentes en cortes se registra como merma de despiece. Es normal: huesos, grasa descartada, sangre.',
+        title: 'Surtir "Otro (libre)" → vitrina con vínculo',
+        body: 'Para productos libres (como Chuleta Ahumada o Jamón especial), el nombre que escribes debe coincidir exactamente con el producto en vitrina. Si el producto todavía no existe, el sistema abre un modal para crearlo en ese momento.',
+        tip: 'Una vez creado el vínculo, los próximos surtidos del mismo producto lo detectarán automáticamente. El nombre debe ser idéntico — mayúsculas, acentos y todo.',
+    },
+    {
+        title: 'Campo "Quedan sin surtir"',
+        body: 'Este número muestra los kg que quedan disponibles en bóveda después del surtido que acabas de declarar. No es merma — es el stock que todavía está en el almacén frío esperando ser surtido en otra ocasión.',
+        tip: 'La merma real se registra al cerrar la entrada. Mientras la entrada esté abierta, puedes seguir haciendo surtidos parciales.',
     },
     {
         title: 'Cerrar entrada',
-        body: 'Cuando una pieza está completamente procesada y no queda nada en bóveda, ciérrala. Pasa al Historial con trazabilidad completa: cuánto entró, cuánto se surtió y cuánto mermó en total.',
+        body: 'Cuando ya no queda nada de esa pieza en bóveda, ciérrala. El sistema calcula la merma de almacenamiento final y la entrada pasa al Historial con trazabilidad completa: cuánto entró, cuánto se surtió y cuánto mermó.',
+        tip: 'Solo cierra la entrada cuando la pieza ya no está en el frío. Si todavía queda carne, puedes hacer otro surtido después.',
     },
 ];
 
 const helpFaqs = [
     {
-        q: '¿Qué es "Surtir" exactamente?',
-        a: 'Es el momento en que sacas una pieza de la bóveda (almacén frío) para llevarla al área de corte. Pesas la pieza antes de cortarla, registras ese peso y el sistema calcula automáticamente si mermó durante el almacenamiento.',
+        q: '¿Cuándo va a Fábrica y cuándo va directo a vitrina?',
+        a: 'La Res (Medio Canal) y el Cerdo (Canal) van a Fábrica porque hay que documentar los cortes. El Pollo Entero Congelado y los productos "Otro (libre)" van directo al inventario de vitrina sin pasar por Fábrica.',
     },
     {
-        q: '¿Por qué el sistema calcula la merma solo?',
-        a: 'Porque tú ingresas el peso real que marca la balanza al sacar la pieza. Si la pieza tenía 80 kg disponibles y pesa 78 kg al sacarla, el sistema registra 2 kg de merma de almacenamiento (evaporación, goteo) sin que hagas ningún cálculo.',
+        q: '¿Por qué al surtir el Pollo me pregunta Tipo A o Tipo B?',
+        a: 'El Pollo Entero Congelado tiene dos presentaciones en vitrina. El sistema necesita saber a cuál de las dos abonar los kg. Si no estás seguro de cuál es cuál, consulta el catálogo o con tu supervisor antes de confirmar.',
     },
     {
-        q: '¿Cuándo uso "Flujo Directo" y cuándo "Despiece"?',
-        a: 'Usa Directo para productos terminados que van directamente a vitrina sin cortar (embutidos, charcutería). Usa Despiece para piezas que se cortan en varios productos (canal de res → Premium, Primera, Costilla, etc.).',
+        q: '¿Qué significa "Quedan sin surtir"?',
+        a: 'Son los kg que quedan disponibles en bóveda después del surtido que declaraste. No es merma — es stock que todavía está en el frío disponible para un próximo surtido. La merma real se calcula al cerrar la entrada.',
     },
     {
-        q: '¿Puedo surtir varias veces de la misma pieza?',
-        a: 'Sí. Puedes surtir 30 kg hoy y otros 20 kg mañana de la misma entrada. El sistema descuenta cada surtido del disponible de esa pieza. La entrada se mantiene activa hasta que la cierres.',
+        q: 'El producto "Otro" que escribí no conecta con vitrina, ¿qué hago?',
+        a: 'El nombre debe coincidir exactamente con el producto de vitrina, incluyendo mayúsculas y acentos. Si el producto no existe todavía, el sistema te ofrece crearlo en ese momento desde un modal. Una vez creado, el vínculo queda guardado para futuros surtidos.',
     },
     {
-        q: '¿Qué son los "Productos bóveda" en la pestaña Catálogo?',
-        a: 'Son los tipos de piezas que recibes en almacén (Medio Canal Res, Canal Cerdo, Pollo Entero). No confundirlos con los productos de vitrina (Premium, Costilla). En bóveda entran piezas enteras; en vitrina salen cortes.',
+        q: '¿Puedo surtir varias veces de la misma entrada?',
+        a: 'Sí. Puedes surtir 30 kg hoy y otros 20 kg mañana de la misma pieza. El sistema descuenta cada surtido del disponible y la entrada se mantiene activa hasta que la cierres manualmente.',
+    },
+    {
+        q: '¿Cuándo debo cerrar una entrada?',
+        a: 'Cuando ya no queda nada en bóveda de esa pieza. Al cerrar, el sistema registra la merma de almacenamiento final y la entrada pasa al Historial. Si todavía queda carne en el frío, no la cierres — espera a hacer el último surtido.',
     },
 ];
 
