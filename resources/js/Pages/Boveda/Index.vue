@@ -217,6 +217,14 @@ async function saveVitrinaProduct() {
             return;
         }
         if (!res.ok) throw new Error('Error al crear el producto en vitrina');
+        const body         = await res.json();
+        const newProductId = body.product?.id ?? null;
+
+        // Vincular en boveda_products para que el próximo surtido del mismo tipo sea directo (best-effort)
+        if (newProductId !== null) {
+            await linkVitrinaProduct(surtirEntry.value.product_type, newProductId);
+        }
+
         showVitrinaProductModal.value = false;
         productoFaltante.value        = null;
         showFlash('Producto creado en vitrina. Reintentando surtido…');
@@ -225,6 +233,34 @@ async function saveVitrinaProduct() {
         alert(e?.message ?? 'Error al crear producto');
     } finally {
         savingVitrinaProduct.value = false;
+    }
+}
+
+async function linkVitrinaProduct(name, vitrinaProductId) {
+    const existing = localBovedaProducts.value.find(p => p.name === name);
+    try {
+        const res = existing
+            ? await fetch(route('boveda.product.update', { product: existing.id }), {
+                method:  'PUT',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json' },
+                body:    JSON.stringify({ name, requires_despiece: false, vitrina_product_id: vitrinaProductId }),
+            })
+            : await fetch(route('boveda.product.store'), {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json' },
+                body:    JSON.stringify({ name, requires_despiece: false, vitrina_product_id: vitrinaProductId }),
+            });
+        if (!res.ok) return;
+        const body = await res.json();
+        if (!body.product) return;
+        if (existing) {
+            const idx = localBovedaProducts.value.findIndex(p => p.id === existing.id);
+            if (idx !== -1) localBovedaProducts.value[idx] = body.product;
+        } else {
+            localBovedaProducts.value.push(body.product);
+        }
+    } catch (e) {
+        // best-effort: si falla el vínculo, el surtido igual procede por match exacto de nombre
     }
 }
 

@@ -379,9 +379,28 @@ if (!$res['ok']) {
 $bovedaCtrl = app(\App\Http\Controllers\BovedaController::class);
 $entryDrain = null;
 try {
+    // surte() resuelve el producto vitrina por nombre EXACTO (sin LIKE). El fixture necesita
+    // un producto vitrina con nombre idéntico al product_type para que el surtido directo proceda.
+    $drainCategory = \App\Models\Category::where('business_id', $businessId)->value('id');
+    Product::firstOrCreate(
+        ['business_id' => $businessId, 'name' => '[ST] Res Drain', 'location' => 'vitrina'],
+        [
+            'branch_id'          => null,
+            'category_id'        => $drainCategory,
+            'sale_mode'          => 'weight',
+            'base_unit_label'    => 'kg',
+            'price_per_kg_usd'   => 5.0,
+            'price_per_unit_usd' => null,
+            'fraction_allowed'   => true,
+            'fabricable'         => false,
+            'active'             => false,
+            'sort_order'         => 99,
+            'min_stock'          => 0,
+        ]
+    );
     $entryDrain = BovedaEntry::create([
         'business_id'  => $businessId,
-        'product_type' => 'Res Entera',
+        'product_type' => '[ST] Res Drain',
         'description'  => '[ST] Drain test — surtir hasta 0',
         'kg_entrada'   => 5.0,
         'costo_usd'    => 10.0,
@@ -3973,6 +3992,18 @@ try {
     }
     if ($stCanalPool->count() > 0) {
         echo "  Productos pool [ST] Carne del Canal eliminados: " . $stCanalPool->count() . "\n";
+    }
+
+    // ── FASE 2.9 cleanup — producto vitrina temporal del drain test ────────
+    $stDrain = Product::where('business_id', $businessId)
+        ->where('name', '[ST] Res Drain')
+        ->get();
+    foreach ($stDrain as $stD) {
+        InventoryEntry::where('product_id', $stD->id)->delete();
+        $stD->delete();
+    }
+    if ($stDrain->count() > 0) {
+        echo "  Productos drain [ST] Res Drain eliminados: " . $stDrain->count() . "\n";
     }
 
     echo "\n  Cleanup completo.\n";

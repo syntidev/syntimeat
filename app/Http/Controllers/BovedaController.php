@@ -233,7 +233,7 @@ class BovedaController extends Controller
             ->where('name', $entry->product_type)
             ->first();
 
-        $requiresDespiece = (bool) ($bovedaProductType?->requires_despiece ?? true);
+        $requiresDespiece = (bool) ($bovedaProductType?->requires_despiece ?? false);
 
         $vitrinaProduct = null;
         if (! $requiresDespiece) {
@@ -252,12 +252,11 @@ class BovedaController extends Controller
                     $vitrinaProduct = Product::find($bovedaProductType->vitrina_product_id);
                 }
 
-                // 2) Fallback: búsqueda LIKE por primera palabra del tipo
+                // 2) Fallback: match EXACTO por nombre (evita confundir "Chuleta Ahumada" con "Chuleta de Cerdo")
                 if ($vitrinaProduct === null) {
-                    $keyword        = explode(' ', $entry->product_type)[0];
                     $vitrinaProduct = Product::where('business_id', $businessId)
                         ->where('location', 'vitrina')
-                        ->where('name', 'like', '%' . $keyword . '%')
+                        ->where('name', $entry->product_type)
                         ->first();
                 }
 

@@ -71,7 +71,7 @@ class CatalogController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $validated = $request->validate([
             'name'               => ['required', 'string', 'max:120'],
@@ -111,6 +111,15 @@ class CatalogController extends Controller
             if ($imagePath !== '') {
                 $product->update(['image_path' => $imagePath]);
             }
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'product' => [
+                    'id'   => $product->id,
+                    'name' => $product->name,
+                ],
+            ], 201);
         }
 
         return redirect()->route('catalog.index')->with('success', 'Producto creado.');
