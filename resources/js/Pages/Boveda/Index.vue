@@ -772,6 +772,8 @@ async function deactivateProduct(product) {
                             Entró: <strong>{{ fmtKg(surtirEntry?.kg_entrada) }}</strong>
                         </p>
 
+                        <p class="field-hint">Disponibles: {{ surtirEntry?.kg_disponible?.toFixed(3) }} kg</p>
+
                         <div class="form-grid">
                             <div class="form-field full">
                                 <label>Peso en balanza al sacar (kg)</label>
@@ -800,9 +802,9 @@ async function deactivateProduct(product) {
                         </div>
 
                         <div v-if="mermaPreview !== null && mermaPreview > 0" class="merma-preview">
-                            <span class="merma-preview__label">Merma calculada:</span>
+                            <span class="merma-preview__label">Quedan sin surtir:</span>
                             <span class="merma-preview__val">{{ mermaPreview.toFixed(3) }} kg</span>
-                            <span class="merma-preview__eq">(el sistema la registra solo)</span>
+                            <span class="merma-preview__eq">(los kg restantes quedan disponibles para surtidos futuros)</span>
                         </div>
 
                         <div v-if="isPollo" class="form-field full" style="margin-top: 0.5rem;">
