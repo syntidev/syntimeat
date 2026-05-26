@@ -346,17 +346,20 @@ function dismissBankingAlert() {
                                 v-for="prod in canal.productos"
                                 :key="prod.product_id"
                                 class="canal-prod-row"
+                                title="Marcar/desmarcar para incluir o excluir este producto del análisis"
                             >
                                 <input
                                     type="checkbox"
                                     :checked="canalChecks[canal.boveda_entry_id]?.[prod.product_id] !== false"
                                     @change="toggleProd(canal.boveda_entry_id, prod.product_id)"
+                                    title="Incluir en análisis"
                                 />
                                 <span class="prod-nombre">{{ prod.nombre }}</span>
                                 <span class="prod-kg">{{ prod.kg_vendido_hoy.toFixed(2) }} kg</span>
                                 <span class="prod-usd">${{ prod.ingresos_usd.toFixed(2) }}</span>
                                 <span v-if="prod.kg_remanente > 0" class="prod-rem">
                                     +{{ prod.kg_remanente.toFixed(2) }}kg rem.
+                                    <span class="rem-label">stock disponible próximo día</span>
                                 </span>
                             </label>
                         </div>
@@ -374,7 +377,10 @@ function dismissBankingAlert() {
                             </div>
                             <div class="canal-stat">
                                 <span>Remanente</span>
-                                <strong class="canal-muted">{{ canal.kg_remanente.toFixed(2) }} kg</strong>
+                                <strong class="canal-muted">
+                                    {{ canal.kg_remanente.toFixed(2) }} kg
+                                    <span v-if="canal.kg_remanente > 0" class="badge-manana">→ pasa a mañana</span>
+                                </strong>
                             </div>
                             <div class="canal-stat">
                                 <span>Util. potencial</span>
@@ -1134,4 +1140,6 @@ function dismissBankingAlert() {
 .canal-progress-fill { height: 100%; background: var(--brand); border-radius: 2px; transition: width 0.5s ease; }
 .canal-margen-label { font-size: 0.72rem; color: var(--text-muted); }
 .canal-loading { color: var(--text-muted); padding: 1rem; text-align: center; font-size: 0.86rem; }
+.badge-manana { font-size: 0.7rem; color: var(--amber); background: rgba(251,191,36,0.12); padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
+.rem-label { font-size: 0.68rem; color: var(--text-muted); display: block; }
 </style>
