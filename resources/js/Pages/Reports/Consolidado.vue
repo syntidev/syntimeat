@@ -194,6 +194,22 @@ function fmtUsd(n) { return '$' + Number(n ?? 0).toLocaleString('es-VE', { minim
 function fmtNum(n) { return Number(n ?? 0).toLocaleString('es-VE') }
 function fmtKg(n)  { return Number(n ?? 0).toFixed(3) + ' kg' }
 function fmtDia(d) { return d ? new Date(d + 'T00:00:00').toLocaleDateString('es-VE', { day: '2-digit', month: 'short' }) : '' }
+
+// ─── Canal Rendimiento ────────────────────────────────────────────────────────
+const canales        = ref([])
+const loadingCanales = ref(false)
+
+async function loadCanales() {
+    loadingCanales.value = true
+    try {
+        const res = await axios.get('/reportes/canal-rendimiento')
+        canales.value = res.data.canales ?? []
+    } catch (e) {
+        console.error('Error cargando canales', e)
+    } finally {
+        loadingCanales.value = false
+    }
+}
 </script>
 
 <template>
