@@ -102,7 +102,7 @@ const maxKgCat    = computed(() => Math.max(1, ...catCardsData.value.map(c => c.
 function kgBarWidth(kg) { return Math.min(100, Math.round((kg / maxKgCat.value) * 100)) }
 
 // ─── Centro de Control ────────────────────────────────────────────────────────
-const ALL_CATS    = ['Res', 'Cerdo', 'Pollo', 'Charcutería', 'Trastes', 'Víveres']
+const ALL_CATS    = ['Res', 'Pollo', 'Cerdo', 'Charcutería', 'Trastes', 'Víveres']
 const LS_KEY      = 'syntimeat_dashboard_cats'
 const selectedCats = ref((() => {
     try { const v = localStorage.getItem(LS_KEY); return v ? JSON.parse(v) : [...ALL_CATS] }
@@ -116,13 +116,19 @@ function toggleCat(cat) {
     localStorage.setItem(LS_KEY, JSON.stringify(selectedCats.value))
 }
 
-const catCardsData = computed(() =>
-    selectedCats.value.map(cat => {
+const catCardsData = computed(() => {
+    const ORDER = ['Res', 'Pollo', 'Cerdo', 'Charcutería', 'Trastes', 'Víveres']
+    const cats  = selectedCats.value.map(cat => {
         const stats = d.value.categorias_hoy?.find(c => c.category_name === cat) ?? null
         const bov   = d.value.utilidad_boveda?.find(b => b.category_name === cat) ?? null
         return { name: cat, total_bs: stats?.total_bs ?? 0, total_usd: stats?.total_usd ?? 0, kg_vendidos: stats?.kg_vendidos ?? 0, boveda: bov }
     })
-)
+    return [...cats].sort((a, b) => {
+        const ai = ORDER.indexOf(a.nombre ?? a.categoria ?? a.name)
+        const bi = ORDER.indexOf(b.nombre ?? b.categoria ?? b.name)
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+    })
+})
 
 // ─── Hora actual ──────────────────────────────────────────────────────────────
 const horaActual = ref('')

@@ -597,10 +597,11 @@ function setPeriod(key) {
         </Transition>
 
         <!-- ─── Rendimiento por Canal ─────────────────────────────────────────── -->
-        <section v-if="canales.length > 0 || loadingCanales" class="canal-section anim-in">
+        <section v-if="true" class="canal-section anim-in">
             <h2 class="canal-title">
                 <BarChart2 :size="18" /> Rendimiento por Canal
             </h2>
+            <pre style="color:white;font-size:10px">{{ JSON.stringify(canales,null,2) }}</pre>
 
             <div v-if="loadingCanales" class="canal-loading">Cargando canales...</div>
 
