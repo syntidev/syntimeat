@@ -481,7 +481,16 @@ class CashRegisterController extends Controller
         if ($data['type'] === 'out') {
             $inflows  = (float) $register->movements()->where('type', 'in')->sum('amount_bs');
             $outflows = (float) $register->movements()->where('type', 'out')->sum('amount_bs');
-            $saldo    = (float) $register->opening_amount_bs + $inflows - $outflows;
+
+            // Ventas cobradas en efectivo asociadas a esta caja
+            $ventasEfectivo = (float) \App\Models\SalePayment::whereHas('sale', function ($q) use ($register) {
+                $q->where('cash_register_id', $register->id)
+                  ->where('status', 'paid');
+            })->whereHas('paymentMethod', function ($q) {
+                $q->where('type', 'cash');
+            })->sum('amount_bs');
+
+            $saldo = (float) $register->opening_amount_bs + $inflows + $ventasEfectivo - $outflows;
 
             if ($amountBs > $saldo) {
                 $mensaje = 'El retiro (Bs. ' . number_format($amountBs, 2) . ') supera el saldo disponible (Bs. ' . number_format($saldo, 2) . ').';
