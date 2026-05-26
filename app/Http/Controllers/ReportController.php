@@ -426,7 +426,7 @@ class ReportController extends Controller
                 return [
                     'product_id'     => $prod->id,
                     'nombre'         => $prod->name,
-                    'kg_despiece'    => round((float) $item->kg_real, 3),
+                    'kg_despiece'    => round((float) $item->quantity_kg, 3),
                     'kg_vendido_hoy' => round(abs((float) $vendidoHoy), 3),
                     'kg_remanente'   => round(max(0, $entradas - $salidas), 3),
                     'ingresos_usd'   => round((float) $ingresosHoy, 2),
