@@ -401,13 +401,13 @@ class CashRegisterController extends Controller
 
     // ─── Confirmar Cierre del Día ─────────────────────────────────────────────
 
-    public function confirmClose(Request $request, CashRegister $cashRegister): RedirectResponse
+    public function confirmClose(Request $request, CashRegister $register): RedirectResponse
     {
         $user       = Auth::user();
         $businessId = $user->business->id;
 
-        abort_unless((int) $cashRegister->business_id === (int) $businessId, 403);
-        abort_unless($cashRegister->closed_at === null, 422, 'La caja ya está cerrada.');
+        abort_unless((int) $register->business_id === (int) $businessId, 403);
+        abort_unless($register->closed_at === null, 422, 'La caja ya está cerrada.');
 
         $data = $request->validate([
             'counted_cash_bs' => ['required', 'numeric', 'min:0'],
@@ -416,30 +416,30 @@ class CashRegisterController extends Controller
 
         $rate = $this->rates->getTodayRate();
 
-        $movInBs  = (float) $cashRegister->movements()->where('type', 'in')->sum('amount_bs');
-        $movOutBs = (float) $cashRegister->movements()->where('type', 'out')->sum('amount_bs');
+        $movInBs  = (float) $register->movements()->where('type', 'in')->sum('amount_bs');
+        $movOutBs = (float) $register->movements()->where('type', 'out')->sum('amount_bs');
 
         // Solo ventas cobradas en efectivo — pago móvil/transferencia no entran a caja
         $ventasBs = (float) DB::table('sale_payments')
             ->join('sales', 'sales.id', '=', 'sale_payments.sale_id')
             ->join('payment_methods', 'payment_methods.id', '=', 'sale_payments.payment_method_id')
-            ->where('sales.cash_register_id', $cashRegister->id)
+            ->where('sales.cash_register_id', $register->id)
             ->where('sales.status', 'paid')
             ->where('payment_methods.type', 'cash')
             ->sum('sale_payments.amount_bs');
 
         // Usar opening_amount_bs guardado — no reconvertir
-        $openingBs     = (float) $cashRegister->opening_amount_bs;
+        $openingBs     = (float) $register->opening_amount_bs;
         $expectedBs    = round($openingBs + $ventasBs + $movInBs - $movOutBs, 2);
         $expectedUsd   = $rate > 0 ? round($expectedBs / $rate, 2) : 0.0;
         $countedUsd    = $rate > 0 ? round((float) $data['counted_cash_bs'] / $rate, 2) : 0.0;
         $differenceUsd = round($countedUsd - $expectedUsd, 2);
 
         DB::transaction(function () use (
-            $cashRegister, $data, $user, $businessId,
+            $register, $data, $user, $businessId,
             $expectedUsd, $countedUsd, $differenceUsd
         ) {
-            $cashRegister->update([
+            $register->update([
                 'closed_at'         => now(),
                 'expected_cash_usd' => $expectedUsd,
                 'counted_cash_usd'  => $countedUsd,
@@ -453,7 +453,7 @@ class CashRegisterController extends Controller
                 'user_id'     => $user->id,
                 'action'      => 'cash.day_close',
                 'model_type'  => CashRegister::class,
-                'model_id'    => $cashRegister->id,
+                'model_id'    => $register->id,
                 'new_values'  => [
                     'expected_usd'   => $expectedUsd,
                     'counted_usd'    => $countedUsd,
