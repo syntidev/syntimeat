@@ -342,6 +342,108 @@ class ReportController extends Controller
         return response()->json($this->buildConsolidatedData($business->id, $branchIds, $desde, $hasta));
     }
 
+    // ─── Rendimiento por canal (Bóveda) ──────────────────────────────────────
+
+    public function canalRendimiento(Request $request): JsonResponse
+    {
+        $user       = Auth::user();
+        $businessId = $user->business->id;
+        $isAdmin    = in_array($user->role, ['super_admin', 'owner']);
+        $branchId   = $isAdmin ? null : $user->branch_id;
+        $fecha      = $request->input('fecha', now('America/Caracas')->toDateString());
+
+        // Canales activas + cerradas hoy del negocio
+        $canales = \App\Models\BovedaEntry::where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->whereDate('entered_at', '<=', $fecha)
+            ->whereIn('product_type', ['RES - Medio Canal', 'CERDO - Canal', 'POLLO - Entero Congelado', 'JAMON - Pierna Sellado'])
+            ->orderByDesc('entered_at')
+            ->get();
+
+        $resultado = $canales->map(function ($canal) use ($fecha, $businessId) {
+            // Productos del despiece de esta canal
+            $despieceItems = \App\Models\DespieceItem::where('boveda_entry_id', $canal->id)
+                ->with('product')
+                ->get();
+
+            // Stock actual de cada producto del despiece
+            $productos = $despieceItems->map(function ($item) use ($fecha, $businessId) {
+                $prod = $item->product;
+                if (! $prod) {
+                    return null;
+                }
+
+                // Pool: si tiene stock_product_id usar ese para calcular stock
+                $stockId = $prod->stock_product_id ?? $prod->id;
+
+                // Entradas acumuladas hasta hoy
+                $entradas = \App\Models\InventoryEntry::where('business_id', $businessId)
+                    ->where('product_id', $stockId)
+                    ->whereDate('entered_at', '<=', $fecha)
+                    ->where('quantity_kg', '>', 0)
+                    ->sum('quantity_kg');
+
+                // Salidas acumuladas hasta hoy
+                $salidas = abs(\App\Models\InventoryEntry::where('business_id', $businessId)
+                    ->where('product_id', $stockId)
+                    ->whereDate('entered_at', '<=', $fecha)
+                    ->where('quantity_kg', '<', 0)
+                    ->sum('quantity_kg'));
+
+                // Vendido HOY
+                $vendidoHoy = \App\Models\InventoryEntry::where('business_id', $businessId)
+                    ->where('product_id', $stockId)
+                    ->whereDate('entered_at', $fecha)
+                    ->where('quantity_kg', '<', 0)
+                    ->sum('quantity_kg');
+
+                // Ingresos de venta hoy
+                $ingresosHoy = \App\Models\SaleItem::whereHas('sale', function ($q) use ($businessId, $fecha) {
+                    $q->where('business_id', $businessId)
+                      ->where('status', 'paid')
+                      ->whereDate('accounting_date', $fecha);
+                })->where('product_id', $prod->id)->sum('subtotal_usd');
+
+                return [
+                    'product_id'     => $prod->id,
+                    'nombre'         => $prod->name,
+                    'kg_despiece'    => round((float) $item->kg_real, 3),
+                    'kg_vendido_hoy' => round(abs((float) $vendidoHoy), 3),
+                    'kg_remanente'   => round(max(0, $entradas - $salidas), 3),
+                    'ingresos_usd'   => round((float) $ingresosHoy, 2),
+                    'precio_kg'      => round((float) $prod->price_per_kg_usd, 2),
+                ];
+            })->filter()->values();
+
+            $costoCanal     = (float) $canal->costo_usd;
+            $ingresosTotal  = $productos->sum('ingresos_usd');
+            $kgRemanente    = $productos->sum('kg_remanente');
+            $precioPromedio = $productos->avg('precio_kg') ?? 0;
+            $valorRemanente = round($kgRemanente * $precioPromedio, 2);
+            $utilidadReal   = round($ingresosTotal - $costoCanal, 2);
+            $utilidadTotal  = round($utilidadReal + $valorRemanente, 2);
+
+            return [
+                'boveda_entry_id' => $canal->id,
+                'tipo'            => $canal->product_type,
+                'descripcion'     => $canal->description,
+                'fecha_entrada'   => $canal->entered_at->format('d/m/Y'),
+                'kg_entrada'      => round((float) $canal->kg_entrada, 2),
+                'costo_usd'       => $costoCanal,
+                'costo_kg'        => $canal->kg_entrada > 0 ? round($costoCanal / $canal->kg_entrada, 4) : 0,
+                'ingresos_usd'    => round($ingresosTotal, 2),
+                'utilidad_real'   => $utilidadReal,
+                'kg_remanente'    => round($kgRemanente, 3),
+                'valor_remanente' => $valorRemanente,
+                'utilidad_total'  => $utilidadTotal,
+                'margen_pct'      => $costoCanal > 0 ? round($utilidadReal / $costoCanal * 100, 1) : 0,
+                'productos'       => $productos,
+            ];
+        });
+
+        return response()->json(['canales' => $resultado]);
+    }
+
     // ─── Helper: agregación consolidada por sucursal ─────────────────────────
 
     private function buildConsolidatedData(int $businessId, array $branchIds, string $desde, string $hasta): array

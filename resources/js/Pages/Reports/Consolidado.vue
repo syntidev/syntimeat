@@ -3,7 +3,7 @@ import AppLayout from '@/Layouts/AppLayout.vue'
 import { ref, reactive, computed, watch, onMounted, useTemplateRef } from 'vue'
 import { animate } from 'motion'
 import axios from 'axios'
-import { DollarSign, TrendingUp, Receipt, Scale, Lock } from '@lucide/vue'
+import { DollarSign, TrendingUp, Receipt, Scale, Lock, BarChart2, CheckSquare, Square, Box } from '@lucide/vue'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 const props = defineProps({
@@ -181,6 +181,7 @@ const donutSegments = computed(() => {
 
 // ─── Animación de entrada ─────────────────────────────────────────────────────
 onMounted(() => {
+    loadCanales()
     animate('.anim-in',
         { opacity: [0, 1], transform: ['translateY(14px)', 'translateY(0)'] },
         { duration: 0.45, delay: i => i * 0.065, ease: [0.22, 1, 0.36, 1] },
