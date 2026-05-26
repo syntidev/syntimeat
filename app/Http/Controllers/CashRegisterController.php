@@ -486,10 +486,6 @@ class CashRegisterController extends Controller
             if ($amountBs > $saldo) {
                 $mensaje = 'El retiro (Bs. ' . number_format($amountBs, 2) . ') supera el saldo disponible (Bs. ' . number_format($saldo, 2) . ').';
 
-                if ($request->header('X-Inertia') || $request->wantsJson()) {
-                    return response()->json(['errors' => ['amount_bs' => $mensaje]], 422);
-                }
-
                 return back()->withErrors(['amount_bs' => $mensaje]);
             }
         }
