@@ -54,13 +54,11 @@ class DashboardController extends Controller
 
         $rate       = $this->rates->getTodayRate();
         $today      = now('America/Caracas')->toDateString();
-        $dayStart   = Carbon::parse($today, 'America/Caracas')->startOfDay()->utc();
-        $dayEnd     = Carbon::parse($today, 'America/Caracas')->endOfDay()->utc();
 
         // ── Ventas del día ────────────────────────────────────────────────────
         $ventasHoyRaw = Sale::where('business_id', $businessId)
             ->where('status', 'paid')
-            ->whereBetween('sold_at', [$dayStart, $dayEnd])
+            ->whereDate('accounting_date', $today)
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->selectRaw('COUNT(*) as count, COALESCE(SUM(total_bs), 0) as total_bs, COALESCE(SUM(total_usd), 0) as total_usd')
             ->first();
@@ -76,7 +74,7 @@ class DashboardController extends Controller
             ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
             ->where('sales.business_id', $businessId)
             ->where('sales.status', 'paid')
-            ->whereBetween('sales.sold_at', [$dayStart, $dayEnd])
+            ->whereDate('sales.accounting_date', $today)
             ->when($branchId, fn ($q) => $q->where('sales.branch_id', $branchId))
             ->selectRaw('sale_items.product_id, sale_items.product_name, SUM(sale_items.quantity_value) as cantidad, SUM(sale_items.subtotal_usd * sales.rate_used) as monto_bs')
             ->groupBy('sale_items.product_id', 'sale_items.product_name')
@@ -172,7 +170,7 @@ class DashboardController extends Controller
             ->join('categories', 'categories.id', '=', 'products.category_id')
             ->where('sales.business_id', $businessId)
             ->where('sales.status', 'paid')
-            ->whereBetween('sales.sold_at', [$dayStart, $dayEnd])
+            ->whereDate('sales.accounting_date', $today)
             ->when($branchId, fn ($q) => $q->where('sales.branch_id', $branchId))
             ->groupBy('categories.id', 'categories.name')
             ->select(
@@ -196,10 +194,14 @@ class DashboardController extends Controller
         // ── Utilidad por Bóveda ───────────────────────────────────────────────
         // product_type es texto libre — mapeamos a categoría de vitrina
         $bovedaCategoryMap = [
-            'Medio Canal Res'        => 'Res',
-            'Canal Cerdo'            => 'Cerdo',
-            'Pollo Entero Congelado' => 'Pollo',
-            'Jamón Pierna Sellado'   => 'Charcutería',
+            'RES - Medio Canal'        => 'Res',
+            'CERDO - Canal'            => 'Cerdo',
+            'POLLO - Entero Congelado' => 'Pollo',
+            // Legacy (por si hay entradas antiguas en DB)
+            'Medio Canal Res'          => 'Res',
+            'Canal Cerdo'              => 'Cerdo',
+            'Pollo Entero Congelado'   => 'Pollo',
+            'Jamón Pierna Sellado'     => 'Charcutería',
         ];
 
         $utilidadBoveda = BovedaEntry::active()

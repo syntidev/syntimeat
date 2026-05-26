@@ -3,7 +3,7 @@ import AppLayout  from '@/Layouts/AppLayout.vue'
 import HelpModal  from '@/Components/HelpModal.vue'
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import axios from 'axios'
-import { Receipt, BarChart2, AlertTriangle, CheckCircle, Package, Check, Bell, X } from '@lucide/vue'
+import { Receipt, BarChart2, AlertTriangle, CheckCircle, Package, Check, Bell, X, Layers } from '@lucide/vue'
 
 // ─── Props iniciales desde Inertia ────────────────────────────────────────────
 const props = defineProps({
@@ -98,6 +98,8 @@ const totalMontoCat = computed(() =>
     (d.value.kilos_por_categoria ?? []).reduce((s, c) => s + c.monto_bs, 0)
 )
 const maxMontoCat = computed(() => Math.max(1, ...(d.value.kilos_por_categoria ?? []).map(c => c.monto_bs)))
+const maxKgCat    = computed(() => Math.max(1, ...catCardsData.value.map(c => c.kg_vendidos)))
+function kgBarWidth(kg) { return Math.min(100, Math.round((kg / maxKgCat.value) * 100)) }
 
 // ─── Centro de Control ────────────────────────────────────────────────────────
 const ALL_CATS    = ['Res', 'Cerdo', 'Pollo', 'Charcutería', 'Trastes', 'Víveres']
@@ -289,13 +291,22 @@ function dismissBankingAlert() {
                         </div>
                         <div class="cc-stats">
                             <div class="cc-stat">
-                                <span class="cc-lbl">Bs.</span>
+                                <span class="cc-lbl">Vendido Bs.</span>
                                 <span class="cc-val">{{ fmtBs(cat.total_bs) }}</span>
                             </div>
                             <div class="cc-stat">
-                                <span class="cc-lbl">Kg despachados</span>
-                                <span class="cc-val">{{ fmtKg(cat.kg_vendidos) }}</span>
+                                <span class="cc-lbl">Vendido USD</span>
+                                <span class="cc-val">{{ fmtUsd(cat.total_usd) }}</span>
                             </div>
+                        </div>
+                        <div class="cc-kg-bar">
+                            <div class="cc-kg-track">
+                                <div
+                                    class="cc-kg-fill"
+                                    :style="{ width: barsVisible ? kgBarWidth(cat.kg_vendidos) + '%' : '0%' }"
+                                />
+                            </div>
+                            <span class="cc-kg-label">{{ fmtKg(cat.kg_vendidos) }} despachados</span>
                         </div>
                         <div v-if="cat.boveda" class="cc-boveda">
                             <div class="cc-bov-row">
@@ -319,7 +330,10 @@ function dismissBankingAlert() {
                                 <span class="cc-pct">{{ cat.boveda.porcentaje }}% recuperado</span>
                             </div>
                         </div>
-                        <p v-else class="cc-no-bov">Sin entrada bóveda activa</p>
+                        <div v-else class="cc-no-bov">
+                            <Layers :size="14" />
+                            <span>Sin bóveda activa</span>
+                        </div>
                     </div>
                 </div>
                 <p v-else class="td-empty">Selecciona al menos una categoría.</p>
@@ -341,24 +355,18 @@ function dismissBankingAlert() {
                             class="prod-row"
                             :style="{ '--delay': i * 80 + 'ms' }"
                         >
-                            <div class="prod-rank-wrap">
-                                <span class="prod-rank" :class="i === 0 ? 'rank-gold' : i === 1 ? 'rank-silver' : i === 2 ? 'rank-bronze' : 'rank-plain'">
-                                    #{{ i + 1 }}
-                                </span>
-                                <div class="prod-meta">
-                                    <span class="prod-name">{{ p.name }}</span>
-                                    <div class="prod-bar-track">
-                                        <div
-                                            class="prod-bar-fill"
-                                            :class="i === 0 ? 'fill-gold' : 'fill-brand'"
-                                            :style="{ width: barsVisible ? barWidth(p.monto_bs) + '%' : '0%' }"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="prod-amounts">
+                            <div class="prod-line">
+                                <span class="prod-rank" :class="i === 0 ? 'rank-gold' : i === 1 ? 'rank-silver' : i === 2 ? 'rank-bronze' : 'rank-plain'">#{{ i + 1 }}</span>
+                                <span class="prod-name">{{ p.name }}</span>
+                                <span class="prod-qty prod-qty--inline">{{ p.cantidad % 1 === 0 ? p.cantidad + ' u.' : p.cantidad.toFixed(2) + ' kg' }}</span>
                                 <span class="prod-bs">{{ fmtBs(p.monto_bs) }}</span>
-                                <span class="prod-qty">{{ p.cantidad % 1 === 0 ? p.cantidad + ' u.' : p.cantidad.toFixed(2) + ' kg' }}</span>
+                            </div>
+                            <div class="prod-bar-track">
+                                <div
+                                    class="prod-bar-fill"
+                                    :class="i === 0 ? 'fill-gold' : 'fill-brand'"
+                                    :style="{ width: barsVisible ? barWidth(p.monto_bs) + '%' : '0%' }"
+                                />
                             </div>
                         </div>
                     </div>
@@ -524,8 +532,8 @@ function dismissBankingAlert() {
 /* Card grande — ventas */
 .kpi-main {
     position: relative;
-    background: linear-gradient(135deg, rgba(245,158,11,0.12) 0%, rgba(245,158,11,0.04) 60%, var(--bg-card) 100%);
-    border: 1px solid rgba(245,158,11,0.35);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--brand) 12%, transparent) 0%, color-mix(in srgb, var(--brand) 4%, transparent) 60%, var(--bg-card) 100%);
+    border: 1px solid color-mix(in srgb, var(--brand) 35%, transparent);
     border-radius: 20px;
     padding: 1.75rem 1.75rem 1.25rem;
     display: flex;
@@ -538,16 +546,16 @@ function dismissBankingAlert() {
     position: absolute;
     top: -60px; left: -40px;
     width: 260px; height: 260px;
-    background: radial-gradient(circle, rgba(245,158,11,0.18) 0%, transparent 70%);
+    background: radial-gradient(circle, color-mix(in srgb, var(--brand) 18%, transparent) 0%, transparent 70%);
     pointer-events: none;
 }
 .kpi-main-inner { position: relative; z-index: 1; }
 .kpi-main-top   { display: flex; align-items: center; gap: 0.65rem; margin-bottom: 0.4rem; }
-.kpi-eyebrow    { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(245,158,11,0.75); }
+.kpi-eyebrow    { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: color-mix(in srgb, var(--brand) 85%, white); }
 .kpi-main-number {
     font-size: clamp(1.6rem, 3.5vw, 2.4rem);
     font-weight: 800;
-    color: #f59e0b;
+    color: var(--brand);
     line-height: 1;
     font-variant-numeric: tabular-nums;
     margin-bottom: 0.5rem;
@@ -562,7 +570,7 @@ function dismissBankingAlert() {
     bottom: 1.1rem; right: 1.25rem;
     font-size: 0.78rem;
     font-variant-numeric: tabular-nums;
-    color: rgba(245,158,11,0.4);
+    color: color-mix(in srgb, var(--brand) 40%, transparent);
     font-weight: 700;
     letter-spacing: 0.05em;
 }
@@ -573,13 +581,13 @@ function dismissBankingAlert() {
     position: absolute;
     inset: -4px;
     border-radius: 50%;
-    border: 1.5px solid rgba(245,158,11,0.5);
+    border: 1.5px solid color-mix(in srgb, var(--brand) 50%, transparent);
     animation: ping 1.8s ease-out infinite;
 }
 .live-core {
     position: absolute;
     inset: 0;
-    background: #f59e0b;
+    background: var(--brand);
     border-radius: 50%;
 }
 @keyframes ping {
@@ -655,17 +663,19 @@ function dismissBankingAlert() {
     background: rgba(255,255,255,0.06);
     color: var(--text-muted);
 }
-.panel-badge--red { background: rgba(239,68,68,0.12); color: #ef4444; }
+.panel-badge--red { background: rgba(239,68,68,0.12); color: #ef4444; animation: pulse-badge 1.6s ease-in-out infinite; }
+@keyframes pulse-badge { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 
 /* ═══ TOP PRODUCTOS ══════════════════════════════════════════════════════════ */
-.prod-list { display: flex; flex-direction: column; gap: 0.7rem; }
+.prod-list { display: flex; flex-direction: column; gap: 0.55rem; }
 .prod-row  {
     display: flex;
-    align-items: center;
-    gap: 0.75rem;
+    flex-direction: column;
+    gap: 0.28rem;
     animation: fadeSlideIn 0.4s ease both;
     animation-delay: var(--delay);
 }
+.prod-line { display: flex; align-items: center; gap: 0.5rem; }
 @keyframes fadeSlideIn {
     from { opacity: 0; transform: translateX(-10px); }
     to   { opacity: 1; transform: translateX(0); }
@@ -690,9 +700,10 @@ function dismissBankingAlert() {
 .prod-bar-fill  { height: 100%; border-radius: 2px; transition: width 0.9s cubic-bezier(0.16,1,0.3,1); }
 .fill-gold  { background: linear-gradient(90deg, #f59e0b, #fde68a); }
 .fill-brand { background: var(--brand); }
-.prod-amounts { display: flex; flex-direction: column; align-items: flex-end; gap: 0.1rem; flex-shrink: 0; }
-.prod-bs  { font-size: 0.88rem; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
-.prod-qty { font-size: 0.72rem; color: var(--text-muted); }
+.prod-amounts    { display: flex; flex-direction: column; align-items: flex-end; gap: 0.1rem; flex-shrink: 0; }
+.prod-bs         { font-size: 0.88rem; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; white-space: nowrap; flex-shrink: 0; }
+.prod-qty        { font-size: 0.72rem; color: var(--text-muted); }
+.prod-qty--inline { font-size: 0.72rem; color: var(--text-muted); flex: 1; text-align: right; white-space: nowrap; }
 
 /* ═══ STOCK CRÍTICO ══════════════════════════════════════════════════════════ */
 .stock-list { display: flex; flex-direction: column; gap: 0.45rem; overflow-y: auto; max-height: 320px; }
@@ -797,15 +808,15 @@ function dismissBankingAlert() {
 .cc-chip--on { border-color: var(--brand); background: rgba(37,99,235,0.12); color: var(--brand); }
 .cc-chip:hover:not(.cc-chip--on) { border-color: var(--text-muted); color: var(--text-secondary); }
 
-.cc-grid  { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.85rem; }
+.cc-grid  { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; }
 .cc-card  {
     background: var(--bg-base);
     border: 1px solid var(--border);
     border-radius: 14px;
-    padding: 1rem 1.1rem;
+    padding: 1.1rem 1.2rem;
     display: flex;
     flex-direction: column;
-    gap: 0.7rem;
+    gap: 0.75rem;
     transition: border-color 0.2s, transform 0.2s;
 }
 .cc-card:hover { border-color: var(--brand); transform: translateY(-2px); }
@@ -827,7 +838,13 @@ function dismissBankingAlert() {
 .fill-amber  { background: linear-gradient(90deg, #f59e0b, #fde68a); }
 .fill-red    { background: #ef4444; }
 .cc-pct      { font-size: 0.68rem; color: var(--text-muted); }
-.cc-no-bov   { font-size: 0.75rem; color: var(--text-muted); font-style: italic; margin: 0; }
+.cc-no-bov   { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; color: var(--text-muted); margin: 0; padding: 0.2rem 0; }
+
+/* kg dispatched bar */
+.cc-kg-bar   { display: flex; flex-direction: column; gap: 0.22rem; }
+.cc-kg-track { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.cc-kg-fill  { height: 100%; background: linear-gradient(90deg, var(--brand), color-mix(in srgb, var(--brand) 55%, transparent)); border-radius: 3px; transition: width 0.9s cubic-bezier(0.16,1,0.3,1); }
+.cc-kg-label { font-size: 0.68rem; color: var(--text-muted); }
 
 /* ═══ VENTAS MOBILE CARDS ════════════════════════════════════════════════════ */
 .hide-sm { display: block; }
