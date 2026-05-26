@@ -326,7 +326,7 @@ function dismissBankingAlert() {
             </div>
 
             <!-- ─── Rendimiento por Canal ─────────────────────────────────────── -->
-            <section v-if="canales.length || loadingCanales" class="canal-section">
+            <section v-if="canales.length > 0" class="canal-section">
                 <h2 class="canal-title">
                     <BarChart2 :size="18" /> Rendimiento por Canal
                 </h2>
