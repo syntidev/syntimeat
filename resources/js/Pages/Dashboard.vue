@@ -203,6 +203,16 @@ const helpSteps = [
         body:  'El panel "Top productos del día" muestra los artículos más vendidos con barras proporcionales — el #1 siempre llega al 100% y los demás se muestran en relación a él. Las "Últimas ventas" muestran los tickets más recientes: número de ticket, hora, total en USD y Bs., método de pago y estado (pagado).',
         tip:   'El ranking de productos cambia en tiempo real a medida que la cajera va cobrando.',
     },
+    {
+        title: 'Rendimiento por Canal — cómo leer el widget',
+        body:  'Este widget muestra el balance de cada canal de carne por separado. "Vendido" es lo que ya se cobró hoy. "Utilidad real" es la ganancia efectiva (vendido menos costo de compra). "Remanente" es el stock que surtiste desde bóveda pero que aún no se ha vendido — si queda al cierre, pasa a mañana. "Util. potencial" es cuánto ganarías si vendes todo el remanente al precio actual. La barra de progreso de cada producto muestra cuántos kilogramos se vendieron del total disponible: si dice "15 / 20 kg", se vendieron 15 de los 20 que tenías.',
+        tip:   'Un remanente alto al final del día no es necesariamente malo — significa que tienes stock para mañana. Pero si se repite varios días, conviene ajustar la cantidad que surtiste.',
+    },
+    {
+        title: 'Checkboxes de canal y número en ámbar',
+        body:  'Cada canal tiene un checkbox arriba. Activarlo o desactivarlo solo cambia qué canales se incluyen en el análisis del widget — no deshace ninguna venta ni modifica el inventario. El número en ámbar que dice "X kg disponibles mañana" es el remanente acumulado: la cantidad de ese canal que pasó al día siguiente sin venderse. Si el número crece día a día, hay más stock disponible del que se está vendiendo.',
+        tip:   'Usa los checkboxes para comparar canales específicos, por ejemplo solo Res vs Cerdo, sin que los demás distorsionen el análisis.',
+    },
 ]
 
 const helpFaqs = [
@@ -365,7 +375,7 @@ function dismissBankingAlert() {
                                     </div>
                                     <div class="prod-nums">
                                         <span class="prod-sold">${{ prod.ingresos_usd.toFixed(2) }} vendido</span>
-                                        <span class="prod-kg-info">{{ prod.kg_vendido_hoy.toFixed(2) }}/{{ (prod.kg_despiece ?? 0).toFixed(2) }} kg</span>
+                                        <span class="prod-kg-info">{{ prod.kg_vendido_hoy.toFixed(2) }} vendido / {{ (prod.kg_despiece ?? 0).toFixed(2) }} kg total</span>
                                     </div>
                                     <div v-if="prod.kg_remanente > 0" class="prod-rem-big">
                                         {{ prod.kg_remanente.toFixed(2) }} kg disponibles mañana →
