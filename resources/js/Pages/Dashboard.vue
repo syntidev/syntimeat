@@ -354,13 +354,23 @@ function dismissBankingAlert() {
                                     @change="toggleProd(canal.boveda_entry_id, prod.product_id)"
                                     title="Incluir en análisis"
                                 />
-                                <span class="prod-nombre">{{ prod.nombre }}</span>
-                                <span class="prod-kg">{{ prod.kg_vendido_hoy.toFixed(2) }} kg</span>
-                                <span class="prod-usd">${{ prod.ingresos_usd.toFixed(2) }}</span>
-                                <span v-if="prod.kg_remanente > 0" class="prod-rem">
-                                    +{{ prod.kg_remanente.toFixed(2) }}kg rem.
-                                    <span class="rem-label">stock disponible próximo día</span>
-                                </span>
+                                <div class="prod-body">
+                                    <span class="prod-name">{{ prod.nombre }}</span>
+                                    <div class="prod-bar-wrap">
+                                        <div
+                                            class="prod-bar-fill"
+                                            :class="prod.kg_vendido_hoy === 0 ? 'prod-bar-fill--zero' : ''"
+                                            :style="{ width: prod.kg_despiece > 0 ? Math.min(100, prod.kg_vendido_hoy / prod.kg_despiece * 100) + '%' : '0%' }"
+                                        />
+                                    </div>
+                                    <div class="prod-nums">
+                                        <span class="prod-sold">${{ prod.ingresos_usd.toFixed(2) }} vendido</span>
+                                        <span class="prod-kg-info">{{ prod.kg_vendido_hoy.toFixed(2) }}/{{ (prod.kg_despiece ?? 0).toFixed(2) }} kg</span>
+                                    </div>
+                                    <div v-if="prod.kg_remanente > 0" class="prod-rem-big">
+                                        {{ prod.kg_remanente.toFixed(2) }} kg disponibles mañana →
+                                    </div>
+                                </div>
                             </label>
                         </div>
 
@@ -1124,11 +1134,18 @@ function dismissBankingAlert() {
 .canal-tipo { font-weight: 700; color: var(--brand); }
 .canal-fecha { color: var(--text-muted); }
 .canal-costo { margin-left: auto; color: var(--text-muted); }
-.canal-productos { display: flex; flex-direction: column; }
-.canal-prod-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 0.82rem; cursor: pointer; }
-.prod-nombre { flex: 1; color: var(--text-primary); }
-.prod-kg, .prod-usd { color: var(--text-muted); min-width: 60px; text-align: right; font-variant-numeric: tabular-nums; }
-.prod-rem { color: #f59e0b; font-size: 0.75rem; }
+.canal-productos { display: flex; flex-direction: column; gap: 10px; }
+.canal-prod-row { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; cursor: pointer; }
+.canal-prod-row input[type="checkbox"] { margin-top: 4px; flex-shrink: 0; }
+.prod-body { flex: 1; min-width: 0; }
+.prod-name { font-size: 1rem; font-weight: 600; color: var(--text-primary); display: block; }
+.prod-bar-wrap { height: 6px; background: var(--bg-elevated); border-radius: 3px; margin: 4px 0; overflow: hidden; }
+.prod-bar-fill { height: 100%; border-radius: 3px; background: var(--brand); transition: width 0.4s ease; }
+.prod-bar-fill--zero { background: var(--border); }
+.prod-nums { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.prod-sold { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.prod-kg-info { font-size: 0.78rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.prod-rem-big { font-size: 1rem; font-weight: 600; color: var(--amber); margin-top: 2px; }
 .canal-footer { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
 .canal-stat { display: flex; flex-direction: column; gap: 2px; font-size: 0.78rem; }
 .canal-stat span { color: var(--text-muted); }
@@ -1141,5 +1158,4 @@ function dismissBankingAlert() {
 .canal-margen-label { font-size: 0.72rem; color: var(--text-muted); }
 .canal-loading { color: var(--text-muted); padding: 1rem; text-align: center; font-size: 0.86rem; }
 .badge-manana { font-size: 0.7rem; color: var(--amber); background: rgba(251,191,36,0.12); padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
-.rem-label { font-size: 0.68rem; color: var(--text-muted); display: block; }
 </style>
