@@ -228,6 +228,35 @@ function canalVendido(canal) {
 function canalUtilidad(canal) {
     return canalVendido(canal) - canal.costo_usd
 }
+
+// ─── Períodos rápidos ─────────────────────────────────────────────────────────
+const activePeriod = ref('')
+
+function setPeriod(key) {
+    const today = new Date()
+    const fmt   = d => d.toISOString().split('T')[0]
+    if (key === 'hoy') {
+        fechas.desde = fmt(today)
+        fechas.hasta = fmt(today)
+    } else if (key === 'semana') {
+        const mon = new Date(today)
+        mon.setDate(today.getDate() - ((today.getDay() + 6) % 7))
+        fechas.desde = fmt(mon)
+        fechas.hasta = fmt(today)
+    } else if (key === 'mes') {
+        fechas.desde = fmt(new Date(today.getFullYear(), today.getMonth(), 1))
+        fechas.hasta = fmt(today)
+    } else if (key === 'trimestre') {
+        const q = Math.floor(today.getMonth() / 3)
+        fechas.desde = fmt(new Date(today.getFullYear(), q * 3, 1))
+        fechas.hasta = fmt(today)
+    } else if (key === 'anio') {
+        fechas.desde = fmt(new Date(today.getFullYear(), 0, 1))
+        fechas.hasta = fmt(today)
+    }
+    activePeriod.value = key
+    loadData()
+}
 </script>
 
 <template>
@@ -245,6 +274,21 @@ function canalUtilidad(canal) {
                     </p>
                 </div>
                 <div class="emp-controls">
+                    <div class="period-row">
+                        <button
+                            v-for="p in [
+                                { key: 'hoy',       label: 'Hoy' },
+                                { key: 'semana',    label: 'Semana' },
+                                { key: 'mes',       label: 'Mes' },
+                                { key: 'trimestre', label: 'Trimestre' },
+                                { key: 'anio',      label: 'Año' },
+                            ]"
+                            :key="p.key"
+                            class="period-btn"
+                            :class="{ 'period-btn--active': activePeriod === p.key }"
+                            @click="setPeriod(p.key)"
+                        >{{ p.label }}</button>
+                    </div>
                     <div class="date-row">
                         <div class="filter-group">
                             <label class="filter-label">Desde</label>
@@ -1029,4 +1073,10 @@ function canalUtilidad(canal) {
 .canal-progress-fill { height: 100%; background: var(--brand); border-radius: 2px; transition: width 0.5s ease; }
 .canal-margen-label { font-size: 0.72rem; color: var(--text-muted); }
 .canal-loading { color: var(--text-muted); padding: 1rem; text-align: center; }
+
+/* ── Períodos rápidos ────────────────────────────────────────────────────── */
+.period-row { display: flex; gap: 4px; flex-wrap: wrap; }
+.period-btn { padding: 0.25rem 0.6rem; font-size: 0.75rem; font-weight: 600; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--text-muted); cursor: pointer; transition: border-color 0.15s, color 0.15s, background 0.15s; white-space: nowrap; line-height: 1.6; }
+.period-btn:hover { border-color: var(--brand); color: var(--brand); }
+.period-btn--active { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 12%, transparent); color: var(--brand); }
 </style>
