@@ -408,7 +408,9 @@ const successClient   = ref({ name: '', phone: '' });  // snapshot del cliente
 
 // payCanConfirm depende del origen: delivery/credit no necesitan pagos
 const payCanConfirm = computed(() => {
-    if (saleOrigin.value === 'delivery' || saleOrigin.value === 'credit') return true;
+    if (saleOrigin.value === 'delivery' || saleOrigin.value === 'credit') {
+        return clientName.value.trim().length > 0;
+    }
     return payments.value.length > 0 && payRestBs.value <= 0;
 });
 
@@ -1314,6 +1316,10 @@ const helpFaqs = [
                                 <input v-model="clientPhone" type="tel" class="pay-amount-input" maxlength="30" placeholder="Teléfono (opcional)" style="margin-top:0.4rem;" />
                             </div>
                         </div>
+                        <p
+                            v-if="(saleOrigin === 'credit' || saleOrigin === 'delivery') && !clientName.trim()"
+                            class="client-required-hint"
+                        >Requerido para créditos y delivery</p>
                     </div>
 
                     <!-- ── Columna derecha: métodos de pago ── -->
@@ -2554,4 +2560,11 @@ const helpFaqs = [
 }
 .scanner-toast-enter-active, .scanner-toast-leave-active { transition: opacity 0.2s, transform 0.2s; }
 .scanner-toast-enter-from,   .scanner-toast-leave-to     { opacity: 0; transform: translateY(-4px); }
+
+.client-required-hint {
+    font-size: 0.72rem;
+    color: var(--amber);
+    margin: 0.25rem 0 0;
+    padding: 0 0.25rem;
+}
 </style>

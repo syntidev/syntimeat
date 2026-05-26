@@ -121,6 +121,8 @@ class SaleController extends Controller
             'items.*.quantity_value' => ['sometimes', 'numeric', 'min:0.001'],
             'origin'                 => ['sometimes', 'string', 'in:onsite,delivery,credit'],
             'channel'                => ['sometimes', 'string', 'in:physical,online'],
+            'client_name'            => ['required_if:origin,credit,delivery', 'nullable', 'string', 'max:100'],
+            'client_phone'           => ['nullable', 'string', 'max:30'],
         ]);
 
         $user       = Auth::user();
@@ -290,7 +292,7 @@ class SaleController extends Controller
 
         $status  = $origin === 'delivery' ? 'pending' : 'open';
 
-        $sale = DB::transaction(function () use ($businessId, $user, $ticketNumber, $totalUsd, $totalBs, $itemsToCreate, $origin, $channel, $status) {
+        $sale = DB::transaction(function () use ($businessId, $user, $ticketNumber, $totalUsd, $totalBs, $itemsToCreate, $origin, $channel, $status, $data) {
             $sale = Sale::create([
                 'business_id'   => $businessId,
                 'branch_id'     => $user->branch_id,
@@ -301,6 +303,8 @@ class SaleController extends Controller
                 'cashier_id'    => $user->id,
                 'origin'        => $origin,
                 'channel'       => $channel,
+                'client_name'   => $data['client_name']  ?? null,
+                'client_phone'  => $data['client_phone'] ?? null,
             ]);
 
             foreach ($itemsToCreate as $item) {

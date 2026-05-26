@@ -3892,8 +3892,9 @@ if (! $productoConStock || ! $pm19) {
 } else {
     try {
         $reqCredit19  = makeReq('/sales', 'POST', [
-            'items'  => [['product_id' => $productoConStock->id, 'input_type' => 'weight', 'amount_bs' => 500.0]],
-            'origin' => 'credit',
+            'items'       => [['product_id' => $productoConStock->id, 'input_type' => 'weight', 'amount_bs' => 500.0]],
+            'origin'      => 'credit',
+            'client_name' => '[ST] Cliente Credito F19',
         ]);
         $respCredit19 = $posCtrl->store($reqCredit19);
         $bodyCredit19 = json_decode($respCredit19->getContent(), true);
