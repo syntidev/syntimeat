@@ -456,6 +456,7 @@ class ReportController extends Controller
                 'valor_remanente' => $valorRemanente,
                 'utilidad_total'  => $utilidadTotal,
                 'margen_pct'      => $costoCanal > 0 ? round($utilidadReal / $costoCanal * 100, 1) : 0,
+                'recuperado_pct'  => $costoCanal > 0 ? round(($ingresosTotal / $costoCanal) * 100, 1) : 0,
                 'productos'       => $productos,
             ];
         });

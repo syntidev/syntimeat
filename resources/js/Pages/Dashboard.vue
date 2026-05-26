@@ -411,10 +411,16 @@ function dismissBankingAlert() {
                         <div class="canal-progress-bar">
                             <div
                                 class="canal-progress-fill"
-                                :style="{ width: Math.min(100, canal.margen_pct + 100) + '%' }"
+                                :class="canalVendido(canal) >= canal.costo_usd ? 'canal-progress-fill--pos' : 'canal-progress-fill--neg'"
+                                :style="{ width: Math.min(100, canal.costo_usd > 0 ? (canalVendido(canal) / canal.costo_usd) * 100 : 0) + '%' }"
                             />
                         </div>
-                        <span class="canal-margen-label">{{ canal.margen_pct }}% margen</span>
+                        <span
+                            class="canal-margen-label"
+                            :class="canalVendido(canal) >= canal.costo_usd ? 'canal-pos' : 'canal-neg'"
+                        >
+                            {{ canal.costo_usd > 0 ? ((canalVendido(canal) / canal.costo_usd) * 100).toFixed(1) : '0.0' }}% recuperado del costo
+                        </span>
                     </div>
                 </div>
             </section>
@@ -1157,14 +1163,17 @@ function dismissBankingAlert() {
 .prod-kg-info { font-size: 0.78rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .prod-rem-big { font-size: 1rem; font-weight: 600; color: var(--amber); margin-top: 2px; }
 .canal-footer { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
-.canal-stat { display: flex; flex-direction: column; gap: 2px; font-size: 0.78rem; }
+.canal-stat { display: flex; flex-direction: column; gap: 2px; font-size: 0.8rem; }
 .canal-stat span { color: var(--text-muted); }
-.canal-stat strong { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.canal-stat strong { color: var(--text-primary); font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .canal-pos { color: #22c55e !important; }
 .canal-neg { color: #ef4444 !important; }
 .canal-muted { color: var(--text-muted) !important; }
+.canal-prod-row:not(:last-child) { border-bottom: 1px solid var(--border); padding-bottom: 10px; }
 .canal-progress-bar { height: 4px; background: var(--bg-base); border-radius: 2px; margin-top: 0.75rem; overflow: hidden; }
 .canal-progress-fill { height: 100%; background: var(--brand); border-radius: 2px; transition: width 0.5s ease; }
+.canal-progress-fill--pos { background: var(--green, #22c55e); }
+.canal-progress-fill--neg { background: var(--red, #ef4444); }
 .canal-margen-label { font-size: 0.72rem; color: var(--text-muted); }
 .canal-loading { color: var(--text-muted); padding: 1rem; text-align: center; font-size: 0.86rem; }
 .badge-manana { font-size: 0.7rem; color: var(--amber); background: rgba(251,191,36,0.12); padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
