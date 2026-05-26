@@ -19,6 +19,7 @@ const tab = ref('activas');
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 function fmtKg(v)  { return Number(v || 0).toFixed(3) + ' kg'; }
+function fmtKg2(v) { return Number(v || 0).toFixed(2) + ' kg'; }
 function fmtUsd(v) { return '$ ' + Number(v || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
 function csrfToken() {
@@ -344,7 +345,7 @@ const helpSteps = [
     },
     {
         title: 'Surtir Pollo → directo a vitrina',
-        body: 'Al surtir un Pollo Entero Congelado, el sistema te pregunta si es Tipo A o Tipo B. Selecciona la opción correcta y los kg van directo al inventario de vitrina. El Pollo nunca pasa por Fábrica.',
+        body: 'Al surtir un POLLO - Entero Congelado, el sistema te pregunta si es Tipo A o Tipo B. Selecciona la opción correcta y los kg van directo al inventario de vitrina. El Pollo nunca pasa por Fábrica.',
         tip: 'Tipo A y Tipo B son las dos presentaciones de pollo que manejas en vitrina. Si tienes dudas sobre cuál es cuál, consulta con tu supervisor antes de confirmar.',
     },
     {
@@ -572,11 +573,11 @@ async function deactivateProduct(product) {
                             <tr v-for="e in activas" :key="e.id">
                                 <td>{{ e.description || '—' }}</td>
                                 <td><span class="product-badge">{{ e.product_type }}</span></td>
-                                <td class="num">{{ fmtKg(e.kg_entrada) }}</td>
+                                <td class="num">{{ fmtKg2(e.kg_entrada) }}</td>
                                 <td class="num">{{ fmtUsd(e.costo_usd) }}</td>
-                                <td class="num">{{ fmtKg(e.kg_surtido_vitrina) }}</td>
+                                <td class="num">{{ fmtKg2(e.kg_surtido_vitrina) }}</td>
                                 <td class="num" :class="e.kg_disponible <= 0 ? 'text-muted' : 'text-ok'">
-                                    {{ fmtKg(e.kg_disponible) }}
+                                    {{ fmtKg2(e.kg_disponible) }}
                                 </td>
                                 <td>{{ e.supplier || '—' }}</td>
                                 <td class="date-col">{{ e.entered_at }}</td>
@@ -630,9 +631,9 @@ async function deactivateProduct(product) {
                             <tr v-for="e in historial" :key="e.id" class="row-closed">
                                 <td>{{ e.description || '—' }}</td>
                                 <td><span class="product-badge">{{ e.product_type }}</span></td>
-                                <td class="num">{{ fmtKg(e.kg_entrada) }}</td>
+                                <td class="num">{{ fmtKg2(e.kg_entrada) }}</td>
                                 <td class="num">{{ fmtUsd(e.costo_usd) }}</td>
-                                <td class="num">{{ fmtKg(e.kg_surtido_vitrina) }}</td>
+                                <td class="num">{{ fmtKg2(e.kg_surtido_vitrina) }}</td>
                                 <td>{{ e.supplier || '—' }}</td>
                                 <td class="date-col">{{ e.entered_at }}</td>
                                 <td class="date-col">{{ e.closed_at }}</td>
