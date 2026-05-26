@@ -133,7 +133,9 @@ function changeBranch(branchId) {
 
 // ─── Tasa ─────────────────────────────────────────────────────────────────────
 const tasa = computed(() => page.props.tasa ?? { rate: 40, source: 'fallback', hora: null })
-const isAdmin = computed(() => user.value?.role === 'admin')
+const canEditRate = computed(() =>
+    ['admin', 'owner', 'super_admin', 'branch_admin'].includes(user.value?.role ?? '')
+)
 const showRateModal = ref(false)
 const rateForm = useForm({ rate: '' })
 
@@ -377,13 +379,13 @@ function routeExists(routeName) {
                     <!-- Badge tasa -->
                     <button
                         :class="['rate-badge', tasa.source === 'manual' ? 'rate-badge--manual' : '']"
-                        @click="isAdmin ? showRateModal = true : null"
-                        :style="isAdmin ? '' : 'cursor:default'"
-                        :title="isAdmin ? 'Cambiar tasa manualmente' : 'Tasa del día'"
+                        @click="canEditRate ? showRateModal = true : null"
+                        :style="canEditRate ? '' : 'cursor:default'"
+                        :title="canEditRate ? 'Cambiar tasa manualmente' : 'Tasa del día'"
                     >
                         <span class="rate-badge__value">Bs. {{ tasa.rate.toFixed(2) }}</span>
                         <span class="rate-badge__src">{{ sourceLabel(tasa.source) }}</span>
-                        <svg v-if="isAdmin" xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="opacity:0.6">
+                        <svg v-if="canEditRate" xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="opacity:0.6">
                             <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
                         </svg>
                     </button>

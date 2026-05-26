@@ -459,6 +459,18 @@ class CashRegisterController extends Controller
             ? round($amountBs / $rate, 4)
             : 0.0;
 
+        if ($data['type'] === 'out') {
+            $inflows  = (float) $cashRegister->movements()->where('type', 'in')->sum('amount_bs');
+            $outflows = (float) $cashRegister->movements()->where('type', 'out')->sum('amount_bs');
+            $saldo    = (float) $cashRegister->opening_amount_bs + $inflows - $outflows;
+
+            if ($amountBs > $saldo) {
+                return back()->withErrors([
+                    'amount_bs' => 'El retiro (Bs. ' . number_format($amountBs, 2) . ') supera el saldo disponible (Bs. ' . number_format($saldo, 2) . ').',
+                ]);
+            }
+        }
+
         $cashRegister->movements()->create([
             'type'       => $data['type'],
             'amount_usd' => $amountUsd,
