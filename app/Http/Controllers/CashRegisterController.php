@@ -458,13 +458,13 @@ class CashRegisterController extends Controller
 
     // ─── Movimiento manual (retiro / ingreso) ─────────────────────────────────
 
-    public function movement(Request $request, CashRegister $cashRegister): RedirectResponse
+    public function movement(Request $request, CashRegister $register): RedirectResponse
     {
         $user       = Auth::user();
         $businessId = $user->business->id;
 
-        abort_unless((int) $cashRegister->business_id === (int) $businessId, 403);
-        abort_unless($cashRegister->closed_at === null, 422, 'La caja ya está cerrada.');
+        abort_unless((int) $register->business_id === (int) $businessId, 403);
+        abort_unless($register->closed_at === null, 422, 'La caja ya está cerrada.');
 
         $data = $request->validate([
             'type'      => ['required', 'string', 'in:in,out'],
@@ -479,9 +479,9 @@ class CashRegisterController extends Controller
             : 0.0;
 
         if ($data['type'] === 'out') {
-            $inflows  = (float) $cashRegister->movements()->where('type', 'in')->sum('amount_bs');
-            $outflows = (float) $cashRegister->movements()->where('type', 'out')->sum('amount_bs');
-            $saldo    = (float) $cashRegister->opening_amount_bs + $inflows - $outflows;
+            $inflows  = (float) $register->movements()->where('type', 'in')->sum('amount_bs');
+            $outflows = (float) $register->movements()->where('type', 'out')->sum('amount_bs');
+            $saldo    = (float) $register->opening_amount_bs + $inflows - $outflows;
 
             if ($amountBs > $saldo) {
                 $mensaje = 'El retiro (Bs. ' . number_format($amountBs, 2) . ') supera el saldo disponible (Bs. ' . number_format($saldo, 2) . ').';
@@ -494,7 +494,7 @@ class CashRegisterController extends Controller
             }
         }
 
-        $cashRegister->movements()->create([
+        $register->movements()->create([
             'type'       => $data['type'],
             'amount_usd' => $amountUsd,
             'amount_bs'  => $amountBs,
@@ -507,7 +507,7 @@ class CashRegisterController extends Controller
             'user_id'     => $user->id,
             'action'      => 'caja.movimiento',
             'model_type'  => CashRegister::class,
-            'model_id'    => $cashRegister->id,
+            'model_id'    => $register->id,
             'new_values'  => [
                 'tipo'   => $data['type'],
                 'monto'  => $data['amount_bs'],
