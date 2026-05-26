@@ -81,6 +81,11 @@ const helpSteps = [
         tip:   'Activa solo lo que sea útil para tu cliente. Un ticket más corto se imprime más rápido y es más fácil de leer.',
     },
     {
+        title: 'Campos adicionales de identificación',
+        body:  'Puedes activar cuatro campos extra que aparecen en el encabezado o pie del ticket: RIF del negocio (número fiscal del establecimiento), Nombre del cajero (quién procesó la venta), Tasa BCV del día (referencia cambiaria al momento del cobro) y Método de pago (cómo pagó el cliente: Efectivo, Pago Móvil, etc.). Todos están desactivados por defecto — actívalos con el toggle si los necesitas.',
+        tip:   'El nombre del cajero y la tasa BCV son útiles para auditoría y control interno. El cliente generalmente no necesita verlos.',
+    },
+    {
         title: 'Vista previa en tiempo real',
         body:  'La columna derecha muestra exactamente cómo se verá el ticket al confirmar una venta. Cada cambio que hagas en el formulario se refleja de inmediato en la vista previa.',
         tip:   'Guarda los cambios con el botón inferior. Los cambios aplican a todos los tickets nuevos — los tickets ya emitidos no se modifican.',

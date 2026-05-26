@@ -334,7 +334,7 @@ const showHelp = ref(false);
 const helpSteps = [
     {
         title: 'Tipos de entrada en Bóveda',
-        body: 'Registra toda carne que llega al almacenamiento frío. Hay cuatro tipos: Res - Medio Canal (pasa a despiece en Fábrica), Pollo - Entero Congelado (va directo a vitrina al surtir), Cerdo - Canal (pasa a despiece en Fábrica), y Otro (libre) para cualquier producto diferente que también va directo a vitrina.',
+        body: 'Registra toda carne que llega al almacenamiento frío. Hay cuatro tipos: RES - Medio Canal (pasa a despiece en Fábrica), POLLO - Entero Congelado (va directo a vitrina al surtir), CERDO - Canal (pasa a despiece en Fábrica), y Otro (libre) para cualquier producto diferente que también va directo a vitrina.',
         tip: 'El tipo que selecciones determina si la pieza pasa por Fábrica o va directo a vitrina. Selecciónalo bien antes de guardar.',
     },
     {
@@ -367,11 +367,11 @@ const helpSteps = [
 const helpFaqs = [
     {
         q: '¿Cuándo va a Fábrica y cuándo va directo a vitrina?',
-        a: 'La Res (Medio Canal) y el Cerdo (Canal) van a Fábrica porque hay que documentar los cortes. El Pollo Entero Congelado y los productos "Otro (libre)" van directo al inventario de vitrina sin pasar por Fábrica.',
+        a: 'RES - Medio Canal y CERDO - Canal van a Fábrica porque hay que documentar los cortes. POLLO - Entero Congelado y los productos "Otro (libre)" van directo al inventario de vitrina sin pasar por Fábrica.',
     },
     {
         q: '¿Por qué al surtir el Pollo me pregunta Tipo A o Tipo B?',
-        a: 'El Pollo Entero Congelado tiene dos presentaciones en vitrina. El sistema necesita saber a cuál de las dos abonar los kg. Si no estás seguro de cuál es cuál, consulta el catálogo o con tu supervisor antes de confirmar.',
+        a: 'POLLO - Entero Congelado tiene dos presentaciones en vitrina. El sistema necesita saber a cuál de las dos abonar los kg. Si no estás seguro de cuál es cuál, consulta el catálogo o con tu supervisor antes de confirmar.',
     },
     {
         q: '¿Qué significa "Quedan sin surtir"?',

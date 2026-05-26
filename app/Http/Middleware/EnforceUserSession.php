@@ -25,8 +25,11 @@ class EnforceUserSession
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            return redirect()->route('login')
-                ->withErrors(['email' => 'Tu cuenta ha sido suspendida. Contacta al administrador.']);
+            return $request->header('X-Inertia')
+                ? response()->json(['message' => 'Session expired'], 409)
+                      ->header('X-Inertia-Location', route('login'))
+                : redirect()->route('login')
+                      ->withErrors(['email' => 'Tu cuenta ha sido suspendida. Contacta al administrador.']);
         }
 
         // ── Sesión única — otro dispositivo inició sesión ─────────────────────
@@ -37,8 +40,11 @@ class EnforceUserSession
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            return redirect()->route('login')
-                ->withErrors(['email' => 'Tu sesión fue iniciada en otro dispositivo.']);
+            return $request->header('X-Inertia')
+                ? response()->json(['message' => 'Session expired'], 409)
+                      ->header('X-Inertia-Location', route('login'))
+                : redirect()->route('login')
+                      ->withErrors(['email' => 'Tu sesión fue iniciada en otro dispositivo.']);
         }
 
         // ── Días habilitados (exento: owner y super_admin) ────────────────────
@@ -51,8 +57,11 @@ class EnforceUserSession
                     $request->session()->invalidate();
                     $request->session()->regenerateToken();
 
-                    return redirect()->route('login')
-                        ->withErrors(['email' => 'Hoy no tienes acceso habilitado al sistema.']);
+                    return $request->header('X-Inertia')
+                        ? response()->json(['message' => 'Session expired'], 409)
+                              ->header('X-Inertia-Location', route('login'))
+                        : redirect()->route('login')
+                              ->withErrors(['email' => 'Hoy no tienes acceso habilitado al sistema.']);
                 }
             }
         }
@@ -78,8 +87,11 @@ class EnforceUserSession
 
                     $label = substr($startStr, 0, 5) . ' – ' . substr($endStr, 0, 5);
 
-                    return redirect()->route('login')
-                        ->withErrors(['email' => "Tu acceso está restringido al horario {$label}."]);
+                    return $request->header('X-Inertia')
+                        ? response()->json(['message' => 'Session expired'], 409)
+                              ->header('X-Inertia-Location', route('login'))
+                        : redirect()->route('login')
+                              ->withErrors(['email' => "Tu acceso está restringido al horario {$label}."]);
                 }
             }
         }

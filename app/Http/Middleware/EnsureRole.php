@@ -21,6 +21,10 @@ class EnsureRole
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();
             }
+            if ($request->header('X-Inertia')) {
+                return response()->json(['message' => 'Forbidden'], 409)
+                    ->header('X-Inertia-Location', route('login'));
+            }
             return redirect()->route('login')
                 ->withErrors(['email' => 'No tienes permiso para acceder a esta sección.']);
         }
