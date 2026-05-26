@@ -126,9 +126,10 @@ class CashRegisterController extends Controller
             ], 422);
         }
 
-        // Bloquear solo si ESTE USUARIO ya tiene una caja abierta
+        // Bloquear solo si ESTE USUARIO ya tiene una caja abierta (admins exentos)
+        $isAdmin     = in_array($user->role, ['super_admin', 'admin', 'owner', 'branch_admin', 'analyst'], true);
         $alreadyOpen = CashRegister::where('business_id', $businessId)
-            ->where('opened_by', $user->id)
+            ->when(! $isAdmin, fn ($q) => $q->where('opened_by', $user->id))
             ->whereNull('closed_at')
             ->exists();
 
@@ -224,7 +225,7 @@ class CashRegisterController extends Controller
         $businessId = $user->business->id;
         $rate       = $this->rates->getTodayRate();
 
-        $isAdmin = in_array(Auth::user()->role, ['admin', 'super_admin', 'owner', 'supervisor'], true);
+        $isAdmin = in_array(Auth::user()->role, ['super_admin', 'admin', 'owner', 'branch_admin', 'analyst'], true);
 
         // Admin ve todas las cajas abiertas; cajero solo la suya
         $cashRegister = CashRegister::with(['movements.creator', 'opener'])
