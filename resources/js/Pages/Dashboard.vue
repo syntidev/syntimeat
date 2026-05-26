@@ -138,34 +138,56 @@ const showHelp = ref(false)
 
 const helpSteps = [
     {
-        title: 'KPIs en tiempo real',
-        body:  'El panel superior muestra ventas del día (USD y Bs.), tickets emitidos y ticket promedio. Los datos se actualizan automáticamente cada 30 segundos sin necesidad de recargar la página.',
-        tip:   'El punto verde parpadeante indica que el dashboard está vivo — no necesitas recargar.',
+        title: 'Ventas del día — la cifra principal',
+        body:  'La tarjeta grande muestra cuánto has vendido hoy. El número grande es en dólares (USD), que es el precio de referencia interno. Debajo aparece el mismo monto convertido a bolívares (Bs.) usando la tasa BCV del día — eso es lo que realmente pagó el cliente. El punto verde parpadeante confirma que los datos están actualizados.',
+        tip:   'El dashboard se refresca solo cada 30 segundos. No necesitas recargar la página.',
     },
     {
-        title: 'Centro de Control por categoría',
-        body:  'Activa o desactiva las categorías con los chips de colores para ver el rendimiento de cada corte: ventas en USD/Bs., kilos despachados y utilidad vs. costo de bóveda activa.',
-        tip:   'El porcentaje "recuperado" te dice cuánto del costo de bóveda ya fue cubierto con ventas. 100% = punto de equilibrio superado.',
+        title: 'Centro de Control — cómo leer cada tarjeta',
+        body:  'Cada tarjeta representa una categoría (Res, Cerdo, Pollo, etc.). "Vendido Bs." es el total cobrado al cliente en bolívares. "Vendido USD" es ese mismo dinero convertido a dólares para tu referencia interna. La barra horizontal muestra los kilogramos despachados hoy en esa categoría. Si hay bóveda activa, también ves el costo de lo que compraste y cuánto has recuperado con las ventas.',
+        tip:   'Activa o desactiva categorías con los botones de filtro para ver solo lo que te interesa. Tu selección se guarda.',
     },
     {
-        title: 'Stock crítico y últimas ventas',
-        body:  'El panel de stock crítico lista productos con inventario bajo o agotado. Las últimas ventas muestran los tickets más recientes del día con monto, método de pago y estado.',
-        tip:   'Si un producto aparece en rojo con "Sin stock", ve a Inventario y registra una entrada antes de que la cajera intente venderlo.',
+        title: '"Sin bóveda activa" vs categoría con bóveda',
+        body:  'Cuando una tarjeta dice "Sin bóveda activa" significa que esa categoría no tiene una entrada abierta en Bóveda — aún no compraste o registraste ese tipo de carne para este ciclo. Cuando sí hay bóveda activa, verás el costo de compra, la utilidad acumulada y la barra de porcentaje recuperado. Llegar al 100% significa que ya cubriste el costo de esa compra con las ventas.',
+        tip:   '💡 Si una categoría siempre dice "Sin bóveda activa", revisa que la entrada en Bóveda esté correctamente registrada y no cerrada.',
+    },
+    {
+        title: 'Stock Crítico — rojo y ámbar',
+        body:  'El panel de Stock Crítico lista productos que necesitan atención. Un punto rojo con etiqueta "Sin stock" significa que el producto está agotado — la cajera no podrá venderlo. Un punto ámbar con etiqueta "Bajo" significa que queda poco inventario y hay que reponer pronto. El contador en rojo parpadeante en el encabezado muestra cuántos productos están en alerta.',
+        tip:   'Si ves un producto en rojo, ve a Inventario y registra una entrada de ese producto antes de continuar vendiendo.',
+    },
+    {
+        title: 'Top Productos y Últimas Ventas',
+        body:  'El panel "Top productos del día" muestra los artículos más vendidos con barras proporcionales — el #1 siempre llega al 100% y los demás se muestran en relación a él. Las "Últimas ventas" muestran los tickets más recientes: número de ticket, hora, total en USD y Bs., método de pago y estado (pagado).',
+        tip:   'El ranking de productos cambia en tiempo real a medida que la cajera va cobrando.',
     },
 ]
 
 const helpFaqs = [
     {
-        q: '¿Cada cuánto se actualiza el dashboard?',
-        a: 'Automáticamente cada 30 segundos. No necesitas recargar la página — el sistema hace la consulta en segundo plano.',
+        q: '¿Por qué algunas categorías muestran $0.00?',
+        a: 'Porque todavía no se ha registrado ninguna venta de esa categoría en el día de hoy. Los datos del Centro de Control solo incluyen ventas pagadas del día actual. Si abriste la caja pero aún no hay ventas de Cerdo, por ejemplo, esa tarjeta mostrará $0.00 hasta que se cobre el primer ticket de ese tipo.',
     },
     {
-        q: '¿Qué significa el porcentaje "recuperado"?',
-        a: 'Es la relación entre lo vendido en esa categoría y el costo total de la bóveda activa. Cuando llega a 100% significa que ya cubriste el costo de la compra con las ventas del día.',
+        q: '¿Qué significa "Sin bóveda activa"?',
+        a: 'Significa que esa categoría no tiene una entrada de compra registrada en Bóveda para este ciclo. Puedes vender igual, pero el sistema no podrá mostrarte la utilidad ni el porcentaje recuperado porque no sabe cuánto costó la compra. Para verlo, registra una entrada en el módulo Bóveda.',
+    },
+    {
+        q: '¿Qué es "Vendido Bs." y qué es "Vendido USD"?',
+        a: '"Vendido Bs." es el total cobrado al cliente en bolívares — lo que realmente entró a la caja. "Vendido USD" es ese mismo monto convertido a dólares usando la tasa BCV, y sirve como referencia interna para comparar con costos. El cliente siempre paga en bolívares; el dólar es solo para que puedas analizar márgenes.',
+    },
+    {
+        q: '¿Qué es el Stock Crítico y por qué parpadea en rojo?',
+        a: 'El Stock Crítico es la lista de productos cuyo inventario está por debajo del mínimo configurado o completamente agotado. El badge rojo parpadeante llama la atención para que no se te pase. Un punto rojo = sin stock (agotado). Un punto ámbar = inventario bajo (hay poco pero algo queda). Si un producto está en rojo, la cajera verá error al intentar venderlo.',
+    },
+    {
+        q: '¿Cada cuánto se actualiza el dashboard?',
+        a: 'Automáticamente cada 30 segundos. No necesitas recargar la página — el sistema consulta los datos en segundo plano. El punto verde parpadeante en la tarjeta principal confirma que está activo.',
     },
     {
         q: '¿Los filtros de categoría del Centro de Control se guardan?',
-        a: 'Sí. Tu selección se guarda en el navegador y se mantiene entre sesiones en el mismo dispositivo.',
+        a: 'Sí. Tu selección de categorías visibles se guarda en este dispositivo y se mantiene entre sesiones. Si desactivas "Víveres" hoy, mañana seguirá desactivado en este mismo equipo.',
     },
 ]
 

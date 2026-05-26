@@ -21,6 +21,10 @@ const form = useForm({
     show_address:       props.prefs.show_address       ?? true,
     show_phone:         props.prefs.show_phone         ?? false,
     show_client:        props.prefs.show_client        ?? true,
+    show_rif:           props.prefs.show_rif           ?? false,
+    show_cajero:        props.prefs.show_cajero        ?? false,
+    show_tasa:          props.prefs.show_tasa          ?? false,
+    show_metodo_pago:   props.prefs.show_metodo_pago   ?? false,
     footer_text:        props.prefs.footer_text        ?? '',
     ticket_prefix:      props.prefs.ticket_prefix      ?? 'VEN',
 })
@@ -226,12 +230,48 @@ const helpFaqs = [
                                     </div>
                                 </label>
                             </div>
-                            <div class="tkt-toggle-row" style="border-bottom: none; padding-bottom: 0;">
+                            <div class="tkt-toggle-row">
                                 <label class="tkt-toggle">
                                     <input type="checkbox" v-model="form.show_client" class="tkt-chk" />
                                     <div>
                                         <span class="tkt-toggle-label">Datos del cliente</span>
                                         <p class="tkt-toggle-hint">Muestra el nombre y teléfono del cliente si se ingresaron al cobrar.</p>
+                                    </div>
+                                </label>
+                            </div>
+                            <div class="tkt-toggle-row">
+                                <label class="tkt-toggle">
+                                    <input type="checkbox" v-model="form.show_rif" class="tkt-chk" />
+                                    <div>
+                                        <span class="tkt-toggle-label">RIF del negocio</span>
+                                        <p class="tkt-toggle-hint">Imprime el RIF registrado en Configuración → General.</p>
+                                    </div>
+                                </label>
+                            </div>
+                            <div class="tkt-toggle-row">
+                                <label class="tkt-toggle">
+                                    <input type="checkbox" v-model="form.show_cajero" class="tkt-chk" />
+                                    <div>
+                                        <span class="tkt-toggle-label">Nombre del cajero</span>
+                                        <p class="tkt-toggle-hint">Muestra el nombre del usuario que procesó la venta.</p>
+                                    </div>
+                                </label>
+                            </div>
+                            <div class="tkt-toggle-row">
+                                <label class="tkt-toggle">
+                                    <input type="checkbox" v-model="form.show_tasa" class="tkt-chk" />
+                                    <div>
+                                        <span class="tkt-toggle-label">Tasa BCV del día</span>
+                                        <p class="tkt-toggle-hint">Imprime la tasa de cambio usada al momento de la venta.</p>
+                                    </div>
+                                </label>
+                            </div>
+                            <div class="tkt-toggle-row" style="border-bottom: none; padding-bottom: 0;">
+                                <label class="tkt-toggle">
+                                    <input type="checkbox" v-model="form.show_metodo_pago" class="tkt-chk" />
+                                    <div>
+                                        <span class="tkt-toggle-label">Método de pago</span>
+                                        <p class="tkt-toggle-hint">Imprime el método de pago utilizado (Efectivo, Transferencia, etc.).</p>
                                     </div>
                                 </label>
                             </div>
@@ -316,8 +356,11 @@ const helpFaqs = [
                         </div>
                         <div v-if="form.show_address && business.address" class="tkt-prev-sub">{{ business.address }}</div>
                         <div v-if="form.show_phone && business.phone" class="tkt-prev-sub">Tel: {{ business.phone }}</div>
+                        <div v-if="form.show_rif && business.rif" class="tkt-prev-sub">RIF: {{ business.rif }}</div>
                         <div class="tkt-prev-sub">Ticket: {{ form.ticket_prefix }}-0001</div>
                         <div class="tkt-prev-sub">07/05/2026 18:48 · Caja Principal</div>
+                        <div v-if="form.show_cajero" class="tkt-prev-sub">Cajero: Demo Cajera</div>
+                        <div v-if="form.show_tasa" class="tkt-prev-sub">Tasa: Bs. 530,50/USD</div>
                         <div v-if="form.show_client" class="tkt-prev-sub">Cliente: Juan Pérez · 0424-0000000</div>
 
                         <hr class="tkt-prev-sep" />
@@ -344,7 +387,7 @@ const helpFaqs = [
                             <span>TOTAL:</span>
                             <span>{{ previewTotal }}</span>
                         </div>
-                        <div class="tkt-prev-sub" style="margin-top:0.2rem">Método: Efectivo</div>
+                        <div v-if="form.show_metodo_pago" class="tkt-prev-sub" style="margin-top:0.2rem">Pago: Efectivo</div>
 
                         <div v-if="form.footer_text" class="tkt-prev-footer">{{ form.footer_text }}</div>
                     </div>

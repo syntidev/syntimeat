@@ -544,16 +544,19 @@ class ReportController extends Controller
             ->with(['items.product.category'])
             ->get(['id', 'rate_used']);
 
-        $avgCosts = InventoryEntry::where('business_id', $businessId)
-            ->whereNotNull('cost_per_kg_usd')
-            ->where('cost_per_kg_usd', '>', 0)
+        // Costo real: costo total bóveda del día / kg totales entrada
+        $bovedaDia = DB::table('boveda_entries')
+            ->where('business_id', $businessId)
             ->whereDate('entered_at', '<=', $fecha)
-            ->selectRaw('product_id, cost_per_kg_usd as avg_cost, MAX(entered_at) as last_entry')
-            ->groupBy('product_id', 'cost_per_kg_usd')
-            ->orderBy('last_entry', 'desc')
-            ->get()
-            ->unique('product_id')
-            ->pluck('avg_cost', 'product_id');
+            ->whereNotNull('costo_usd')
+            ->where('costo_usd', '>', 0)
+            ->where('kg_entrada', '>', 0)
+            ->selectRaw('SUM(costo_usd) as total_costo, SUM(kg_entrada) as total_kg')
+            ->first();
+
+        $costoPorKgGlobal = ($bovedaDia && (float) $bovedaDia->total_kg > 0)
+            ? (float) $bovedaDia->total_costo / (float) $bovedaDia->total_kg
+            : 0.0;
 
         $byCat  = [];
         $byProd = [];
@@ -579,29 +582,29 @@ class ReportController extends Controller
                     ];
                 }
 
-                $subtotalUsd   = (float) $item->subtotal_usd;
-                $costProductId = $item->product?->stock_product_id ?? $item->product_id;
-                $costPerKg     = (float) ($avgCosts[$costProductId] ?? 0);
-                $qty           = (float) $item->quantity_value;
+                $subtotalUsd = (float) $item->subtotal_usd;
+                $qty         = (float) $item->quantity_value;
 
                 $byCat[$catId]['vendido_usd'] += $subtotalUsd;
                 $byCat[$catId]['vendido_bs']  += $subtotalUsd * $rate;
-                $byCat[$catId]['costo_usd']   += $costPerKg * $qty;
-                $byCat[$catId]['costo_bs']    += $costPerKg * $qty * $rate;
+                $byCat[$catId]['costo_usd']   += $costoPorKgGlobal * $qty;
+                $byCat[$catId]['costo_bs']    += $costoPorKgGlobal * $qty * $rate;
 
                 $prodId   = $item->product_id;
                 $prodName = $item->product?->name ?? 'Sin nombre';
                 if (!isset($byProd[$catId][$prodId])) {
                     $byProd[$catId][$prodId] = [
                         'producto'    => $prodName,
+                        'kg'          => 0.0,
                         'vendido_usd' => 0.0,
                         'vendido_bs'  => 0.0,
                         'costo_usd'   => 0.0,
                     ];
                 }
+                $byProd[$catId][$prodId]['kg']          += $qty;
                 $byProd[$catId][$prodId]['vendido_usd'] += $subtotalUsd;
                 $byProd[$catId][$prodId]['vendido_bs']  += $subtotalUsd * $rate;
-                $byProd[$catId][$prodId]['costo_usd']   += $costPerKg * $qty;
+                $byProd[$catId][$prodId]['costo_usd']   += $costoPorKgGlobal * $qty;
             }
         }
 
@@ -620,7 +623,17 @@ class ReportController extends Controller
                 'utilidad_usd' => round($utilidadUsd, 2),
                 'utilidad_bs'  => round($utilidadBs, 2),
                 'margen_pct'   => $margen,
-                'productos'    => collect($byProd[$catId] ?? [])->values()->all(),
+                'productos'    => collect($byProd[$catId] ?? [])
+                    ->map(fn (array $p): array => [
+                        'producto'    => $p['producto'],
+                        'kg'          => round($p['kg'], 3),
+                        'vendido_usd' => round($p['vendido_usd'], 2),
+                        'vendido_bs'  => round($p['vendido_bs'], 2),
+                        'costo_usd'   => round($p['costo_usd'], 2),
+                    ])
+                    ->sortByDesc('vendido_usd')
+                    ->values()
+                    ->all(),
             ];
         })->values()->all();
 

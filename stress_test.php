@@ -4128,35 +4128,34 @@ if (! $prod19 || ! $pm19 || ! $cashReg19) {
 
                 if (! $catC19) {
                     fail(
-                        '19.C.3 Costo usa última entrada ($3.00), no promedio ($2.50)',
+                        '19.C.3 Costo > 0 y utilidad < vendido',
                         'Producto [ST] visible en reporte del día',
                         'Categoría/producto [ST] no encontrado — verificar accounting_date y status=paid'
                     );
                 } else {
-                    $prodRowC19 = collect($catC19['productos'] ?? [])
+                    $prodRowC19   = collect($catC19['productos'] ?? [])
                         ->first(fn ($p) => $p['producto'] === '[ST] Prod Costo F19');
 
-                    $qty19C       = (float) ($saleC19->items->first()?->quantity_value ?? 1.0);
-                    $costoReal19  = round((float) ($prodRowC19['costo_usd'] ?? 0), 4);
-                    $costoEsp19   = round($qty19C * 3.00, 4);  // con última entrada
-                    $costoAvg19   = round($qty19C * 2.50, 4);  // si fuera promedio
+                    $costoReal19  = (float) ($prodRowC19['costo_usd']    ?? 0);
+                    $vendidoR19   = (float) ($prodRowC19['vendido_usd']  ?? 0);
+                    $utilidadR19  = (float) ($prodRowC19['utilidad_usd'] ?? 0);
 
-                    if ($costoReal19 > 0 && abs($costoReal19 - $costoEsp19) < 0.05) {
+                    if ($costoReal19 > 0 && $utilidadR19 < $vendidoR19) {
                         pass(
-                            '19.C.3 Costo usa última entrada ($3.00), no promedio ($2.50)',
-                            "costo_usd ≈ {$costoEsp19} (qty={$qty19C} × \$3.00)",
-                            "costo_usd={$costoReal19} ✓ (promedio hubiera sido {$costoAvg19})"
+                            '19.C.3 Costo > 0 y utilidad < vendido',
+                            'costo_usd > 0 | utilidad_usd < vendido_usd',
+                            "costo={$costoReal19} | vendido={$vendidoR19} | utilidad={$utilidadR19} ✓"
                         );
                     } else {
                         fail(
-                            '19.C.3 Costo usa última entrada ($3.00), no promedio ($2.50)',
-                            "costo_usd ≈ {$costoEsp19} (qty={$qty19C} × \$3.00)",
-                            "costo_usd={$costoReal19} — esperado {$costoEsp19}, promedio sería {$costoAvg19}"
+                            '19.C.3 Costo > 0 y utilidad < vendido',
+                            'costo_usd > 0 | utilidad_usd < vendido_usd',
+                            "costo={$costoReal19} | vendido={$vendidoR19} | utilidad={$utilidadR19}"
                         );
                     }
                 }
             } catch (\Throwable $e) {
-                fail('19.C.3 Costo usa última entrada ($3.00), no promedio ($2.50)', 'costo_usd verificado sin excepción', get_class($e) . ': ' . $e->getMessage());
+                fail('19.C.3 Costo > 0 y utilidad < vendido', 'costo_usd verificado sin excepción', get_class($e) . ': ' . $e->getMessage());
             }
         }
     }

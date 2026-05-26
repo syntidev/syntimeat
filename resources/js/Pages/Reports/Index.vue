@@ -2,6 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue'
 import HelpModal from '@/Components/HelpModal.vue'
 import { ref, computed, reactive, watch } from 'vue'
+import { ChevronDown, ChevronRight } from '@lucide/vue'
 import axios from 'axios'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -473,7 +474,10 @@ const helpFaqs = [
                                 <template v-for="row in dayData.categories" :key="row.categoria">
                                 <tr class="cat-row" style="cursor:pointer" @click="toggleCat(row.categoria)">
                                     <td>
-                                        <span class="cat-toggle">{{ expandedCats.has(row.categoria) ? '▼' : '▶' }}</span>
+                                        <span class="cat-toggle-icon">
+                                            <ChevronDown v-if="expandedCats.has(row.categoria)" :size="14" />
+                                            <ChevronRight v-else :size="14" />
+                                        </span>
                                         {{ row.categoria }}
                                     </td>
                                     <td class="right amount">{{ fmtUsd(row.vendido_usd) }}</td>
@@ -484,7 +488,7 @@ const helpFaqs = [
                                 </tr>
                                 <template v-if="expandedCats.has(row.categoria)">
                                     <tr v-for="p in row.productos" :key="p.producto" class="prod-row">
-                                        <td class="prod-name">↳ {{ p.producto }}</td>
+                                        <td class="prod-name">↳ {{ p.producto }}<span class="prod-kg">{{ fmtKg(p.kg) }}</span></td>
                                         <td class="right amount">{{ fmtUsd(p.vendido_usd) }}</td>
                                         <td class="right muted">{{ fmtBs(p.vendido_bs) }}</td>
                                         <td class="right muted">{{ fmtUsd(p.costo_usd) }}</td>
@@ -791,7 +795,8 @@ const helpFaqs = [
     padding-bottom: 0.6rem !important;
 }
 .cat-row:hover td { background: var(--bg-base); }
-.cat-toggle { display: inline-block; width: 1rem; font-size: 0.65rem; color: var(--text-muted); }
+.cat-toggle-icon { display: inline-flex; align-items: center; width: 1rem; color: var(--text-muted); vertical-align: middle; margin-right: 0.25rem; }
+.prod-kg { display: inline-block; margin-left: 0.5rem; font-size: 0.72rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .prod-row td {
     background: color-mix(in srgb, var(--bg-card) 60%, var(--bg-base));
     font-size: 0.8rem;
