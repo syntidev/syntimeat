@@ -362,7 +362,18 @@ class ReportController extends Controller
 
         $resultado = $canales->map(function ($canal) use ($fecha, $businessId) {
             // Productos del despiece de esta canal
-            $log = \App\Models\DespieceLog::where('boveda_entry_id', $canal->id)->first();
+            $prodBoveda = \App\Models\Product::where('business_id', $businessId)
+                ->where('location', 'boveda')
+                ->where('name', $canal->product_type)
+                ->first();
+
+            $log = $prodBoveda
+                ? \App\Models\DespieceLog::where('business_id', $businessId)
+                    ->where('product_id', $prodBoveda->id)
+                    ->whereDate('processed_at', $fecha)
+                    ->latest()
+                    ->first()
+                : null;
             $despieceItems = $log
                 ? \App\Models\DespieceItem::where('despiece_log_id', $log->id)->with('product')->get()
                 : collect();
