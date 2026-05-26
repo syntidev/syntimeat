@@ -74,9 +74,9 @@ class CashRegisterController extends Controller
                 ->where('status', 'paid')
                 ->sum('total_bs');
 
-            // Movimientos en Bs. (cada movimiento guardó amount_usd con la tasa del momento)
-            $movInBs  = (float) $cashRegister->movements()->where('type', 'in')->sum('amount_usd') * $todayRate;
-            $movOutBs = (float) $cashRegister->movements()->where('type', 'out')->sum('amount_usd') * $todayRate;
+            // Movimientos en Bs. — usar amount_bs guardado, no reconvertir con tasa actual
+            $movInBs  = (float) $cashRegister->movements()->where('type', 'in')->sum('amount_bs');
+            $movOutBs = (float) $cashRegister->movements()->where('type', 'out')->sum('amount_bs');
 
             // Bug fix: usar opening_amount_bs guardado — no reconvertir con tasa actual
             $openingBs   = (float) $cashRegister->opening_amount_bs;
@@ -273,12 +273,9 @@ class CashRegisterController extends Controller
             ])
             ->values();
 
-        $movIn  = (float) $cashRegister->movements->where('type', 'in')->sum('amount_usd');
-        $movOut = (float) $cashRegister->movements->where('type', 'out')->sum('amount_usd');
-
         $openingBs   = (float) $cashRegister->opening_amount_bs;
-        $movInBs     = round($movIn * $rate, 2);
-        $movOutBs    = round($movOut * $rate, 2);
+        $movInBs     = (float) $cashRegister->movements->where('type', 'in')->sum('amount_bs');
+        $movOutBs    = (float) $cashRegister->movements->where('type', 'out')->sum('amount_bs');
 
         // Solo ventas cobradas en efectivo — pago móvil/transferencia no entran a caja
         $ventasEfectivo = (float) DB::table('sale_payments')
@@ -419,8 +416,8 @@ class CashRegisterController extends Controller
 
         $rate = $this->rates->getTodayRate();
 
-        $movInBs  = (float) $cashRegister->movements()->where('type', 'in')->sum('amount_usd') * $rate;
-        $movOutBs = (float) $cashRegister->movements()->where('type', 'out')->sum('amount_usd') * $rate;
+        $movInBs  = (float) $cashRegister->movements()->where('type', 'in')->sum('amount_bs');
+        $movOutBs = (float) $cashRegister->movements()->where('type', 'out')->sum('amount_bs');
 
         // Solo ventas cobradas en efectivo — pago móvil/transferencia no entran a caja
         $ventasBs = (float) DB::table('sale_payments')
