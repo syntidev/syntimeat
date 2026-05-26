@@ -23,6 +23,7 @@ class BovedaEntry extends Model
         'entered_at',
         'closed_at',
         'despiece_completado_at',
+        'pair_id',
     ];
 
     protected function casts(): array

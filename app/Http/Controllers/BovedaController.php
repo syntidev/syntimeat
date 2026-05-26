@@ -100,7 +100,8 @@ class BovedaController extends Controller
             'costo_usd'    => ['required', 'numeric', 'min:0'],
             'supplier'     => ['nullable', 'string', 'max:100'],
             'entered_at'   => ['required', 'date'],
-            'kg_par'       => ['nullable', 'numeric', 'min:0.001'],
+            'kg_par'       => ['nullable', 'numeric', 'min:0.001', 'max:99999'],
+            'costo_usd_par'=> ['nullable', 'numeric', 'min:0'],
         ]);
 
         $businessId = Auth::user()->business_id;
@@ -112,26 +113,6 @@ class BovedaController extends Controller
                 'business_id' => $businessId,
                 ...$data,
             ]);
-
-            // Si viene canal par, marcar Canal 1 y crear Canal 2
-            if ($kgPar !== null) {
-                $pairId = $entry->id;
-                $entry->update([
-                    'pair_id'     => $pairId,
-                    'description' => 'Canal 1',
-                ]);
-
-                $entry2 = BovedaEntry::create([
-                    'business_id'  => $businessId,
-                    'product_type' => $data['product_type'],
-                    'description'  => 'Canal 2',
-                    'kg_entrada'   => $kgPar,
-                    'costo_usd'    => $data['costo_usd'],
-                    'supplier'     => $data['supplier'] ?? null,
-                    'entered_at'   => $data['entered_at'],
-                    'pair_id'      => $pairId,
-                ]);
-            }
 
             // F2: crear espejo en inventory_entries(location=boveda) para trazabilidad.
             // Solo cuando existe un producto de catálogo con ese nombre en location=boveda.
@@ -157,22 +138,50 @@ class BovedaController extends Controller
                     'entered_at'      => $data['entered_at'],
                     'created_by'      => $userId,
                 ]);
+            }
 
-                // InventoryEntry para Canal 2 si aplica
-                if ($kgPar !== null) {
-                    $costoPorKgPar = $kgPar > 0
-                        ? round($data['costo_usd'] / $kgPar, 4)
-                        : null;
+            if (! empty($data['kg_par'])) {
+                $kgTotal    = (float) $data['kg_entrada'] + (float) $data['kg_par'];
+                $costoTotal = (float) $data['costo_usd'] + (float) ($data['costo_usd_par'] ?? 0);
 
+                $entry->update([
+                    'costo_usd' => $kgTotal > 0
+                        ? round($costoTotal * ($data['kg_entrada'] / $kgTotal), 4)
+                        : (float) $data['costo_usd'],
+                ]);
+
+                $entry2 = BovedaEntry::create([
+                    'business_id'  => $businessId,
+                    'product_type' => $data['product_type'],
+                    'description'  => ($data['description'] ?? '') . ' — Pieza 2',
+                    'kg_entrada'   => (float) $data['kg_par'],
+                    'costo_usd'    => $kgTotal > 0
+                        ? round($costoTotal * ($data['kg_par'] / $kgTotal), 4)
+                        : (float) ($data['costo_usd_par'] ?? 0),
+                    'supplier'     => $data['supplier'] ?? null,
+                    'entered_at'   => $data['entered_at'],
+                    'pair_id'      => $entry->id,
+                ]);
+
+                $entry->update(['pair_id' => $entry2->id]);
+
+                $productPar = Product::where('business_id', $businessId)
+                    ->where('location', 'boveda')
+                    ->where('name', $data['product_type'])
+                    ->first();
+
+                if ($productPar !== null) {
                     InventoryEntry::create([
                         'business_id'     => $businessId,
-                        'product_id'      => $product->id,
+                        'product_id'      => $productPar->id,
                         'boveda_entry_id' => $entry2->id,
-                        'quantity_kg'     => $kgPar,
+                        'quantity_kg'     => (float) $data['kg_par'],
                         'waste_kg'        => 0,
-                        'cost_per_kg_usd' => $costoPorKgPar,
+                        'cost_per_kg_usd' => $data['kg_par'] > 0
+                            ? round($entry2->costo_usd / $data['kg_par'], 4)
+                            : null,
                         'location'        => 'boveda',
-                        'notes'           => 'Entrada bóveda #' . $entry2->id . ' (Canal 2)',
+                        'notes'           => 'Entrada bóveda par #' . $entry2->id,
                         'entered_at'      => $data['entered_at'],
                         'created_by'      => $userId,
                     ]);
