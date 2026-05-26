@@ -176,7 +176,7 @@ class CashRegisterController extends Controller
         $user       = Auth::user();
         $businessId = $user->business->id;
 
-        abort_unless($register->business_id === $businessId, 403);
+        abort_unless((int) $register->business_id === (int) $businessId, 403);
         abort_unless($register->closed_at === null, 422, 'La caja ya está cerrada.');
 
         $data = $request->validate([
@@ -400,7 +400,7 @@ class CashRegisterController extends Controller
         $user       = Auth::user();
         $businessId = $user->business->id;
 
-        abort_unless($cashRegister->business_id === $businessId, 403);
+        abort_unless((int) $cashRegister->business_id === (int) $businessId, 403);
         abort_unless($cashRegister->closed_at === null, 422, 'La caja ya está cerrada.');
 
         $data = $request->validate([
@@ -463,7 +463,7 @@ class CashRegisterController extends Controller
         $user       = Auth::user();
         $businessId = $user->business->id;
 
-        abort_unless($cashRegister->business_id === $businessId, 403);
+        abort_unless((int) $cashRegister->business_id === (int) $businessId, 403);
         abort_unless($cashRegister->closed_at === null, 422, 'La caja ya está cerrada.');
 
         $data = $request->validate([
