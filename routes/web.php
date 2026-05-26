@@ -44,7 +44,7 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
     Route::post('/set-branch', function (\Illuminate\Http\Request $r) {
         session(['current_branch_id' => $r->branch_id ?: null]);
         return back();
-    })->name('branch.set');
+    })->name('branch.set')->middleware('role:super_admin,owner,branch_admin');
 
     // ── Todos los roles ───────────────────────────────────────────────────────
     Route::middleware('role:super_admin,admin,owner,branch_admin,supervisor,analyst,cashier')->group(function () {

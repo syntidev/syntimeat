@@ -321,7 +321,7 @@ function routeExists(routeName) {
                     <span class="badge-caja__dot" />
                     Caja abierta
                 </span>
-                <div v-if="branches.length > 0" class="sidebar-branch-picker">
+                <div v-if="branches.length > 0 && ['super_admin','owner','branch_admin'].includes(user.role)" class="sidebar-branch-picker">
                     <span class="branch-picker__label">Sucursal</span>
                     <select class="branch-select" @change="changeBranch($event.target.value)">
                         <option value="">Todas</option>
@@ -353,7 +353,7 @@ function routeExists(routeName) {
                 <h1 class="topbar__title">{{ title }}</h1>
 
                 <!-- Selector de sucursal -->
-                <div v-if="branches.length > 0" class="branch-picker">
+                <div v-if="branches.length > 0 && ['super_admin','owner','branch_admin'].includes(user.role)" class="branch-picker">
                     <span class="branch-picker__label">Sucursal</span>
                     <select class="branch-select" @change="changeBranch($event.target.value)">
                         <option value="">Todas</option>
