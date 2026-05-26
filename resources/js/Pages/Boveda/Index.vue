@@ -57,10 +57,24 @@ const entradaForm = ref({
     entered_at:        localDateTimeString(),
     conCanal2:         false,
     kg_par:            '',
+    costo_usd_par:     '',
 });
 const entradaErrors = ref({});
 const OTRO_LABEL = 'Otro (libre)';
 const isCustomType = computed(() => entradaForm.value.product_type === OTRO_LABEL);
+
+const kgTotal19    = computed(() => (entradaForm.value.kg_entrada || 0) + (entradaForm.value.kg_par || 0))
+const costoTotal19 = computed(() => (entradaForm.value.costo_usd || 0) + (entradaForm.value.costo_usd_par || 0))
+const prorrateo1   = computed(() =>
+    kgTotal19.value > 0
+        ? (costoTotal19.value * ((entradaForm.value.kg_entrada || 0) / kgTotal19.value)).toFixed(2)
+        : '0.00'
+)
+const prorrateo2   = computed(() =>
+    kgTotal19.value > 0
+        ? (costoTotal19.value * ((entradaForm.value.kg_par || 0) / kgTotal19.value)).toFixed(2)
+        : '0.00'
+)
 
 function openEntrada() {
     entradaErrors.value = {};
@@ -74,6 +88,7 @@ function openEntrada() {
         entered_at:        localDateTimeString(),
         conCanal2:         false,
         kg_par:            '',
+        costo_usd_par:     '',
     };
     showEntradaModal.value = true;
 }
@@ -89,7 +104,7 @@ async function saveEntrada() {
         costo_usd:    entradaForm.value.costo_usd,
         supplier:     entradaForm.value.supplier,
         entered_at:   entradaForm.value.entered_at,
-        ...(isRes && entradaForm.value.conCanal2 ? { kg_par: entradaForm.value.kg_par } : {}),
+        ...(isRes && entradaForm.value.conCanal2 ? { kg_par: entradaForm.value.kg_par, costo_usd_par: entradaForm.value.costo_usd_par } : {}),
     };
     try {
         const res = await fetch(route('boveda.store'), {
@@ -717,19 +732,6 @@ async function deactivateProduct(product) {
                                 <input v-model="entradaForm.customProductType" type="text" class="form-input" maxlength="80" placeholder="Ej: Res Madurada, Cerdo Entero…" />
                                 <p v-if="entradaErrors.product_type && isCustomType" class="text-red-500 text-xs mt-1">{{ entradaErrors.product_type[0] }}</p>
                             </div>
-                            <!-- ── Canal par (solo Res) ───────────────────── -->
-                            <div v-if="entradaForm.product_type === 'RES - Medio Canal'" class="form-field full canal-par-row">
-                                <label class="canal-par-label">
-                                    <input v-model="entradaForm.conCanal2" type="checkbox" class="canal-par-check" />
-                                    ¿Viene con canal par?
-                                </label>
-                            </div>
-                            <div v-if="entradaForm.product_type === 'RES - Medio Canal' && entradaForm.conCanal2" class="form-field full">
-                                <label>Kg del canal par</label>
-                                <input v-model.number="entradaForm.kg_par" type="number" class="form-input" min="0.001" step="0.001" placeholder="0.000" />
-                                <span v-if="entradaErrors.kg_par" class="field-err">{{ entradaErrors.kg_par[0] }}</span>
-                            </div>
-                            <!-- ─────────────────────────────────────────── -->
                             <div class="form-field full">
                                 <label>Descripción (opcional)</label>
                                 <input v-model="entradaForm.description" type="text" class="form-input" maxlength="100" placeholder="Ej: Media canal #3" />
@@ -740,6 +742,34 @@ async function deactivateProduct(product) {
                                 <input v-model.number="entradaForm.kg_entrada" type="number" class="form-input" min="0.001" step="0.001" placeholder="0.000" />
                                 <span v-if="entradaErrors.kg_entrada" class="field-err">{{ entradaErrors.kg_entrada[0] }}</span>
                             </div>
+                            <!-- Dual canal — solo RES Medio Canal -->
+                            <template v-if="entradaForm.product_type === 'RES - Medio Canal'">
+                                <div class="form-field full">
+                                    <label class="dual-toggle">
+                                        <input type="checkbox" v-model="entradaForm.conCanal2" />
+                                        <span>¿Ingresan dos piezas?</span>
+                                    </label>
+                                </div>
+                                <div v-if="entradaForm.conCanal2" class="form-field full">
+                                    <div class="dual-fields">
+                                        <div class="field-group">
+                                            <label>Kg Pieza 2</label>
+                                            <input type="number" step="0.001" min="0.001" v-model.number="entradaForm.kg_par"
+                                                   placeholder="0.000" class="form-input" />
+                                            <span v-if="entradaErrors.kg_par" class="field-err">{{ entradaErrors.kg_par[0] }}</span>
+                                        </div>
+                                        <div class="field-group">
+                                            <label>Costo Pieza 2 (USD)</label>
+                                            <input type="number" step="0.01" min="0" v-model.number="entradaForm.costo_usd_par"
+                                                   placeholder="0.00" class="form-input" />
+                                        </div>
+                                        <p v-if="entradaForm.kg_entrada > 0 && entradaForm.kg_par > 0 && (entradaForm.costo_usd + entradaForm.costo_usd_par) > 0"
+                                           class="dual-preview">
+                                            Pieza 1: ${{ prorrateo1 }} · Pieza 2: ${{ prorrateo2 }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </template>
                             <div class="form-field">
                                 <label>Costo USD (total)</label>
                                 <input v-model.number="entradaForm.costo_usd" type="number" class="form-input" min="0" step="0.01" placeholder="0.00" />
@@ -1160,4 +1190,14 @@ async function deactivateProduct(product) {
 .status-badge { border-radius: 20px; padding: 0.15rem 0.55rem; font-size: 0.75rem; font-weight: 600; }
 .status-active   { background: rgba(16,185,129,0.12); color: #10b981; }
 .status-inactive { background: rgba(239,68,68,0.1); color: #ef4444; }
+
+.dual-toggle { display:flex; align-items:center; gap:8px; cursor:pointer;
+               color:var(--text-primary); font-size:0.875rem; }
+.dual-fields { display:flex; flex-direction:column; gap:12px;
+               padding:12px; background:var(--bg-elevated);
+               border-radius:8px; border:1px solid var(--border); }
+.dual-preview { font-size:0.78rem; color:var(--text-secondary);
+                margin:0; padding-top:4px; }
+.field-group  { display:flex; flex-direction:column; gap:4px; }
+.field-group label { font-size:0.8rem; color:var(--text-secondary); }
 </style>
