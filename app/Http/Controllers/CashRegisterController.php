@@ -458,7 +458,7 @@ class CashRegisterController extends Controller
 
     // ─── Movimiento manual (retiro / ingreso) ─────────────────────────────────
 
-    public function movement(Request $request, CashRegister $register): RedirectResponse
+    public function movement(Request $request, CashRegister $register): RedirectResponse|JsonResponse
     {
         $user       = Auth::user();
         $businessId = $user->business->id;
