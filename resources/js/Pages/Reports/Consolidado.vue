@@ -210,6 +210,24 @@ async function loadCanales() {
         loadingCanales.value = false
     }
 }
+
+const canalChecks = reactive({})
+
+function toggleProd(canalId, prodId) {
+    if (!canalChecks[canalId]) canalChecks[canalId] = {}
+    const current = canalChecks[canalId][prodId] !== false
+    canalChecks[canalId][prodId] = !current
+}
+
+function canalVendido(canal) {
+    return canal.productos
+        .filter(p => canalChecks[canal.boveda_entry_id]?.[p.product_id] !== false)
+        .reduce((s, p) => s + p.ingresos_usd, 0)
+}
+
+function canalUtilidad(canal) {
+    return canalVendido(canal) - canal.costo_usd
+}
 </script>
 
 <template>
@@ -533,6 +551,79 @@ async function loadCanales() {
                 </div>
             </div>
         </Transition>
+
+        <!-- ─── Rendimiento por Canal ─────────────────────────────────────────── -->
+        <section v-if="canales.length > 0 || loadingCanales" class="canal-section anim-in">
+            <h2 class="canal-title">
+                <BarChart2 :size="18" /> Rendimiento por Canal
+            </h2>
+
+            <div v-if="loadingCanales" class="canal-loading">Cargando canales...</div>
+
+            <div v-else class="canal-grid">
+                <div v-for="canal in canales" :key="canal.boveda_entry_id" class="canal-card">
+                    <!-- Header -->
+                    <div class="canal-header">
+                        <span class="canal-tipo">{{ canal.tipo }}</span>
+                        <span class="canal-fecha">{{ canal.fecha_entrada }}</span>
+                        <span class="canal-costo">Costo: ${{ canal.costo_usd.toFixed(2) }}</span>
+                    </div>
+
+                    <!-- Productos con checkbox -->
+                    <div class="canal-productos">
+                        <label
+                            v-for="prod in canal.productos"
+                            :key="prod.product_id"
+                            class="canal-prod-row"
+                        >
+                            <input
+                                type="checkbox"
+                                :checked="canalChecks[canal.boveda_entry_id]?.[prod.product_id] !== false"
+                                @change="toggleProd(canal.boveda_entry_id, prod.product_id)"
+                            />
+                            <span class="prod-nombre">{{ prod.nombre }}</span>
+                            <span class="prod-kg">{{ prod.kg_vendido_hoy.toFixed(2) }} kg</span>
+                            <span class="prod-usd">${{ prod.ingresos_usd.toFixed(2) }}</span>
+                            <span v-if="prod.kg_remanente > 0" class="prod-rem">
+                                +{{ prod.kg_remanente.toFixed(2) }}kg rem.
+                            </span>
+                        </label>
+                    </div>
+
+                    <!-- Footer totales dinámicos -->
+                    <div class="canal-footer">
+                        <div class="canal-stat">
+                            <span>Vendido</span>
+                            <strong>${{ canalVendido(canal).toFixed(2) }}</strong>
+                        </div>
+                        <div class="canal-stat">
+                            <span>Utilidad real</span>
+                            <strong :class="canalUtilidad(canal) >= 0 ? 'pos' : 'neg'">
+                                ${{ canalUtilidad(canal).toFixed(2) }}
+                            </strong>
+                        </div>
+                        <div class="canal-stat">
+                            <span>Remanente</span>
+                            <strong class="muted">{{ canal.kg_remanente.toFixed(2) }} kg</strong>
+                        </div>
+                        <div class="canal-stat">
+                            <span>Util. potencial</span>
+                            <strong class="pos">${{ canal.valor_remanente.toFixed(2) }}</strong>
+                        </div>
+                    </div>
+
+                    <!-- Barra progreso -->
+                    <div class="canal-progress-bar">
+                        <div
+                            class="canal-progress-fill"
+                            :style="{ width: Math.min(100, canal.margen_pct + 100) + '%' }"
+                        ></div>
+                    </div>
+                    <span class="canal-margen-label">{{ canal.margen_pct }}% margen</span>
+                </div>
+            </div>
+        </section>
+
     </AppLayout>
 </template>
 
@@ -912,4 +1003,30 @@ async function loadCanales() {
     .kpi-card:hover { transform: translateY(-3px); box-shadow: 0 12px 30px -12px rgba(0,0,0,0.4); }
     .trend-svg  { height: 150px; }
 }
+
+/* ── Rendimiento por Canal ────────────────────────────────────────────────── */
+.canal-section { margin-top: 1.5rem; }
+.canal-title { display: flex; align-items: center; gap: 8px; font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 1rem; }
+.canal-grid { display: grid; gap: 1rem; grid-template-columns: 1fr; }
+@media (min-width: 700px) { .canal-grid { grid-template-columns: repeat(2, 1fr); } }
+.canal-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; }
+.canal-header { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 0.75rem; font-size: 0.8rem; }
+.canal-tipo { font-weight: 700; color: var(--brand); }
+.canal-fecha { color: var(--text-muted); }
+.canal-costo { margin-left: auto; color: var(--text-muted); }
+.canal-prod-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 0.82rem; cursor: pointer; }
+.prod-nombre { flex: 1; color: var(--text-primary); }
+.prod-kg, .prod-usd { color: var(--text-muted); min-width: 60px; text-align: right; font-variant-numeric: tabular-nums; }
+.prod-rem { color: #f59e0b; font-size: 0.75rem; }
+.canal-footer { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+.canal-stat { display: flex; flex-direction: column; gap: 2px; font-size: 0.78rem; }
+.canal-stat span { color: var(--text-muted); }
+.canal-stat strong { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.canal-stat strong.pos { color: #22c55e; }
+.canal-stat strong.neg { color: #ef4444; }
+.canal-stat strong.muted { color: var(--text-muted); }
+.canal-progress-bar { height: 4px; background: var(--bg-base); border-radius: 2px; margin-top: 0.75rem; overflow: hidden; }
+.canal-progress-fill { height: 100%; background: var(--brand); border-radius: 2px; transition: width 0.5s ease; }
+.canal-margen-label { font-size: 0.72rem; color: var(--text-muted); }
+.canal-loading { color: var(--text-muted); padding: 1rem; text-align: center; }
 </style>
