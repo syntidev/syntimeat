@@ -2189,14 +2189,14 @@ const helpFaqs = [
 .pay-col--left {
     flex: 1;
     border-right: 1px solid var(--border);
-    gap: 0.6rem;
+    gap: 1rem;
 }
 
 /* derecha: métodos + confirmar */
 .pay-col--right {
     width: 310px;
     flex-shrink: 0;
-    gap: 0.5rem;
+    gap: 1rem;
 }
 
 .pay-col-head {
@@ -2290,10 +2290,11 @@ const helpFaqs = [
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    font-size: 0.88rem;
+    font-size: 1rem;
     font-weight: 700;
     color: var(--text-primary);
 }
+.pay-total-bs { font-size: 1.5rem; font-variant-numeric: tabular-nums; }
 .pay-tot-ref   { font-size: 0.72rem; color: var(--text-muted); }
 .pay-tot-lines { display: flex; flex-direction: column; gap: 0.15rem; margin-top: 0.3rem; border-top: 1px solid var(--border); padding-top: 0.3rem; }
 .pay-tot-line  { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-secondary); }
@@ -2316,7 +2317,7 @@ const helpFaqs = [
 
 /* ── Columna derecha ── */
 .pay-section-label {
-    font-size: 0.68rem;
+    font-size: 0.82rem;
     font-weight: 700;
     letter-spacing: 0.06em;
     color: var(--text-muted);
@@ -2342,7 +2343,7 @@ const helpFaqs = [
 .multipay-remove:hover { color: #ef4444; }
 
 /* métodos: grid 3 columnas, tarjetas compactas */
-.multipay-add { display: flex; flex-direction: column; gap: 0.4rem; flex-shrink: 0; }
+.multipay-add { display: flex; flex-direction: column; gap: 0.75rem; flex-shrink: 0; }
 .pay-methods {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -2366,8 +2367,8 @@ const helpFaqs = [
     background: color-mix(in srgb, var(--brand) 10%, transparent);
 }
 .pay-method-card:hover:not(.selected) { border-color: var(--text-muted); }
-.pm-name { font-size: 0.72rem; font-weight: 600; color: var(--text-primary); line-height: 1.2; }
-.pm-type { font-size: 0.62rem; color: var(--text-muted); }
+.pm-name { font-size: 1rem; font-weight: 600; color: var(--text-primary); line-height: 1.2; }
+.pm-type { font-size: 0.75rem; color: var(--text-muted); }
 
 /* monto + botón añadir */
 .pay-amount-input {
@@ -2376,9 +2377,10 @@ const helpFaqs = [
     border: 1px solid var(--border);
     border-radius: 7px;
     color: var(--text-primary);
-    font-size: 1rem;
+    font-size: 1.1rem;
     font-weight: 600;
-    padding: 0.45rem 0.7rem;
+    min-height: 44px;
+    padding: 0.625rem 0.7rem;
     outline: none;
     box-sizing: border-box;
     font-family: inherit;
@@ -2401,7 +2403,12 @@ const helpFaqs = [
     border-top: 1px solid var(--border);
     flex-shrink: 0;
 }
-.pay-col-actions .btn { flex: 1; padding: 0.6rem 0.5rem; font-size: 0.84rem; }
+.pay-col-actions .btn { flex: 1; min-height: 48px; padding: 0.75rem 1rem; font-size: 1rem; }
+
+/* desktop: ancho mínimo garantizado */
+@media (min-width: 768px) {
+    .pay-modal-2col { min-width: 480px; }
+}
 
 /* responsive tablet/móvil */
 @media (max-width: 680px) {

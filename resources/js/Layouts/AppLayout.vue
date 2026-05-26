@@ -512,8 +512,9 @@ const icons = {
 /* Layout principal */
 .layout-root {
     display: flex;
-    min-height: 100vh;
+    min-height: 100dvh;
     background-color: var(--bg-base);
+    overflow-x: hidden;
 }
 
 /* ── Sidebar ──────────────────────────────────────────────────────────── */
@@ -569,8 +570,9 @@ const icons = {
     align-items: center;
     gap: 0.625rem;
     padding: 0.5rem 0.75rem;
+    min-height: 44px;
     border-radius: 0.5rem;
-    font-size: 0.875rem;
+    font-size: 0.9rem;
     font-weight: 500;
     color: var(--text-secondary);
     text-decoration: none;
@@ -634,7 +636,7 @@ const icons = {
     margin-left: var(--sidebar-w);
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
+    min-height: 100dvh;
 }
 
 /* ── Topbar ────────────────────────────────────────────────────────────── */
@@ -653,6 +655,10 @@ const icons = {
 
 .topbar__hamburger {
     display: none;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
     padding: 0.25rem;
     color: var(--text-secondary);
     background: transparent;
@@ -706,8 +712,8 @@ const icons = {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     border-radius: 0.5rem;
     background: transparent;
     border: none;
@@ -756,8 +762,8 @@ const icons = {
 .user-menu { position: relative; }
 
 .avatar {
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     background-color: var(--brand);
     color: #ffffff;
@@ -862,6 +868,7 @@ const icons = {
 @media (max-width: 768px) {
     .sidebar {
         transform: translateX(-100%);
+        width: min(280px, 85vw);
     }
 
     .sidebar--open {
@@ -878,6 +885,22 @@ const icons = {
 
     .badge-caja {
         display: none;
+    }
+
+    .rate-badge {
+        display: none;
+    }
+
+    .topbar-biz {
+        display: none;
+    }
+
+    .icon-btn {
+        display: none;
+    }
+
+    .page-content {
+        padding: 0.75rem;
     }
 }
 
@@ -1028,7 +1051,7 @@ const icons = {
     background: var(--bg-card);
     color: var(--text-primary);
 }
-@media (max-width: 640px) {
+@media (max-width: 768px) {
     .branch-picker { display: none; }
 }
 
