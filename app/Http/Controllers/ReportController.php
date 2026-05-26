@@ -410,11 +410,18 @@ class ReportController extends Controller
                     ->sum('quantity_kg');
 
                 // Ingresos de venta hoy
-                $ingresosHoy = \App\Models\SaleItem::whereHas('sale', function ($q) use ($businessId, $fecha) {
+                // Buscar productos que usan este como pool (stock_product_id) + el producto mismo
+                $productIds = \App\Models\Product::where('business_id', $businessId)
+                    ->where(function ($q) use ($prod) {
+                        $q->where('id', $prod->id)
+                          ->orWhere('stock_product_id', $prod->id);
+                    })->pluck('id');
+
+                $ingresosHoy = (float) \App\Models\SaleItem::whereHas('sale', function ($q) use ($businessId, $fecha) {
                     $q->where('business_id', $businessId)
                       ->where('status', 'paid')
                       ->whereDate('accounting_date', $fecha);
-                })->where('product_id', $prod->id)->sum('subtotal_usd');
+                })->whereIn('product_id', $productIds)->sum('subtotal_usd');
 
                 return [
                     'product_id'     => $prod->id,
