@@ -17,6 +17,11 @@ class CheckSubscription
         if ($user && $user->business && !$user->business->subscription_active) {
             Auth::logout();
 
+            if ($request->header('X-Inertia')) {
+                return response()->json(['message' => 'Suscripción inactiva'], 409)
+                    ->header('X-Inertia-Location', route('login'));
+            }
+
             return redirect()->route('login')
                 ->withErrors(['email' => 'Sistema en mantenimiento. Contacte a su proveedor.']);
         }

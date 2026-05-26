@@ -9,6 +9,7 @@ use App\Models\BovedaEntry;
 use App\Models\CashMovement;
 use App\Models\CashRegister;
 use App\Services\DollarRateService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -101,12 +102,29 @@ class CashRegisterController extends Controller
 
     // ─── Abrir caja ───────────────────────────────────────────────────────────
 
-    public function open(Request $request): RedirectResponse
+    public function open(Request $request): RedirectResponse|JsonResponse
     {
         $user       = Auth::user();
         $businessId = $user->business->id;
 
         $branchId = $user->branch_id;
+
+        // ── Bloquear si hay caja del día anterior sin cerrar ──────────────────
+        $cajaAnterior = CashRegister::where('business_id', $businessId)
+            ->whereNull('closed_at')
+            ->whereDate('opened_at', '<', now('America/Caracas')->toDateString())
+            ->first();
+
+        if ($cajaAnterior) {
+            return response()->json([
+                'message' => 'Hay una caja abierta desde el ' . $cajaAnterior->opened_at->format('d/m/Y') . '. Debes cerrarla antes de abrir una nueva.',
+                'errors'  => [
+                    'requires_close' => 'true',
+                    'caja_id'        => (string) $cajaAnterior->id,
+                    'caja_fecha'     => $cajaAnterior->opened_at->format('d/m/Y'),
+                ],
+            ], 422);
+        }
 
         // Bloquear solo si ESTE USUARIO ya tiene una caja abierta
         $alreadyOpen = CashRegister::where('business_id', $businessId)

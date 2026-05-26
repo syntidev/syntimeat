@@ -2,7 +2,7 @@
 import AppLayout  from '@/Layouts/AppLayout.vue';
 import HelpModal  from '@/Components/HelpModal.vue';
 import { ref, computed } from 'vue';
-import { useForm } from '@inertiajs/vue3';
+import { useForm, router } from '@inertiajs/vue3';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 const props = defineProps({
@@ -24,13 +24,45 @@ function fmtTime(d) { return d ? new Date(d).toLocaleTimeString('es-VE', { hour:
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('es-VE') : '—'; }
 
 // ─── Modal Abrir Caja ─────────────────────────────────────────────────────────
-const openModal = ref(false);
-const openForm  = useForm({ opening_amount_bs: '' });
+const openModal    = ref(false);
+const openForm     = useForm({ opening_amount_bs: '' });
+const staleWarning = ref(null); // { caja_id, fecha } — caja del día anterior sin cerrar
+const closingStale = ref(false);
 
 function submitOpen() {
     openForm.post(route('cash.open'), {
         onSuccess: () => { openModal.value = false; openForm.reset(); },
+        onError: (errors) => {
+            if (errors.requires_close) {
+                staleWarning.value = {
+                    caja_id: parseInt(errors.caja_id),
+                    fecha:   errors.caja_fecha,
+                };
+                openModal.value = false;
+                openForm.clearErrors();
+            }
+        },
     });
+}
+
+function closeStaleAndOpen() {
+    if (! staleWarning.value || closingStale.value) return;
+    closingStale.value = true;
+    router.post(
+        route('cash.close', { register: staleWarning.value.caja_id }),
+        { counted_cash_bs: 0, notes: 'Cierre automático — caja del día anterior' },
+        {
+            preserveState:  true,
+            preserveScroll: true,
+            onSuccess: () => {
+                staleWarning.value = null;
+                closingStale.value = false;
+                openModal.value    = true;
+            },
+            onError:  () => { closingStale.value = false; },
+            onFinish: () => { closingStale.value = false; },
+        }
+    );
 }
 
 // ─── Modal Movimiento ─────────────────────────────────────────────────────────
@@ -254,6 +286,38 @@ function submitCorte() {
                 </div>
             </div>
         </div>
+
+        <!-- Modal: caja del día anterior sin cerrar ─────────────────────── -->
+        <Teleport to="body">
+            <div v-if="staleWarning" class="modal-overlay">
+                <div class="modal-box">
+                    <div class="modal-header">
+                        <h3>Caja anterior sin cerrar</h3>
+                    </div>
+                    <p class="stale-warn-body">
+                        Hay una caja abierta desde el <strong>{{ staleWarning.fecha }}</strong>.
+                        Debes cerrarla antes de abrir la caja de hoy.
+                    </p>
+                    <p class="modal-hint">
+                        Se cerrará con efectivo contado en Bs. 0. Puedes revisar la diferencia en el historial de cierres.
+                    </p>
+                    <div class="modal-actions">
+                        <button
+                            type="button"
+                            class="btn btn-ghost"
+                            :disabled="closingStale"
+                            @click="staleWarning = null"
+                        >Cancelar</button>
+                        <button
+                            type="button"
+                            class="btn btn-danger"
+                            :disabled="closingStale"
+                            @click="closeStaleAndOpen"
+                        >{{ closingStale ? 'Cerrando…' : 'Cerrar caja anterior y continuar' }}</button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
 
         <!-- Modal Abrir Caja ──────────────────────────────────────────────── -->
         <Teleport to="body">
@@ -655,6 +719,7 @@ function submitCorte() {
     font-size: 0.92rem;
 }
 .form-error { font-size: 0.78rem; color: #ef4444; }
+.stale-warn-body { font-size: 0.9rem; color: var(--text-primary); line-height: 1.55; }
 
 /* ─── Type toggle ────────────────────────────────────────────────────────────── */
 .type-toggle { display: flex; gap: 0.5rem; }
