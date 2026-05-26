@@ -1,9 +1,9 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import {
     DollarSign, Package, ShoppingCart, BarChart2,
     RefreshCw, Moon, Truck, ChevronLeft, ChevronRight,
-    CheckCircle, Menu, X,
+    CheckCircle, Menu, X, AlertTriangle, Clock, Info,
 } from '@lucide/vue'
 
 // ─── Flujos ───────────────────────────────────────────────────────────────────
@@ -11,16 +11,17 @@ const flujos = [
     {
         id: 'flujo-1',
         titulo: 'Inicio del día',
-        subtitulo: 'Abre tu caja antes de vender',
+        subtitulo: 'Lo primero que haces antes de vender',
         icon: DollarSign,
         pasos: [
             {
-                titulo: 'Abre tu caja',
+                titulo: 'Abre tu caja antes de vender',
+                alerta: 'Sin caja abierta no puedes vender. El Punto de Venta estará bloqueado hasta que abras tu caja.',
                 cuerpo: [
                     'Ve a <strong>CAJA</strong> en el menú lateral.',
                     'Presiona el botón <strong>ABRIR CAJA</strong>.',
-                    'Escribe el dinero que tienes en el cajón en este momento (ejemplo: Bs. 5.000).',
-                    'Presiona <strong>Confirmar</strong>.',
+                    'Escribe el efectivo que tienes en el cajón ahorita (ejemplo: Bs. 5.000).',
+                    'Confirma.',
                 ],
                 tip: 'Ya puedes vender. El sistema lleva la cuenta desde ese momento.',
                 nota: null,
@@ -30,61 +31,65 @@ const flujos = [
     {
         id: 'flujo-2',
         titulo: 'Entrada de mercancía a Bóveda',
-        subtitulo: 'Cuando llega una canal (res, cerdo, pollo)',
+        subtitulo: 'Cuando llega una canal — res, cerdo o pollo',
         icon: Truck,
         pasos: [
             {
                 titulo: 'Registra la canal en Bóveda',
+                alerta: null,
                 cuerpo: [
                     'Ve a <strong>BÓVEDA</strong> en el menú.',
                     'Presiona <strong>+ NUEVA ENTRADA</strong>.',
-                    'Selecciona el tipo de canal (Res - Medio Canal, Cerdo - Canal, Pollo - Entero Congelado, etc.).',
-                    'Escribe los kilos que llegaron y el costo en dólares.',
-                    'Presiona <strong>Confirmar</strong>.',
+                    'Selecciona el tipo de canal (Res - Medio Canal, Cerdo - Canal, Pollo - Entero Congelado…).',
+                    'Escribe los kilos y el costo en dólares.',
+                    'Confirma.',
                 ],
-                tip: 'La canal queda registrada con su costo. El sistema calculará tu utilidad cuando empieces a vender.',
+                tip: 'El sistema calcula tu utilidad automáticamente cuando empieces a vender de esa canal.',
                 nota: null,
             },
             {
                 titulo: 'Súrtela a la tienda',
+                alerta: null,
                 cuerpo: [
-                    'En la lista de entradas de Bóveda, busca la canal que acabas de registrar.',
-                    'Presiona el botón <strong>SURTIR</strong>.',
-                    'Escribe cuántos kilos vas a pasar a la tienda hoy.',
-                    'Presiona <strong>Confirmar</strong>.',
+                    'En Bóveda, busca la canal que acabas de registrar.',
+                    'Presiona <strong>SURTIR</strong>.',
+                    'Escribe cuántos kilos van a la tienda hoy.',
+                    'Confirma.',
                 ],
                 tip: 'Solo lo que surtes llega al inventario de vitrina para venderse en el POS.',
                 nota: null,
             },
             {
-                titulo: 'Regístrala en Fábrica (si es Res o Cerdo)',
+                titulo: 'Llévala a Fábrica si es Res o Cerdo',
+                alerta: null,
                 cuerpo: [
                     'Ve a <strong>FÁBRICA</strong> en el menú.',
                     'Verás la canal pendiente de despiece.',
-                    'Escribe cuántos kilos salieron de cada corte (lomito, paleta, costilla, etc.).',
-                    'Presiona <strong>Confirmar</strong>.',
+                    'Escribe cuántos kilos salieron de cada corte (lomito, paleta, costilla…).',
+                    'Confirma.',
                 ],
                 tip: 'Fábrica registra el despiece para que el sistema sepa qué productos salieron de esa canal.',
-                nota: 'El pollo no pasa por Fábrica — se surte directamente a la vitrina.',
+                nota: 'El pollo no pasa por Fábrica — se surte directamente a vitrina.',
             },
         ],
     },
     {
         id: 'flujo-3',
         titulo: 'Entrada directa a Inventario',
-        subtitulo: 'Para productos que llegan listos (jamón, chorizos, víveres)',
+        subtitulo: 'Para jamón, chorizos, víveres y todo lo que llega listo',
         icon: Package,
         pasos: [
             {
-                titulo: 'Agrega el producto al inventario',
+                titulo: 'Agrega el producto directo al inventario',
+                alerta: null,
                 cuerpo: [
                     'Ve a <strong>INVENTARIO</strong> en el menú.',
                     'Presiona <strong>+ NUEVA ENTRADA</strong>.',
-                    'Selecciona el producto de la lista.',
+                    'Selecciona el producto.',
                     'Escribe los kilos o unidades que llegaron.',
-                    'Presiona <strong>Confirmar</strong>.',
+                    'Confirma.',
                 ],
-                tip: 'Este producto ya estará disponible para vender en el POS de inmediato.',
+                tip: 'Este producto queda disponible de inmediato para vender en el POS.',
                 nota: null,
             },
         ],
@@ -92,50 +97,76 @@ const flujos = [
     {
         id: 'flujo-4',
         titulo: 'Venta en el Punto de Venta',
-        subtitulo: 'Para cobrarle a un cliente',
+        subtitulo: 'Así cobras a cada cliente',
         icon: ShoppingCart,
         pasos: [
             {
                 titulo: 'Arma el pedido del cliente',
+                alerta: null,
                 cuerpo: [
                     'Ve a <strong>PUNTO DE VENTA</strong> en el menú.',
                     'Toca el producto que quiere el cliente.',
                     'Escribe los kilos (o unidades si aplica).',
                     'Repite para cada producto que lleve.',
                 ],
-                tip: 'El sistema calcula el precio automáticamente usando la tasa del día. Tú solo escribes los kilos.',
+                tip: 'El precio se calcula solo usando la tasa del día. Tú solo escribes los kilos.',
                 nota: null,
             },
             {
                 titulo: 'Cobra y cierra la venta',
+                alerta: null,
                 cuerpo: [
-                    'Presiona el botón <strong>COBRAR</strong>.',
-                    'Selecciona cómo pagó el cliente (Efectivo, Pago Móvil, Transferencia, etc.).',
-                    'Escribe el monto que recibiste.',
-                    'Presiona <strong>Confirmar</strong>.',
+                    'Presiona <strong>COBRAR</strong>.',
+                    'Selecciona cómo pagó el cliente (Efectivo, Pago Móvil, Transferencia…).',
+                    'Escribe el monto recibido.',
+                    'Confirma.',
                 ],
                 tip: 'El ticket aparece en pantalla listo para imprimir o mostrarle al cliente.',
-                nota: 'El stock se descuenta solo cuando la venta queda como "pagada". Un ticket abierto no toca el inventario.',
+                nota: 'El stock se descuenta solo cuando la venta queda pagada. Un ticket abierto sin cobrar no toca el inventario.',
+            },
+            {
+                titulo: 'Corte bancario — ventas después de las 7 PM',
+                alerta: 'Todos los días a las 7:00 PM el sistema cambia de día contable. Las ventas después de esa hora se registran como ventas del día SIGUIENTE.',
+                cuerpo: [
+                    'Esto es normal — así funciona el sistema bancario venezolano.',
+                    'Ejemplo: si vendes a las 8:00 PM del lunes, esa venta aparecerá en el reporte del martes.',
+                    'El Punto de Venta sigue funcionando con normalidad — solo cambia en qué "día" queda registrada.',
+                ],
+                tip: 'No necesitas hacer nada especial. El sistema lo maneja solo.',
+                nota: null,
             },
         ],
     },
     {
         id: 'flujo-5',
         titulo: 'Corte de turno',
-        subtitulo: 'Para sacar efectivo sin cerrar la caja',
+        subtitulo: 'Saca efectivo sin cerrar la caja',
         icon: RefreshCw,
         pasos: [
             {
-                titulo: 'Registra un retiro de caja',
+                titulo: 'Registra un retiro de efectivo',
+                alerta: null,
                 cuerpo: [
                     'Ve a <strong>CAJA</strong> en el menú.',
                     'Presiona <strong>+ MOVIMIENTO</strong>.',
                     'Selecciona <strong>RETIRO</strong>.',
                     'Escribe el monto que estás sacando del cajón.',
                     'Escribe el motivo (ejemplo: "Depósito banco", "Pago proveedor").',
-                    'Presiona <strong>Confirmar</strong>.',
+                    'Confirma.',
                 ],
-                tip: 'La caja sigue abierta. Puedes seguir vendiendo normalmente.',
+                tip: 'La caja sigue abierta. Puedes seguir vendiendo sin problema.',
+                nota: null,
+            },
+            {
+                titulo: 'Corte de turno vs. Cierre del día',
+                alerta: null,
+                cuerpo: [
+                    'El <strong>CORTE DE TURNO</strong> no cierra la caja — solo retira efectivo. Puedes hacer varios cortes en el mismo día.',
+                    'El <strong>CIERRE DEL DÍA</strong> sí cierra la caja definitivamente. No puedes vender más hasta que abras una caja nueva.',
+                    'Usa el corte cuando necesitas sacar plata del cajón sin terminar el día.',
+                    'Usa el cierre cuando terminaste de vender por hoy.',
+                ],
+                tip: 'Todos los retiros quedan registrados con hora y motivo para que los puedas revisar.',
                 nota: null,
             },
         ],
@@ -143,50 +174,85 @@ const flujos = [
     {
         id: 'flujo-6',
         titulo: 'Cierre del día',
-        subtitulo: 'Al final del día, cuando terminas de vender',
+        subtitulo: 'Cuando terminas de vender y cierras la caja',
         icon: Moon,
         pasos: [
             {
                 titulo: 'Cierra la caja del día',
+                alerta: null,
                 cuerpo: [
                     'Ve a <strong>CIERRE DEL DÍA</strong> en el menú.',
                     'El sistema te muestra las ventas del día desglosadas por método de pago.',
-                    'Cuenta el dinero en efectivo que tienes físicamente en el cajón.',
-                    'Escribe esa cantidad en el campo <strong>EFECTIVO CONTADO</strong>.',
+                    'Cuenta el efectivo físico que tienes en el cajón.',
+                    'Escríbelo en el campo <strong>EFECTIVO CONTADO</strong>.',
                     'Presiona <strong>CONFIRMAR CIERRE</strong>.',
                 ],
-                tip: 'El día queda guardado. Mañana abres caja nueva desde cero.',
-                nota: 'El sistema solo cuenta como efectivo en caja lo cobrado en efectivo. El dinero por Pago Móvil está en el banco, no en el cajón — por eso no lo verás como "efectivo esperado".',
+                tip: 'El día queda guardado y cerrado. No puedes agregar más ventas a ese día.',
+                nota: null,
+            },
+            {
+                titulo: 'Efectivo esperado vs. lo que tienes en el cajón',
+                alerta: null,
+                cuerpo: [
+                    'Solo cuenta como efectivo en caja lo que cobraste en <strong>efectivo físico</strong>.',
+                    'El dinero por Pago Móvil, transferencia o punto de venta está en el banco — no en tu cajón.',
+                    'Por eso esos montos no suman al efectivo esperado. Es normal que sean diferentes.',
+                ],
+                tip: 'Si el efectivo contado no cuadra con el esperado, el sistema registra la diferencia para que puedas revisarla.',
+                nota: null,
+            },
+            {
+                titulo: 'Mañana abre caja nueva',
+                alerta: null,
+                cuerpo: [
+                    'Al día siguiente el sistema no abre caja solo — tú debes abrirla.',
+                    'Ve a <strong>CAJA → ABRIR CAJA</strong> antes de empezar a vender.',
+                    'Si intentas vender sin abrir caja, el Punto de Venta estará bloqueado.',
+                ],
+                tip: 'Convierte esto en hábito: abrir caja es lo primero al llegar, cerrar caja es lo último antes de irte.',
+                nota: null,
             },
         ],
     },
     {
         id: 'flujo-7',
         titulo: 'Lectura de resultados',
-        subtitulo: 'Para ver cómo te fue hoy o en el período',
+        subtitulo: 'Para ver cómo te fue hoy y en el período',
         icon: BarChart2,
         pasos: [
             {
                 titulo: '¿Dónde ver los números?',
+                alerta: null,
                 cuerpo: [
                     '<strong>Dashboard</strong>: ventas del día, tickets emitidos, rendimiento por canal.',
                     '<strong>Reportes → Resumen</strong>: filtra por hoy, semana, mes o año.',
-                    '<strong>Panel Empresarial</strong>: compara sucursales (solo para dueños).',
+                    '<strong>Panel Empresarial</strong>: compara sucursales (solo dueños).',
                 ],
                 tip: 'El Dashboard se actualiza cada 30 segundos solo — no necesitas recargar la página.',
                 nota: null,
             },
             {
-                titulo: 'Entendiendo el Rendimiento por Canal',
+                titulo: 'Rendimiento por Canal — cómo leerlo',
+                alerta: null,
                 cuerpo: [
                     'Cada tarjeta muestra una canal comprada en Bóveda.',
-                    '<strong>Costo</strong>: lo que pagaste por esa canal.',
-                    '<strong>Vendido</strong>: lo que llevas recuperado con las ventas de esa canal.',
-                    'La <strong>barra</strong> se llena a medida que recuperas el costo — llena y verde = cubriste el costo.',
-                    '<strong>Ámbar = kilos disponibles mañana</strong> (pasaron a mañana sin venderse).',
-                    '<strong>101% recuperado</strong> = cubriste el costo y además ganaste algo.',
+                    'La <strong>barra de cada producto</strong> muestra cuánto vendiste del total disponible.',
+                    '<strong>Verde</strong> = vendiste todo el lote. <strong>Azul</strong> = vendiste parte. <strong>Vacía</strong> = no vendiste nada.',
+                    'En <strong>ámbar</strong> verás los kilos que quedaron para el día siguiente.',
                 ],
-                tip: 'Si la barra está roja, todavía no has vendido suficiente para cubrir lo que pagaste por esa canal.',
+                tip: 'La barra llena y verde significa que vendiste toda la mercancía de ese corte.',
+                nota: null,
+            },
+            {
+                titulo: '¿Qué significa el % recuperado?',
+                alerta: null,
+                cuerpo: [
+                    'Muestra qué porcentaje del costo de la canal ya recuperaste con las ventas.',
+                    '<strong>50% recuperado</strong> = recuperaste la mitad de lo que pagaste.',
+                    '<strong>100% recuperado</strong> = cubriste exactamente lo que pagaste.',
+                    '<strong>101% o más</strong> = cubriste el costo y ganaste algo encima.',
+                ],
+                tip: 'La barra se pone roja si todavía no cubriste el costo, verde cuando lo superaste.',
                 nota: null,
             },
         ],
@@ -194,14 +260,25 @@ const flujos = [
 ]
 
 // ─── Estado de navegación ──────────────────────────────────────────────────────
-const flujoActual   = ref(0)
-const pasoActual    = ref(0)
-const menuAbierto   = ref(false)
-const terminado     = ref(false)
+const flujoActual = ref(0)
+const pasoActual  = ref(0)
+const menuAbierto = ref(false)
+const terminado   = ref(false)
 
-const flujo  = computed(() => flujos[flujoActual.value])
-const paso   = computed(() => flujo.value.pasos[pasoActual.value])
+const flujo      = computed(() => flujos[flujoActual.value])
+const paso       = computed(() => flujo.value.pasos[pasoActual.value])
 const totalPasos = computed(() => flujo.value.pasos.length)
+
+const esPrimero = computed(() => flujoActual.value === 0 && pasoActual.value === 0 && !terminado.value)
+const esUltimo  = computed(() => flujoActual.value === flujos.length - 1 && pasoActual.value === totalPasos.value - 1)
+
+const progresoGlobal = computed(() => {
+    if (terminado.value) return 1
+    let antes = 0
+    for (let i = 0; i < flujoActual.value; i++) antes += flujos[i].pasos.length
+    const total = flujos.reduce((s, f) => s + f.pasos.length, 0)
+    return (antes + pasoActual.value) / total
+})
 
 function irA(fi, pi = 0) {
     flujoActual.value = fi
@@ -234,19 +311,6 @@ function anterior() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-const esPrimero = computed(() => flujoActual.value === 0 && pasoActual.value === 0 && !terminado.value)
-const esUltimo  = computed(() => flujoActual.value === flujos.length - 1 && pasoActual.value === totalPasos.value - 1)
-
-// Progreso global (de 0 a 1)
-const progresoGlobal = computed(() => {
-    if (terminado.value) return 1
-    let totalAntes = 0
-    for (let i = 0; i < flujoActual.value; i++) totalAntes += flujos[i].pasos.length
-    const totalTodos = flujos.reduce((s, f) => s + f.pasos.length, 0)
-    return (totalAntes + pasoActual.value) / totalTodos
-})
-
-// Leer hash inicial
 onMounted(() => {
     const hash = window.location.hash.replace('#', '')
     if (hash) {
@@ -269,8 +333,6 @@ onMounted(() => {
                     <Menu v-else :size="22" />
                 </button>
             </div>
-
-            <!-- Progreso global -->
             <div class="progreso-global">
                 <div class="progreso-fill" :style="{ width: (progresoGlobal * 100) + '%' }" />
             </div>
@@ -278,7 +340,7 @@ onMounted(() => {
 
         <div class="ayuda-body">
 
-            <!-- ─── Sidebar / menú de flujos ────────────────────────────────────── -->
+            <!-- ─── Sidebar ──────────────────────────────────────────────────────── -->
             <nav class="flujos-nav" :class="{ 'flujos-nav--open': menuAbierto }">
                 <p class="nav-label">Flujos</p>
                 <button
@@ -289,11 +351,11 @@ onMounted(() => {
                     @click="irA(fi)"
                 >
                     <component :is="f.icon" :size="16" />
-                    <span>{{ f.titulo }}</span>
+                    <span>{{ fi + 1 }}. {{ f.titulo }}</span>
                 </button>
             </nav>
 
-            <!-- ─── Contenido principal ─────────────────────────────────────────── -->
+            <!-- ─── Contenido ────────────────────────────────────────────────────── -->
             <main class="ayuda-main">
 
                 <!-- Pantalla final -->
@@ -301,7 +363,7 @@ onMounted(() => {
                     <CheckCircle :size="64" class="fin-icon" />
                     <h1 class="fin-titulo">¡Listo! Ya sabes usar SYNTImeat</h1>
                     <p class="fin-sub">
-                        Pasaste por los 7 flujos principales del sistema.<br>
+                        Pasaste por los {{ flujos.length }} flujos principales del sistema.<br>
                         Si tienes dudas, cada módulo tiene un botón <strong>?</strong> con ayuda específica.
                     </p>
                     <a href="/dashboard" class="btn-ir">Ir al sistema →</a>
@@ -310,17 +372,18 @@ onMounted(() => {
 
                 <!-- Paso actual -->
                 <template v-else>
+
                     <!-- Encabezado del flujo -->
                     <div class="flujo-header">
-                        <div class="flujo-num-wrap">
-                            <component :is="flujo.icon" :size="28" class="flujo-icon" />
-                            <span class="flujo-num">Flujo {{ flujoActual + 1 }} de {{ flujos.length }}</span>
+                        <div class="flujo-meta">
+                            <component :is="flujo.icon" :size="24" class="flujo-icon" />
+                            <span class="flujo-num-txt">Flujo {{ flujoActual + 1 }} de {{ flujos.length }}</span>
                         </div>
                         <h2 class="flujo-titulo">{{ flujo.titulo }}</h2>
                         <p class="flujo-sub">{{ flujo.subtitulo }}</p>
 
-                        <!-- Mini progreso dentro del flujo -->
-                        <div v-if="totalPasos > 1" class="flujo-pasos-dots">
+                        <!-- Dots de progreso dentro del flujo -->
+                        <div v-if="totalPasos > 1" class="flujo-dots">
                             <span
                                 v-for="(_, pi) in flujo.pasos"
                                 :key="pi"
@@ -328,6 +391,12 @@ onMounted(() => {
                                 :class="{ 'dot--on': pi <= pasoActual }"
                             />
                         </div>
+                    </div>
+
+                    <!-- Alerta del paso (si tiene) -->
+                    <div v-if="paso.alerta" class="paso-alerta">
+                        <AlertTriangle :size="18" class="alerta-icon" />
+                        <span>{{ paso.alerta }}</span>
                     </div>
 
                     <!-- Card del paso -->
@@ -349,11 +418,12 @@ onMounted(() => {
                         </div>
 
                         <div v-if="paso.nota" class="paso-nota">
-                            <span class="nota-label">Nota:</span> {{ paso.nota }}
+                            <Info :size="14" class="nota-icon" />
+                            <span><strong>Nota:</strong> {{ paso.nota }}</span>
                         </div>
                     </div>
 
-                    <!-- Navegación anterior / siguiente -->
+                    <!-- Navegación -->
                     <div class="nav-btns">
                         <button
                             class="btn-nav btn-nav--prev"
@@ -362,18 +432,14 @@ onMounted(() => {
                         >
                             <ChevronLeft :size="20" /> Anterior
                         </button>
-
-                        <span class="nav-paginacion">
-                            Paso {{ pasoActual + 1 }}/{{ totalPasos }}
-                        </span>
-
+                        <span class="nav-paginacion">{{ pasoActual + 1 }} / {{ totalPasos }}</span>
                         <button class="btn-nav btn-nav--next" @click="siguiente">
                             {{ esUltimo ? 'Finalizar' : 'Siguiente' }}
                             <ChevronRight :size="20" />
                         </button>
                     </div>
 
-                    <!-- Saltar a flujo (links rápidos) -->
+                    <!-- Saltar a flujo -->
                     <div class="saltar-flujos">
                         <p class="saltar-label">Ir directamente a:</p>
                         <div class="saltar-chips">
@@ -388,8 +454,8 @@ onMounted(() => {
                             </button>
                         </div>
                     </div>
-                </template>
 
+                </template>
             </main>
         </div>
 
@@ -397,7 +463,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* ─── Reset + fuente ──────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 .ayuda-root {
@@ -428,12 +493,12 @@ onMounted(() => {
     letter-spacing: -0.5px;
 }
 .ayuda-header-tag {
+    flex: 1;
     font-size: 0.78rem;
     color: var(--text-muted, #888);
     background: var(--bg-elevated, #222);
-    padding: 2px 8px;
+    padding: 3px 10px;
     border-radius: 20px;
-    flex: 1;
 }
 .burger {
     background: none;
@@ -443,61 +508,49 @@ onMounted(() => {
     padding: 6px;
     display: flex;
     align-items: center;
+    min-height: 44px;
 }
 @media (min-width: 768px) { .burger { display: none; } }
 
-/* Progreso global */
-.progreso-global {
-    height: 3px;
-    background: var(--bg-elevated, #222);
-}
+.progreso-global { height: 3px; background: var(--bg-elevated, #222); }
 .progreso-fill {
     height: 100%;
     background: var(--brand, #e53e3e);
     transition: width 0.4s ease;
 }
 
-/* ─── Body layout ────────────────────────────────────────────────────────────── */
-.ayuda-body {
-    display: flex;
-    min-height: calc(100vh - 57px);
-}
+/* ─── Layout ─────────────────────────────────────────────────────────────────── */
+.ayuda-body { display: flex; min-height: calc(100vh - 57px); }
 
-/* ─── Sidebar nav ────────────────────────────────────────────────────────────── */
+/* ─── Sidebar ────────────────────────────────────────────────────────────────── */
 .flujos-nav {
     display: none;
     flex-direction: column;
-    gap: 4px;
-    width: 240px;
+    gap: 2px;
+    width: 250px;
     flex-shrink: 0;
     padding: 24px 12px;
     border-right: 1px solid var(--border, #2a2a2a);
     background: var(--bg-card, #1a1a1a);
 }
-@media (min-width: 768px) {
-    .flujos-nav { display: flex; }
-}
-/* Mobile: overlay cuando está abierto */
+@media (min-width: 768px) { .flujos-nav { display: flex; } }
 .flujos-nav--open {
     display: flex;
     position: fixed;
-    top: 57px;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    top: 57px; left: 0; right: 0; bottom: 0;
     width: 100%;
     z-index: 40;
     overflow-y: auto;
     padding: 20px 16px;
 }
 .nav-label {
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.09em;
     color: var(--text-muted, #888);
-    padding: 0 8px;
-    margin-bottom: 8px;
+    padding: 0 10px;
+    margin-bottom: 10px;
 }
 .nav-item {
     display: flex;
@@ -509,73 +562,81 @@ onMounted(() => {
     background: none;
     color: var(--text-muted, #888);
     font-family: inherit;
-    font-size: 0.88rem;
+    font-size: 0.85rem;
     cursor: pointer;
     text-align: left;
-    transition: background 0.15s, color 0.15s;
     min-height: 44px;
+    transition: background 0.15s, color 0.15s;
 }
 .nav-item:hover { background: var(--bg-elevated, #222); color: var(--text-primary, #f1f1f1); }
 .nav-item--active {
-    background: color-mix(in srgb, var(--brand, #e53e3e) 15%, transparent);
+    background: color-mix(in srgb, var(--brand, #e53e3e) 14%, transparent);
     color: var(--brand, #e53e3e);
     font-weight: 600;
 }
 
-/* ─── Main content ───────────────────────────────────────────────────────────── */
+/* ─── Main ───────────────────────────────────────────────────────────────────── */
 .ayuda-main {
     flex: 1;
-    padding: 24px 16px 48px;
+    padding: 24px 16px 56px;
     max-width: 680px;
     margin: 0 auto;
     width: 100%;
 }
-@media (min-width: 768px) {
-    .ayuda-main { padding: 40px 48px 64px; }
-}
+@media (min-width: 768px) { .ayuda-main { padding: 40px 48px 72px; } }
 
 /* ─── Flujo header ───────────────────────────────────────────────────────────── */
-.flujo-header {
-    margin-bottom: 24px;
-}
-.flujo-num-wrap {
+.flujo-header { margin-bottom: 20px; }
+.flujo-meta {
     display: flex;
     align-items: center;
     gap: 8px;
     margin-bottom: 10px;
 }
 .flujo-icon { color: var(--brand, #e53e3e); }
-.flujo-num {
-    font-size: 0.78rem;
-    font-weight: 600;
+.flujo-num-txt {
+    font-size: 0.75rem;
+    font-weight: 700;
     color: var(--text-muted, #888);
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.07em;
 }
 .flujo-titulo {
-    font-size: 1.6rem;
+    font-size: 1.65rem;
     font-weight: 800;
-    color: var(--text-primary, #f1f1f1);
     line-height: 1.2;
+    color: var(--text-primary, #f1f1f1);
     margin-bottom: 6px;
 }
 .flujo-sub {
     font-size: 0.95rem;
     color: var(--text-muted, #888);
-    margin-bottom: 16px;
+    margin-bottom: 14px;
 }
-.flujo-pasos-dots {
-    display: flex;
-    gap: 6px;
-}
+.flujo-dots { display: flex; gap: 6px; }
 .dot {
-    width: 8px;
-    height: 8px;
+    width: 8px; height: 8px;
     border-radius: 50%;
     background: var(--border, #2a2a2a);
     transition: background 0.2s;
 }
 .dot--on { background: var(--brand, #e53e3e); }
+
+/* ─── Alerta del paso ────────────────────────────────────────────────────────── */
+.paso-alerta {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: color-mix(in srgb, #f59e0b 12%, transparent);
+    border: 1px solid color-mix(in srgb, #f59e0b 30%, transparent);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    font-size: 0.92rem;
+    line-height: 1.6;
+    color: var(--text-primary, #f1f1f1);
+}
+.alerta-icon { color: #f59e0b; flex-shrink: 0; margin-top: 2px; }
 
 /* ─── Paso card ──────────────────────────────────────────────────────────────── */
 .paso-card {
@@ -584,7 +645,6 @@ onMounted(() => {
     border-radius: 16px;
     padding: 28px 24px;
     margin-bottom: 24px;
-    position: relative;
 }
 .paso-num {
     font-size: 3rem;
@@ -592,14 +652,13 @@ onMounted(() => {
     color: var(--brand, #e53e3e);
     line-height: 1;
     margin-bottom: 8px;
-    font-variant-numeric: tabular-nums;
 }
 .paso-titulo {
     font-size: 1.4rem;
     font-weight: 700;
     color: var(--text-primary, #f1f1f1);
-    margin-bottom: 20px;
     line-height: 1.3;
+    margin-bottom: 20px;
 }
 .paso-lista {
     padding-left: 20px;
@@ -613,38 +672,36 @@ onMounted(() => {
     line-height: 1.8;
     color: var(--text-primary, #f1f1f1);
 }
-.paso-lista li :deep(strong) {
-    color: var(--brand, #e53e3e);
-    font-weight: 700;
-}
+.paso-lista li :deep(strong) { color: var(--brand, #e53e3e); font-weight: 700; }
 .paso-tip {
     display: flex;
     align-items: flex-start;
     gap: 8px;
     background: color-mix(in srgb, var(--brand, #e53e3e) 10%, transparent);
-    border: 1px solid color-mix(in srgb, var(--brand, #e53e3e) 25%, transparent);
+    border: 1px solid color-mix(in srgb, var(--brand, #e53e3e) 22%, transparent);
     border-radius: 10px;
     padding: 12px 14px;
     font-size: 0.9rem;
-    line-height: 1.5;
+    line-height: 1.55;
     color: var(--text-primary, #f1f1f1);
-    margin-top: 4px;
+    margin-bottom: 12px;
 }
 .paso-tip svg { color: var(--brand, #e53e3e); flex-shrink: 0; margin-top: 2px; }
 .paso-nota {
-    margin-top: 14px;
-    font-size: 0.85rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 0.84rem;
     color: var(--text-muted, #888);
     line-height: 1.6;
     border-left: 3px solid var(--border, #2a2a2a);
     padding-left: 12px;
+    margin-top: 4px;
 }
-.nota-label {
-    font-weight: 700;
-    color: var(--text-primary, #f1f1f1);
-}
+.nota-icon { flex-shrink: 0; margin-top: 2px; color: var(--text-muted, #888); }
+.paso-nota :deep(strong) { color: var(--text-primary, #f1f1f1); }
 
-/* ─── Botones navegación ─────────────────────────────────────────────────────── */
+/* ─── Botones nav ────────────────────────────────────────────────────────────── */
 .nav-btns {
     display: flex;
     align-items: center;
@@ -671,7 +728,7 @@ onMounted(() => {
     color: var(--text-muted, #888);
 }
 .btn-nav--prev:hover:not(:disabled) { color: var(--text-primary, #f1f1f1); }
-.btn-nav--prev:disabled { opacity: 0.35; cursor: default; }
+.btn-nav--prev:disabled { opacity: 0.3; cursor: default; }
 .btn-nav--next {
     background: var(--brand, #e53e3e);
     color: #fff;
@@ -684,23 +741,19 @@ onMounted(() => {
     white-space: nowrap;
 }
 
-/* ─── Saltar a flujo ─────────────────────────────────────────────────────────── */
-.saltar-flujos { margin-top: 8px; }
+/* ─── Chips de flujo ─────────────────────────────────────────────────────────── */
+.saltar-flujos { margin-top: 4px; }
 .saltar-label {
-    font-size: 0.75rem;
-    color: var(--text-muted, #888);
+    font-size: 0.72rem;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.07em;
+    color: var(--text-muted, #888);
     margin-bottom: 10px;
-    font-weight: 600;
 }
-.saltar-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
+.saltar-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {
-    padding: 6px 12px;
+    padding: 6px 14px;
     border-radius: 20px;
     border: 1px solid var(--border, #2a2a2a);
     background: none;
@@ -712,16 +765,12 @@ onMounted(() => {
     transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 .chip:hover { background: var(--bg-elevated, #222); color: var(--text-primary, #f1f1f1); }
-.chip--on {
-    border-color: var(--brand, #e53e3e);
-    color: var(--brand, #e53e3e);
-    font-weight: 600;
-}
+.chip--on { border-color: var(--brand, #e53e3e); color: var(--brand, #e53e3e); font-weight: 600; }
 
 /* ─── Pantalla final ─────────────────────────────────────────────────────────── */
 .fin-card {
     text-align: center;
-    padding: 48px 24px;
+    padding: 52px 24px;
     background: var(--bg-card, #1a1a1a);
     border: 1px solid var(--border, #2a2a2a);
     border-radius: 20px;
@@ -732,7 +781,7 @@ onMounted(() => {
 }
 .fin-icon { color: #22c55e; }
 .fin-titulo {
-    font-size: 1.6rem;
+    font-size: 1.65rem;
     font-weight: 800;
     color: var(--text-primary, #f1f1f1);
     line-height: 1.3;
@@ -743,8 +792,10 @@ onMounted(() => {
     line-height: 1.7;
     max-width: 460px;
 }
+.fin-sub :deep(strong) { color: var(--text-primary, #f1f1f1); }
 .btn-ir {
-    display: inline-block;
+    display: flex;
+    align-items: center;
     padding: 16px 32px;
     background: var(--brand, #e53e3e);
     color: #fff;
@@ -754,9 +805,7 @@ onMounted(() => {
     font-weight: 700;
     text-decoration: none;
     min-height: 52px;
-    line-height: 1;
-    display: flex;
-    align-items: center;
+    transition: opacity 0.15s;
 }
 .btn-ir:hover { opacity: 0.88; }
 .btn-reiniciar {
