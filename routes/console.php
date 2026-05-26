@@ -17,3 +17,8 @@ Schedule::command('dollar:update')->hourly();
 Schedule::command('cash:banking-alert --minutes=20')->dailyAt('18:40')->timezone('America/Caracas');
 Schedule::command('cash:banking-alert --minutes=10')->dailyAt('18:50')->timezone('America/Caracas');
 Schedule::command('cash:banking-alert --minutes=0')->dailyAt('19:00')->timezone('America/Caracas');
+
+Schedule::command('dollar:fetch')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping()
+    ->runInBackground();
