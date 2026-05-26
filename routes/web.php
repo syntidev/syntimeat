@@ -32,6 +32,10 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
+Route::get('/ayuda', function () {
+    return Inertia::render('Ayuda');
+})->name('ayuda');
+
 // ─── Authenticated + onboarding complete ─────────────────────────────────────
 Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->group(function () {
 
