@@ -333,7 +333,7 @@ function submitClose() {
 
                         <button
                             class="btn btn-danger dc-btn-close"
-                            :disabled="!form.counted_cash_bs || form.processing"
+                            :disabled="form.counted_cash_bs === '' || form.counted_cash_bs === null || form.processing"
                             @click="showModal = true"
                         >
                             Confirmar Cierre
