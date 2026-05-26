@@ -202,7 +202,7 @@ const loadingCanales = ref(false)
 async function loadCanales() {
     loadingCanales.value = true
     try {
-        const res = await axios.get('/reportes/canal-rendimiento')
+        const res = await axios.get('/reportes/canal-rendimiento', { withCredentials: true })
         canales.value = res.data.canales ?? []
     } catch (e) {
         console.error('Error cargando canales', e)
