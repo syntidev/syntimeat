@@ -1,0 +1,33 @@
+[1mdiff --git a/app/Http/Controllers/FabricaController.php b/app/Http/Controllers/FabricaController.php[m
+[1mindex 3ba5713..d669d97 100644[m
+[1m--- a/app/Http/Controllers/FabricaController.php[m
+[1m+++ b/app/Http/Controllers/FabricaController.php[m
+[36m@@ -116,7 +116,11 @@[m [mpublic function index(): Response[m
+                     ? Product::with('category')[m
+                         ->where('business_id', $businessId)[m
+                         ->where('location', 'vitrina')[m
+[31m-                        ->where('active', true)[m
+[32m+[m[32m                        ->when([m
+[32m+[m[32m                            $catName === 'Res',[m
+[32m+[m[32m                            fn ($q) => $q->where(fn ($q2) => $q2->where('active', true)->orWhereIn('name', $resOrder)),[m
+[32m+[m[32m                            fn ($q) => $q->where('active', true)[m
+[32m+[m[32m                        )[m
+                         ->where('fabricable', false)[m
+                         ->whereHas('category', fn ($q) => $q->where('name', $catName))[m
+                         ->when($catName === 'Res', fn ($q) => $q->whereIn('name', $resOrder))[m
+[36m@@ -138,7 +142,14 @@[m [mpublic function index(): Response[m
+                     'entered_at'         => $e->entered_at?->format('d/m/Y'),[m
+                     'productos_vitrina'  => $productos,[m
+                 ];[m
+[31m-            });[m
+[32m+[m[32m            })[m
+[32m+[m[32m            ->sortBy(fn ($e) => match($e['product_type']) {[m
+[32m+[m[32m                'RES - Medio Canal'        => 0,[m
+[32m+[m[32m                'POLLO - Entero Congelado' => 1,[m
+[32m+[m[32m                'CERDO - Canal'            => 2,[m
+[32m+[m[32m                default                    => 3,[m
+[32m+[m[32m            })[m
+[32m+[m[32m            ->values();[m
+ [m
+         $despieceHistorial = BovedaEntry::where('business_id', $businessId)[m
+             ->whereNotNull('despiece_completado_at')[m

@@ -862,4 +862,184 @@ Página de configuración de hardware (scanner EAN-13, balanza, impresora térmi
 | 2026_05_12_000013 | sales | ADD delivery_status, delivery fields |
 | 2026_05_12_000014 | products | ADD location |
 | 2026_05_13_000015 | boveda_entries | CREATE |
-| 2026_05_13_000016 | boveda_entries | NOR
+| 2026_05_13_000016 | boveda_entries | NORMALIZE (agregar kg_surtido_vitrina, refactor) |
+| 2026_05_13_000017 | boveda_products | CREATE |
+| 2026_05_13_000018 | despiece_items | ADD tipo |
+| 2026_05_13_165047 | boveda_entries | ADD waste_kg |
+| 2026_05_13_190001 | inventory_entries | ADD boveda_entry_id |
+| 2026_05_13_190002 | boveda_entries | ADD kg_disponible GENERATED VIRTUAL |
+| 2026_05_13_190003 | sale_items | ADD subtotal_bs |
+| 2026_05_13_200001 | categories | ADD macro_category |
+| 2026_05_13_200002 | fabrica_batches | CREATE |
+| 2026_05_13_200003 | fabrica_inputs | CREATE |
+| 2026_05_13_210001 | products | ADD fabricable |
+| 2026_05_13_210002 | fabrica_inputs | ADD product_id |
+| 2026_05_13_220001 | branches | CREATE |
+| 2026_05_13_220002 | users | EXPAND roles ENUM |
+| 2026_05_13_220003 | sales, inventory_entries, etc. | ADD branch_id |
+| 2026_05_13_230001 | products | ADD cost_per_unit_usd |
+| 2026_05_14_000001 | sales | ADD payment_status, order_id |
+| 2026_05_14_010001 | businesses | ADD max_branches |
+| 2026_05_14_050743 | sales | ADD 'credit' al ENUM origin |
+| 2026_05_14_065526 | products | ADD branch_id |
+| 2026_05_14_071527 | users | ADD team fields (position, avatar…) |
+| 2026_05_14_074358 | users | ADD access_days JSON |
+| 2026_05_14_080924 | clients | RENAME client_code → cedula |
+| 2026_05_14_100001 | cash_registers | ADD opening_amount_bs |
+| 2026_05_14_180427 | boveda_products | ADD requires_despiece, vitrina_product_id |
+| 2026_05_14_194421 | boveda_entries | ADD despiece_completado_at |
+| 2026_05_15_000001 | products | DROP cost fields legacy |
+| 2026_05_16_000001 | cash_movements | ADD 'corte' al ENUM type |
+| 2026_05_16_000002 | cash_movements | ADD amount_bs |
+| 2026_05_16_000003 | products | ADD is_favorite |
+| ▲ 2026_05_22_000001 | cash_registers | NULLABLE: opened_at, opening_amount_usd, opened_by |
+| ▲ 2026_05_22_214705 | users | ADD is_hidden (boolean, default false) |
+| ▲ 2026_05_23_000001 | businesses | ADD subscription_active (boolean, default true) |
+| ▲ 2026_05_23_000002 | sales | ADD accounting_date (date nullable) |
+| ▲ 2026_05_23_123937 | businesses | FIX NULLABLE: legal_name, rif, theme_color, phone, city, state, address |
+| ▲ 2026_05_24_000001 | boveda_entries | ADD pair_id (unsignedBigInteger nullable) |
+| ▲ 2026_05_24_000002 | products | ADD stock_product_id (unsignedBigInteger nullable) |
+
+**Total: 72 migraciones** (era 65)
+
+---
+
+## 10. Stress Test
+
+**Archivo:** `stress_test.php` (raíz del proyecto)
+**Total fases: 18** (era 16)
+
+| Fase | Módulo | Estado |
+|------|--------|--------|
+| 1 | Auth + DollarRateService | ✅ |
+| 2 | Bóveda: Entradas, Surtidos, Límites | ✅ |
+| 3 | Fábrica: Despiece y Validaciones | ✅ |
+| 4 | POS: Ventas, Pagos, Anulaciones | ✅ |
+| 5 | Cierre de Caja y Utilidad | ✅ |
+| 6 | InventoryController | ✅ |
+| 7 | OrderController | ✅ |
+| 8 | ClientController | ✅ |
+| 9 | ReportController | ✅ |
+| 10 | SettingsController + PaymentMethodController | ✅ |
+| 11 | Configuración Ticket | ✅ |
+| 12 | Configuración General | ✅ |
+| 13 | Sucursales (storeBranch) | ✅ |
+| 14 | Contingencia (importSales) | ✅ |
+| 15 | Dashboard data endpoint | ✅ |
+| 16 | CatalogController::importProducts() | ✅ |
+| ▲ 17 | FabricaController::index() — props despiecePendiente | ✅ (3 subtests: RES/POLLO/CERDO) |
+| ▲ 18 | Configuración completa: 18.1 General / 18.2 Cajas / … | En desarrollo |
+
+**Convención:** Fixtures del test usan prefijo `[ST]` en description/name para cleanup al final.
+
+---
+
+## 11. Seeders
+
+| Seeder | Propósito |
+|--------|-----------|
+| `DatabaseSeeder` | Orquestador principal |
+| `PaymentMethodSeeder` | Métodos de pago base: efectivo Bs, efectivo USD, transferencia, pago móvil, punto de venta |
+| `CatalogSeeder` | Categorías y productos genéricos de demostración |
+| `CatalogSeederChaguaramas` | ▲ Catálogo real Chaguaramas actualizado: catMap corregido, resItems sin legacy, pool 'Carne del Canal', stock_product_id asignado a Premium/Primera/Segunda |
+| `ChaguaramasBaseSeeder` | Datos base del negocio piloto: business, admin user, configuración |
+| `InventorySeeder` | Entradas de inventario de prueba para vitrina |
+| `TestFlowSeeder` | Flujo completo A→Z (22 checks): boveda → despiece → vitrina → POS → cierre |
+
+**Catálogo Chaguaramas — Categorías:**
+
+| Categoría | Color | macro_category |
+|-----------|-------|----------------|
+| Bóveda | #64748B | BOVEDA |
+| Res | #EF4444 | RES |
+| Pollo | #2563EB | POLLO |
+| Cerdo | #8B5CF6 | CERDO |
+| Charcutería | #06B6D4 | CHARCUTERIA |
+| Trastes | #F97316 | TRASTES |
+| Víveres | #10B981 | DESPENSA |
+
+**Pool stock Res:** 'Carne del Canal' (active=false, location=vitrina, sort_order=99) ← Premium, Primera, Segunda apuntan aquí vía stock_product_id.
+
+---
+
+## 12. Variables de entorno (.env keys)
+
+```
+APP_NAME / APP_ENV / APP_KEY / APP_DEBUG / APP_URL
+APP_LOCALE / APP_FALLBACK_LOCALE / APP_FAKER_LOCALE
+LOG_CHANNEL / LOG_LEVEL
+DB_CONNECTION / DB_HOST / DB_PORT / DB_DATABASE / DB_USERNAME / DB_PASSWORD
+SYNTIWEB_DB_HOST / SYNTIWEB_DB_PORT / SYNTIWEB_DB_DATABASE
+SYNTIWEB_DB_USERNAME / SYNTIWEB_DB_PASSWORD
+DOLLAR_FALLBACK_RATE
+SESSION_DRIVER / SESSION_LIFETIME / SESSION_ENCRYPT / SESSION_PATH / SESSION_DOMAIN
+BROADCAST_CONNECTION / FILESYSTEM_DISK / QUEUE_CONNECTION / CACHE_STORE
+MAIL_MAILER / MAIL_HOST / MAIL_PORT / MAIL_USERNAME / MAIL_PASSWORD / MAIL_FROM_ADDRESS
+VITE_APP_NAME
+```
+
+**Claves críticas:**
+- `SYNTIWEB_DB_*` → conexión readonly a synticorex (dollar_rates)
+- `DOLLAR_FALLBACK_RATE` → tasa de último recurso (default 40.00)
+
+---
+
+## 13. Comandos VPS
+
+```bash
+# Conectar
+ssh -i C:\Users\carbo\.ssh\id_ed25519 root@187.124.241.213
+
+# Deploy completo
+cd /var/www/syntimeat
+git pull origin main
+npm run build
+php artisan migrate --force
+php artisan config:cache
+php artisan route:cache
+
+# Kill switch — apagar
+php artisan tinker --execute="DB::table('businesses')->where('id',1)->update(['subscription_active'=>0]);"
+
+# Kill switch — encender
+php artisan tinker --execute="DB::table('businesses')->where('id',1)->update(['subscription_active'=>1]);"
+
+# Tasa BCV
+php artisan dollar:fetch
+
+# Alerta bancaria (ejecutar con cron a las 6:40pm, 6:50pm, 7:00pm)
+php artisan cash:banking-alert --minutes=20
+php artisan cash:banking-alert --minutes=10
+php artisan cash:banking-alert --minutes=0
+
+# Logs
+tail -50 storage/logs/laravel.log
+grep "ERROR\|Exception" storage/logs/laravel.log | tail -20
+```
+
+---
+
+## 14. Deuda técnica activa (post-entrega)
+
+### Crítico
+- [ ] BUG-001: Productos duplicados en vistas (filtro branch_id en session null)
+- [ ] BUG-002: Producto creado no aparece en Catálogo (CatalogController branch_id)
+
+### V1.1 (acordado con cliente)
+- [ ] Corte bancario configurable desde UI (hora, on/off)
+- [ ] Reportes por cajero, por método de pago
+- [ ] Paginación reportes (hoy cap 500 filas)
+- [ ] CRUD Proveedores
+- [ ] Módulo respaldo manual tickets post-apagón
+- [ ] Kits/Cestas en Fábrica
+- [ ] Email/reset contraseña (Resend)
+- [ ] Logo en ticket impreso
+- [ ] Scanner EAN-13 calibración con balanza real
+- [ ] Ticket térmico 80mm calibración con impresora real
+- [ ] FASE 18 stress test completar (config CRUD completo)
+- [ ] FASE 19: Multi-rol — cada rol accede solo a lo que debe
+- [ ] FASE 20: Multi-sucursal — filtros correctos por branch_id
+
+---
+
+*SYNTIdev — syntimeat — 2026-05-24 — Confidencial*
