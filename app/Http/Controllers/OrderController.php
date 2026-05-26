@@ -455,6 +455,7 @@ class OrderController extends Controller
 
         DB::transaction(function () use ($sale, $rate, $totalBs, $changeUsd, $firstMethod, $data, $businessId, $user, $cashRegister) {
             $sale->update([
+                'status'              => 'paid',
                 'payment_status'      => 'paid',
                 'rate_used'           => $rate,
                 'total_bs'            => $totalBs,
@@ -464,6 +465,14 @@ class OrderController extends Controller
                 'sold_at'             => now(),
                 'cash_register_id'    => $cashRegister->id,
             ]);
+
+            if (empty($sale->getRawOriginal('accounting_date'))) {
+                $nowCollect = now('America/Caracas');
+                $acctDate   = $nowCollect->hour >= 19
+                    ? $nowCollect->copy()->addDay()->toDateString()
+                    : $nowCollect->toDateString();
+                $sale->update(['accounting_date' => $acctDate]);
+            }
 
             foreach ($data['payments'] as $pmt) {
                 SalePayment::create([

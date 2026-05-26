@@ -237,7 +237,7 @@ class SaleController extends Controller
                     'business_id'     => $businessId,
                     'branch_id'       => $user->branch_id,
                     'ticket_number'   => $ticketNumber,
-                    'status'          => 'paid',
+                    'status'          => 'pending',
                     'payment_status'  => 'pendiente_cobro',
                     'total_usd'       => round($totalUsd, 2),
                     'total_bs'        => $totalBs,

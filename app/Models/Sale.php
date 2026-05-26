@@ -26,6 +26,7 @@ class Sale extends Model
         'total_bs',
         'notes',
         'sold_at',
+        'accounting_date',
         'cashier_id',
         'cash_register_id',
         'cancelled_at',

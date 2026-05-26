@@ -361,6 +361,10 @@ class ReportController extends Controller
         $perBranch = Sale::without('items')
             ->where('business_id', $businessId)
             ->where('status', 'paid')
+            ->where(function ($q) {
+                $q->whereNull('payment_status')
+                  ->orWhere('payment_status', '!=', 'pendiente_cobro');
+            })
             ->where(fn ($q) => $q->whereIn('branch_id', $branchIds)->orWhereNull('branch_id'))
             ->whereDate('accounting_date', '>=', $desde)
             ->whereDate('accounting_date', '<=', $hasta)
@@ -382,6 +386,10 @@ class ReportController extends Controller
             ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
             ->where('sales.business_id', $businessId)
             ->where('sales.status', 'paid')
+            ->where(function ($q) {
+                $q->whereNull('sales.payment_status')
+                  ->orWhere('sales.payment_status', '!=', 'pendiente_cobro');
+            })
             ->where(fn ($q) => $q->whereIn('sales.branch_id', $branchIds)->orWhereNull('sales.branch_id'))
             ->whereDate('sales.accounting_date', '>=', $desde)
             ->whereDate('sales.accounting_date', '<=', $hasta)
@@ -526,6 +534,10 @@ class ReportController extends Controller
     {
         $sales = Sale::where('business_id', $businessId)
             ->where('status', 'paid')
+            ->where(function ($q) {
+                $q->whereNull('payment_status')
+                  ->orWhere('payment_status', '!=', 'pendiente_cobro');
+            })
             ->whereDate('accounting_date', $fecha)
             ->when($branchId !== null, fn ($q) => $q->where('branch_id', $branchId))
             ->with(['items.product.category'])
@@ -534,8 +546,12 @@ class ReportController extends Controller
         $avgCosts = InventoryEntry::where('business_id', $businessId)
             ->whereNotNull('cost_per_kg_usd')
             ->where('cost_per_kg_usd', '>', 0)
-            ->selectRaw('product_id, AVG(cost_per_kg_usd) as avg_cost')
-            ->groupBy('product_id')
+            ->whereDate('entered_at', '<=', $fecha)
+            ->selectRaw('product_id, cost_per_kg_usd as avg_cost, MAX(entered_at) as last_entry')
+            ->groupBy('product_id', 'cost_per_kg_usd')
+            ->orderBy('last_entry', 'desc')
+            ->get()
+            ->unique('product_id')
             ->pluck('avg_cost', 'product_id');
 
         $byCat  = [];

@@ -3824,6 +3824,363 @@ if ($userCreado18)      { User::where('id', $userCreado18->id)->delete(); }
 \App\Models\Branch::where('business_id', $businessId)->where('name', 'like', '%FASE18%')->delete();
 User::where('business_id', $businessId)->where('email', 'like', 'sttest-18-%')->delete();
 
+// ─── FASE 19 — Wave 1: Crédito y Costo por Última Entrada ────────────────────
+section('FASE 19 — Wave 1: Crédito / Cobro / Costo por última entrada');
+
+// ── Prereqs ───────────────────────────────────────────────────────────────────
+
+// Caja abierta por el usuario (requerida por pay() y collectPending())
+$cashReg19 = CashRegister::where('business_id', $businessId)
+    ->where('opened_by', $user->id)
+    ->whereNull('closed_at')
+    ->first();
+
+if (! $cashReg19) {
+    $cashReg19 = CashRegister::create([
+        'business_id'        => $businessId,
+        'branch_id'          => $user->branch_id,
+        'name'               => '[ST] Caja FASE19',
+        'opening_amount_usd' => 0.0,
+        'opening_amount_bs'  => 0.0,
+        'opened_at'          => now(),
+        'opened_by'          => $user->id,
+        'rate_at_opening'    => $rate,
+    ]);
+    echo "  Caja FASE19 creada: ID={$cashReg19->id}\n\n";
+}
+
+// Método de pago activo del negocio
+$pm19 = PaymentMethod::where('business_id', $businessId)->where('is_active', true)->first()
+     ?? $paymentMethod;  // fallback al de Fase 4
+
+// Producto dedicado para Caso C — sin historial de costos previo
+$anyCategory19 = \App\Models\Category::where('business_id', $businessId)->value('id');
+
+$prod19 = Product::create([
+    'business_id'        => $businessId,
+    'branch_id'          => null,
+    'category_id'        => $anyCategory19,
+    'name'               => '[ST] Prod Costo F19',
+    'sale_mode'          => 'weight',
+    'base_unit_label'    => 'kg',
+    'location'           => 'vitrina',
+    'price_per_kg_usd'   => 5.0,
+    'price_per_unit_usd' => null,
+    'fraction_allowed'   => true,
+    'fabricable'         => false,
+    'active'             => true,
+    'sort_order'         => 99,
+    'min_stock'          => 0,
+]);
+
+$saleCredito19 = null;
+$saleC19       = null;
+
+// ══ CASO A — Crédito no contamina el reporte del día ══════════════════════════
+section('FASE 19.A — Crédito no contamina el reporte del día');
+
+$fechaHoy19 = now()->toDateString();
+
+// Baseline: vendido_usd antes de crear el crédito
+$rBaseA19    = $reportCtrl->dayReport(makeReq('/reportes/dia', 'GET', ['fecha' => $fechaHoy19]));
+$bBaseA19    = json_decode($rBaseA19->getContent(), true);
+$vendidoAntes19 = (float) ($bBaseA19['totals']['vendido_usd'] ?? 0);
+
+// 19.A.1 — Crear venta con origin=credit → status=pending + payment_status=pendiente_cobro
+if (! $productoConStock || ! $pm19) {
+    fail('19.A.1 Crear venta crédito (origin=credit)', 'Sale pending creada', 'Sin producto con stock o método de pago disponible');
+} else {
+    try {
+        $reqCredit19  = makeReq('/sales', 'POST', [
+            'items'  => [['product_id' => $productoConStock->id, 'input_type' => 'weight', 'amount_bs' => 500.0]],
+            'origin' => 'credit',
+        ]);
+        $respCredit19 = $posCtrl->store($reqCredit19);
+        $bodyCredit19 = json_decode($respCredit19->getContent(), true);
+
+        if (isset($bodyCredit19['sale']['id'])) {
+            $saleCredito19 = Sale::find($bodyCredit19['sale']['id']);
+
+            if ($saleCredito19
+                && $saleCredito19->status         !== 'paid'
+                && $saleCredito19->payment_status === 'pendiente_cobro'
+            ) {
+                pass(
+                    '19.A.1 Venta crédito → status=pending',
+                    'status!=paid | payment_status=pendiente_cobro',
+                    "ID={$saleCredito19->id} | status={$saleCredito19->status} | ps={$saleCredito19->payment_status} ✓"
+                );
+            } else {
+                fail(
+                    '19.A.1 Venta crédito → status=pending',
+                    'status!=paid | payment_status=pendiente_cobro',
+                    'status=' . ($saleCredito19->status ?? 'null') . ' | ps=' . ($saleCredito19->payment_status ?? 'null')
+                );
+            }
+        } else {
+            fail('19.A.1 Venta crédito → status=pending', 'Sale creada con id', 'Respuesta inesperada: ' . json_encode($bodyCredit19));
+        }
+    } catch (\Throwable $e) {
+        fail('19.A.1 Venta crédito → status=pending', 'Sale creada sin excepción', get_class($e) . ': ' . $e->getMessage());
+    }
+}
+
+// 19.A.2 — Reporte del día: vendido_usd NO cambió (crédito con payment_status=pendiente_cobro excluido)
+try {
+    $rPostA19    = $reportCtrl->dayReport(makeReq('/reportes/dia', 'GET', ['fecha' => $fechaHoy19]));
+    $bPostA19    = json_decode($rPostA19->getContent(), true);
+    $vendidoPostCredito19 = (float) ($bPostA19['totals']['vendido_usd'] ?? 0);
+
+    if (abs($vendidoPostCredito19 - $vendidoAntes19) < 0.01) {
+        pass(
+            '19.A.2 Crédito no contamina reporte del día',
+            "vendido_usd={$vendidoAntes19} sin cambio",
+            "vendido_usd={$vendidoPostCredito19} — filtro payment_status=pendiente_cobro correcto ✓"
+        );
+    } else {
+        fail(
+            '19.A.2 Crédito no contamina reporte del día',
+            "vendido_usd={$vendidoAntes19} sin cambio",
+            "vendido_usd={$vendidoPostCredito19} — crédito SÍ sumó, BUG en filtro payment_status"
+        );
+    }
+} catch (\Throwable $e) {
+    fail('19.A.2 Crédito no contamina reporte del día', 'JSON OK sin excepción', get_class($e) . ': ' . $e->getMessage());
+}
+
+// ══ CASO B — Crédito cobrado sí aparece en reporte del día del cobro ══════════
+section('FASE 19.B — Crédito cobrado sí suma al reporte del día');
+
+if (! $saleCredito19 || ! $pm19 || ! $cashReg19) {
+    fail('19.B.1 collectPending() → status=paid', 'Sale cobrada', 'Crédito o prereqs no disponibles del Caso A');
+    fail('19.B.2 Cobro aparece en reporte del día', "vendido_usd > {$vendidoAntes19}", 'Caso B no ejecutado');
+} else {
+    // 19.B.1 — collectPending() cambia status a paid
+    try {
+        $reqCollect19  = makeReq(
+            '/sales/' . $saleCredito19->id . '/collect',
+            'POST',
+            ['payments' => [['payment_method_id' => $pm19->id, 'amount_bs' => (float) $saleCredito19->total_bs]]]
+        );
+        $respCollect19 = $orderCtrl->collectPending($reqCollect19, $saleCredito19);
+        $bodyCollect19 = json_decode($respCollect19->getContent(), true);
+
+        $saleCredito19->refresh();
+
+        if ($saleCredito19->status === 'paid' && $saleCredito19->payment_status === 'paid') {
+            pass(
+                '19.B.1 collectPending() → status=paid',
+                'status=paid | payment_status=paid',
+                "ID={$saleCredito19->id} | status={$saleCredito19->status} | ps={$saleCredito19->payment_status} ✓"
+            );
+        } else {
+            $errMsg = isset($bodyCollect19['error']) ? " | error={$bodyCollect19['error']}" : '';
+            fail(
+                '19.B.1 collectPending() → status=paid',
+                'status=paid | payment_status=paid',
+                'status=' . ($saleCredito19->status ?? 'null') . ' | ps=' . ($saleCredito19->payment_status ?? 'null') . $errMsg
+            );
+        }
+    } catch (\Throwable $e) {
+        fail('19.B.1 collectPending() → status=paid', 'Sale cobrada sin excepción', get_class($e) . ': ' . $e->getMessage());
+    }
+
+    // 19.B.2 — Reporte del día ahora sí incluye la venta cobrada
+    // Usar accounting_date real del crédito (evita drift UTC vs America/Caracas)
+    $fechaCobroB19 = $saleCredito19
+        ? ($saleCredito19->fresh()->accounting_date ?? $fechaHoy19)
+        : $fechaHoy19;
+    try {
+        $rPostB19    = $reportCtrl->dayReport(makeReq('/reportes/dia', 'GET', ['fecha' => $fechaCobroB19]));
+        $bPostB19    = json_decode($rPostB19->getContent(), true);
+        $vendidoPostCobro19 = (float) ($bPostB19['totals']['vendido_usd'] ?? 0);
+
+        // DEBUG 19.B.2 — ver valores reales antes de la assertion
+        if ($saleCredito19) {
+            $_freshB19 = \App\Models\Sale::find($saleCredito19['id'] ?? 0);
+            echo "\n[DEBUG 19.B.2] sale_id=" . ($_freshB19->id ?? 'null')
+               . " | status=" . ($_freshB19->status ?? 'null')
+               . " | payment_status=" . ($_freshB19->payment_status ?? 'null')
+               . " | accounting_date=" . ($_freshB19->accounting_date ?? 'null')
+               . " | fecha_reporte={$fechaCobroB19}"
+               . " | vendido_usd_antes={$vendidoAntes19}"
+               . " | vendido_usd_post={$vendidoPostCobro19}"
+               . "\n[DEBUG 19.B.2] raw_totals=" . json_encode($bPostB19['totals'] ?? []) . "\n";
+        }
+
+        if ($vendidoPostCobro19 > $vendidoAntes19) {
+            pass(
+                '19.B.2 Cobro aparece en reporte del día',
+                "vendido_usd > {$vendidoAntes19}",
+                "vendido_usd={$vendidoPostCobro19} — cobro contabilizado en accounting_date ✓"
+            );
+        } else {
+            fail(
+                '19.B.2 Cobro aparece en reporte del día',
+                "vendido_usd > {$vendidoAntes19}",
+                "vendido_usd={$vendidoPostCobro19} — cobro NO sumó, BUG en accounting_date o filtro payment_status"
+            );
+        }
+    } catch (\Throwable $e) {
+        fail('19.B.2 Cobro aparece en reporte del día', 'JSON OK sin excepción', get_class($e) . ': ' . $e->getMessage());
+    }
+}
+
+// ══ CASO C — Costo usa la última entrada antes de la fecha, no el promedio ════
+section('FASE 19.C — Costo = última InventoryEntry, no promedio histórico');
+
+if (! $prod19 || ! $pm19 || ! $cashReg19) {
+    fail('19.C.1 Setup dos InventoryEntries con costos distintos', 'Entries creadas', 'Prereqs no disponibles');
+    fail('19.C.2 Crear venta pagada con producto [ST]', 'Sale status=paid', 'Caso C no ejecutado');
+    fail('19.C.3 Costo usa última entrada ($3.00), no promedio ($2.50)', 'costo_usd ≈ qty × $3.00', 'Caso C no ejecutado');
+} else {
+    // 19.C.1 — Dos entradas con costos distintos: $2.00 (ayer) y $3.00 (hoy)
+    try {
+        // Entry vieja: $2.00/kg — un día atrás
+        InventoryEntry::create([
+            'business_id'     => $businessId,
+            'product_id'      => $prod19->id,
+            'quantity_kg'     => 10.0,
+            'waste_kg'        => 0,
+            'cost_per_kg_usd' => 2.00,
+            'location'        => 'vitrina',
+            'notes'           => '[ST] Costo F19 entry vieja',
+            'entered_at'      => now()->subDay(),
+            'created_by'      => $user->id,
+        ]);
+
+        // Entry nueva: $3.00/kg — ahora (también sirve como stock para la venta)
+        InventoryEntry::create([
+            'business_id'     => $businessId,
+            'product_id'      => $prod19->id,
+            'quantity_kg'     => 10.0,
+            'waste_kg'        => 0,
+            'cost_per_kg_usd' => 3.00,
+            'location'        => 'vitrina',
+            'notes'           => '[ST] Costo F19 entry nueva',
+            'entered_at'      => now(),
+            'created_by'      => $user->id,
+        ]);
+
+        pass(
+            '19.C.1 Setup dos InventoryEntries con costos distintos',
+            'Entry $2.00/kg (ayer) + Entry $3.00/kg (hoy) creadas',
+            "prod19.id={$prod19->id} | entry_vieja=\$2.00 | entry_nueva=\$3.00 ✓"
+        );
+    } catch (\Throwable $e) {
+        fail('19.C.1 Setup dos InventoryEntries con costos distintos', 'Entries creadas', get_class($e) . ': ' . $e->getMessage());
+    }
+
+    // 19.C.2 — Venta pagada: 1 kg del producto [ST] (≈$5 × rate Bs)
+    $amountBsC19 = round(5.0 * $rate, 2);  // Bs exactos para 1 kg a $5/kg
+    $resStoreC19 = storeVenta([
+        ['product_id' => $prod19->id, 'input_type' => 'weight', 'amount_bs' => $amountBsC19],
+    ], $posCtrl);
+
+    if (! $resStoreC19['ok']) {
+        fail('19.C.2 Crear venta pagada con producto [ST]', 'Sale status=paid', $resStoreC19['error']);
+        fail('19.C.3 Costo usa última entrada ($3.00), no promedio ($2.50)', 'costo_usd ≈ qty × $3.00', 'Venta no creada en 19.C.2');
+    } else {
+        $saleC19 = $resStoreC19['sale'];
+        $resPayC19 = payVenta($saleC19, [
+            ['payment_method_id' => $pm19->id, 'amount_bs' => (float) $saleC19->total_bs],
+        ], $posCtrl);
+
+        if (! $resPayC19['ok']) {
+            fail('19.C.2 Crear venta pagada con producto [ST]', 'Sale status=paid', $resPayC19['error']);
+            fail('19.C.3 Costo usa última entrada ($3.00), no promedio ($2.50)', 'costo_usd ≈ qty × $3.00', 'Venta no pagada en 19.C.2');
+        } else {
+            $saleC19->refresh();
+            $saleC19->load('items');
+
+            pass(
+                '19.C.2 Crear venta pagada con producto [ST]',
+                'sale.status=paid',
+                "ID={$saleC19->id} | status={$saleC19->status} | total_usd={$saleC19->total_usd} ✓"
+            );
+
+            // 19.C.3 — Reporte del día: costo = qty × $3.00, no qty × $2.50 (promedio)
+            try {
+                $fechaReporteC19 = \App\Models\Sale::find($saleC19['id'] ?? 0)?->accounting_date ?? $fechaHoy19;
+                $rC19 = $reportCtrl->dayReport(makeReq('/reportes/dia', 'GET', ['fecha' => $fechaReporteC19]));
+                $bC19 = json_decode($rC19->getContent(), true);
+
+                // DEBUG 19.C.3 — ver valores reales antes de la assertion
+                $_freshC19 = \App\Models\Sale::find($saleC19['id'] ?? 0);
+                echo "\n[DEBUG 19.C.3] sale_id=" . ($_freshC19->id ?? 'null')
+                   . " | status=" . ($_freshC19->status ?? 'null')
+                   . " | payment_status=" . ($_freshC19->payment_status ?? 'null')
+                   . " | accounting_date=" . ($_freshC19->accounting_date ?? 'null')
+                   . " | fecha_reporte={$fechaReporteC19}"
+                   . "\n[DEBUG 19.C.3] raw_totals=" . json_encode($bC19['totals'] ?? [])
+                   . "\n[DEBUG 19.C.3] categorias_count=" . count($bC19['categories'] ?? [])
+                   . "\n[DEBUG 19.C.3] productos_en_reporte=" . json_encode(
+                       collect($bC19['categories'] ?? [])
+                           ->flatMap(fn ($c) => collect($c['productos'] ?? [])->pluck('producto'))
+                           ->values()->all()
+                   ) . "\n";
+
+                // Localizar el producto [ST] en el breakdown de categorías
+                $catC19 = collect($bC19['categories'] ?? [])
+                    ->first(fn ($cat) => collect($cat['productos'] ?? [])
+                        ->contains('producto', '[ST] Prod Costo F19'));
+
+                if (! $catC19) {
+                    fail(
+                        '19.C.3 Costo usa última entrada ($3.00), no promedio ($2.50)',
+                        'Producto [ST] visible en reporte del día',
+                        'Categoría/producto [ST] no encontrado — verificar accounting_date y status=paid'
+                    );
+                } else {
+                    $prodRowC19 = collect($catC19['productos'] ?? [])
+                        ->first(fn ($p) => $p['producto'] === '[ST] Prod Costo F19');
+
+                    $qty19C       = (float) ($saleC19->items->first()?->quantity_value ?? 1.0);
+                    $costoReal19  = round((float) ($prodRowC19['costo_usd'] ?? 0), 4);
+                    $costoEsp19   = round($qty19C * 3.00, 4);  // con última entrada
+                    $costoAvg19   = round($qty19C * 2.50, 4);  // si fuera promedio
+
+                    if ($costoReal19 > 0 && abs($costoReal19 - $costoEsp19) < 0.05) {
+                        pass(
+                            '19.C.3 Costo usa última entrada ($3.00), no promedio ($2.50)',
+                            "costo_usd ≈ {$costoEsp19} (qty={$qty19C} × \$3.00)",
+                            "costo_usd={$costoReal19} ✓ (promedio hubiera sido {$costoAvg19})"
+                        );
+                    } else {
+                        fail(
+                            '19.C.3 Costo usa última entrada ($3.00), no promedio ($2.50)',
+                            "costo_usd ≈ {$costoEsp19} (qty={$qty19C} × \$3.00)",
+                            "costo_usd={$costoReal19} — esperado {$costoEsp19}, promedio sería {$costoAvg19}"
+                        );
+                    }
+                }
+            } catch (\Throwable $e) {
+                fail('19.C.3 Costo usa última entrada ($3.00), no promedio ($2.50)', 'costo_usd verificado sin excepción', get_class($e) . ': ' . $e->getMessage());
+            }
+        }
+    }
+}
+
+// ── Cleanup local FASE 19 ─────────────────────────────────────────────────────
+if ($saleCredito19) {
+    SalePayment::where('sale_id', $saleCredito19->id)->delete();
+    SaleItem::where('sale_id', $saleCredito19->id)->delete();
+    $saleCredito19->delete();
+}
+if ($saleC19) {
+    SalePayment::where('sale_id', $saleC19->id)->delete();
+    SaleItem::where('sale_id', $saleC19->id)->delete();
+    $saleC19->delete();
+}
+if ($prod19) {
+    InventoryEntry::where('product_id', $prod19->id)->delete();
+    $prod19->delete();
+}
+if ($cashReg19 && str_contains($cashReg19->name ?? '', 'FASE19')) {
+    $cashReg19->delete();
+}
+echo "  Cleanup FASE 19 completado.\n";
+
 // ─── RESUMEN FINAL ────────────────────────────────────────────────────────────
 section('RESUMEN FINAL — Tabla de Resultados');
 printTable($results);
@@ -4004,6 +4361,18 @@ try {
     }
     if ($stDrain->count() > 0) {
         echo "  Productos drain [ST] Res Drain eliminados: " . $stDrain->count() . "\n";
+    }
+
+    // ── FASE 19 cleanup (safety net — el local cleanup debería haberse ejecutado) ─
+    $stF19Prods = Product::where('business_id', $businessId)
+        ->where('name', '[ST] Prod Costo F19')
+        ->get();
+    foreach ($stF19Prods as $stP19) {
+        InventoryEntry::where('product_id', $stP19->id)->delete();
+        $stP19->delete();
+    }
+    if ($stF19Prods->count() > 0) {
+        echo "  Productos FASE19 [ST] residuales eliminados: " . $stF19Prods->count() . "\n";
     }
 
     echo "\n  Cleanup completo.\n";
