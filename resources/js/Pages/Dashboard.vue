@@ -139,6 +139,41 @@ let clockTimer = null
 onMounted(() => { updateHora(); clockTimer = setInterval(updateHora, 1000) })
 onUnmounted(() => clearInterval(clockTimer))
 
+// ─── Canal Rendimiento ────────────────────────────────────────────────────────
+const canales        = ref([])
+const loadingCanales = ref(false)
+const canalChecks    = ref({})
+
+async function loadCanales() {
+    loadingCanales.value = true
+    try {
+        const res = await axios.get('/reportes/canal-rendimiento', { withCredentials: true })
+        canales.value = res.data.canales ?? []
+    } catch (e) {
+        console.error('Error cargando canales', e)
+    } finally {
+        loadingCanales.value = false
+    }
+}
+
+function toggleProd(canalId, prodId) {
+    if (!canalChecks.value[canalId]) canalChecks.value[canalId] = {}
+    const current = canalChecks.value[canalId][prodId] !== false
+    canalChecks.value[canalId][prodId] = !current
+}
+
+function canalVendido(canal) {
+    return canal.productos
+        .filter(p => canalChecks.value[canal.boveda_entry_id]?.[p.product_id] !== false)
+        .reduce((s, p) => s + p.ingresos_usd, 0)
+}
+
+function canalUtilidad(canal) {
+    return canalVendido(canal) - canal.costo_usd
+}
+
+onMounted(() => { loadCanales() })
+
 // ─── Ayuda ────────────────────────────────────────────────────────────────────
 const showHelp = ref(false)
 
@@ -289,6 +324,74 @@ function dismissBankingAlert() {
 
                 </div>
             </div>
+
+            <!-- ─── Rendimiento por Canal ─────────────────────────────────────── -->
+            <section v-if="canales.length || loadingCanales" class="canal-section">
+                <h2 class="canal-title">
+                    <BarChart2 :size="18" /> Rendimiento por Canal
+                </h2>
+
+                <div v-if="loadingCanales" class="canal-loading">Cargando canales…</div>
+
+                <div v-else class="canal-grid">
+                    <div v-for="canal in canales" :key="canal.boveda_entry_id" class="canal-card">
+                        <div class="canal-header">
+                            <span class="canal-tipo">{{ canal.tipo }}</span>
+                            <span class="canal-fecha">{{ canal.fecha_entrada }}</span>
+                            <span class="canal-costo">Costo: ${{ canal.costo_usd.toFixed(2) }}</span>
+                        </div>
+
+                        <div class="canal-productos">
+                            <label
+                                v-for="prod in canal.productos"
+                                :key="prod.product_id"
+                                class="canal-prod-row"
+                            >
+                                <input
+                                    type="checkbox"
+                                    :checked="canalChecks[canal.boveda_entry_id]?.[prod.product_id] !== false"
+                                    @change="toggleProd(canal.boveda_entry_id, prod.product_id)"
+                                />
+                                <span class="prod-nombre">{{ prod.nombre }}</span>
+                                <span class="prod-kg">{{ prod.kg_vendido_hoy.toFixed(2) }} kg</span>
+                                <span class="prod-usd">${{ prod.ingresos_usd.toFixed(2) }}</span>
+                                <span v-if="prod.kg_remanente > 0" class="prod-rem">
+                                    +{{ prod.kg_remanente.toFixed(2) }}kg rem.
+                                </span>
+                            </label>
+                        </div>
+
+                        <div class="canal-footer">
+                            <div class="canal-stat">
+                                <span>Vendido</span>
+                                <strong>${{ canalVendido(canal).toFixed(2) }}</strong>
+                            </div>
+                            <div class="canal-stat">
+                                <span>Utilidad real</span>
+                                <strong :class="canalUtilidad(canal) >= 0 ? 'canal-pos' : 'canal-neg'">
+                                    ${{ canalUtilidad(canal).toFixed(2) }}
+                                </strong>
+                            </div>
+                            <div class="canal-stat">
+                                <span>Remanente</span>
+                                <strong class="canal-muted">{{ canal.kg_remanente.toFixed(2) }} kg</strong>
+                            </div>
+                            <div class="canal-stat">
+                                <span>Util. potencial</span>
+                                <strong class="canal-pos">${{ canal.valor_remanente.toFixed(2) }}</strong>
+                            </div>
+                        </div>
+
+                        <div class="canal-progress-bar">
+                            <div
+                                class="canal-progress-fill"
+                                :style="{ width: Math.min(100, canal.margen_pct + 100) + '%' }"
+                            />
+                        </div>
+                        <span class="canal-margen-label">{{ canal.margen_pct }}% margen</span>
+                    </div>
+                </div>
+            </section>
 
             <!-- ═══ CENTRO DE CONTROL ════════════════════════════════════════ -->
             <div class="panel panel--cc">
@@ -1003,4 +1106,32 @@ function dismissBankingAlert() {
 .banking-alert-leave-active { transition: opacity 0.3s ease, transform 0.3s ease; }
 .banking-alert-enter-from,
 .banking-alert-leave-to     { opacity: 0; transform: translateY(-6px); }
+
+/* ── Rendimiento por Canal ────────────────────────────────────────────────── */
+.canal-section { padding: 0 0.85rem 1.5rem; }
+@media (min-width: 640px) { .canal-section { padding: 0 1rem 1.5rem; } }
+.canal-title { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.85rem; }
+.canal-grid { display: grid; gap: 0.75rem; grid-template-columns: 1fr; }
+@media (min-width: 700px) { .canal-grid { grid-template-columns: repeat(2, 1fr); } }
+.canal-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; }
+.canal-header { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 0.75rem; font-size: 0.8rem; }
+.canal-tipo { font-weight: 700; color: var(--brand); }
+.canal-fecha { color: var(--text-muted); }
+.canal-costo { margin-left: auto; color: var(--text-muted); }
+.canal-productos { display: flex; flex-direction: column; }
+.canal-prod-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 0.82rem; cursor: pointer; }
+.prod-nombre { flex: 1; color: var(--text-primary); }
+.prod-kg, .prod-usd { color: var(--text-muted); min-width: 60px; text-align: right; font-variant-numeric: tabular-nums; }
+.prod-rem { color: #f59e0b; font-size: 0.75rem; }
+.canal-footer { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+.canal-stat { display: flex; flex-direction: column; gap: 2px; font-size: 0.78rem; }
+.canal-stat span { color: var(--text-muted); }
+.canal-stat strong { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.canal-pos { color: #22c55e !important; }
+.canal-neg { color: #ef4444 !important; }
+.canal-muted { color: var(--text-muted) !important; }
+.canal-progress-bar { height: 4px; background: var(--bg-base); border-radius: 2px; margin-top: 0.75rem; overflow: hidden; }
+.canal-progress-fill { height: 100%; background: var(--brand); border-radius: 2px; transition: width 0.5s ease; }
+.canal-margen-label { font-size: 0.72rem; color: var(--text-muted); }
+.canal-loading { color: var(--text-muted); padding: 1rem; text-align: center; font-size: 0.86rem; }
 </style>

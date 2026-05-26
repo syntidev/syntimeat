@@ -103,6 +103,8 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
     Route::middleware('role:super_admin,owner')->group(function () {
         Route::get('/reportes/consolidado', [ReportController::class, 'consolidated'])->name('reports.consolidated');
         Route::get('/reportes/consolidado/data', [ReportController::class, 'consolidatedData'])->name('reports.consolidated-data');
+    });
+    Route::middleware('role:super_admin,owner,branch_admin,analyst')->group(function () {
         Route::get('/reportes/canal-rendimiento', [ReportController::class, 'canalRendimiento'])->name('reports.canal');
     });
 
