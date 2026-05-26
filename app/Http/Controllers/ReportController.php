@@ -389,21 +389,21 @@ class ReportController extends Controller
                 $stockId = $prod->stock_product_id ?? $prod->id;
 
                 // Entradas acumuladas hasta hoy
-                $entradas = \App\Models\InventoryEntry::where('business_id', $businessId)
+                $entradas = (float) \App\Models\InventoryEntry::where('business_id', $businessId)
                     ->where('product_id', $stockId)
                     ->whereDate('entered_at', '<=', $fecha)
                     ->where('quantity_kg', '>', 0)
                     ->sum('quantity_kg');
 
                 // Salidas acumuladas hasta hoy
-                $salidas = abs(\App\Models\InventoryEntry::where('business_id', $businessId)
+                $salidas = abs((float) \App\Models\InventoryEntry::where('business_id', $businessId)
                     ->where('product_id', $stockId)
                     ->whereDate('entered_at', '<=', $fecha)
                     ->where('quantity_kg', '<', 0)
                     ->sum('quantity_kg'));
 
                 // Vendido HOY
-                $vendidoHoy = \App\Models\InventoryEntry::where('business_id', $businessId)
+                $vendidoHoy = (float) \App\Models\InventoryEntry::where('business_id', $businessId)
                     ->where('product_id', $stockId)
                     ->whereDate('entered_at', $fecha)
                     ->where('quantity_kg', '<', 0)
