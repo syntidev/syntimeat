@@ -373,28 +373,33 @@ class ReportController extends Controller
             ->get()
             ->keyBy('branch_id');
 
-        // ── Costo promedio por producto (todo el negocio) ────────────────────
-        $avgCosts = InventoryEntry::where('business_id', $businessId)
-            ->whereNotNull('cost_per_kg_usd')
-            ->where('cost_per_kg_usd', '>', 0)
-            ->selectRaw('product_id, AVG(cost_per_kg_usd) as avg_cost')
-            ->groupBy('product_id')
-            ->pluck('avg_cost', 'product_id');
+        // ── Costo real desde boveda_entries del período ──────────────────────
+        // Costo por kg = costo_usd / kg_entrada de cada canal procesada
+        $bovedaCostos = DB::table('boveda_entries')
+            ->where('business_id', $businessId)
+            ->whereDate('entered_at', '>=', $desde)
+            ->whereDate('entered_at', '<=', $hasta)
+            ->whereNotNull('costo_usd')
+            ->where('costo_usd', '>', 0)
+            ->where('kg_entrada', '>', 0)
+            ->selectRaw('SUM(costo_usd) as total_costo, SUM(kg_entrada) as total_kg')
+            ->first();
 
-        // ── Costo y kg vendidos por sucursal (vía sale_items) ────────────────
+        $costoPorKgBoveda = ($bovedaCostos && (float) $bovedaCostos->total_kg > 0)
+            ? (float) $bovedaCostos->total_costo / (float) $bovedaCostos->total_kg
+            : 0.0;
+
+        // ── Kg vendidos por sucursal (vía sale_items) ────────────────────────
         $itemRows = DB::table('sale_items')
             ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
             ->where('sales.business_id', $businessId)
             ->where('sales.status', 'paid')
-            ->where(function ($q) {
-                $q->whereNull('sales.payment_status')
-                  ->orWhere('sales.payment_status', '!=', 'pendiente_cobro');
-            })
             ->where(fn ($q) => $q->whereIn('sales.branch_id', $branchIds)->orWhereNull('sales.branch_id'))
             ->whereDate('sales.accounting_date', '>=', $desde)
             ->whereDate('sales.accounting_date', '<=', $hasta)
-            ->groupBy(DB::raw("COALESCE(sales.branch_id, {$fallback})"), 'sale_items.product_id', 'sale_items.input_type')
-            ->selectRaw("ANY_VALUE(COALESCE(sales.branch_id, {$fallback})) as branch_id, sale_items.product_id, sale_items.input_type, SUM(sale_items.quantity_value) as qty")
+            ->where('sale_items.input_type', 'weight')
+            ->groupBy(DB::raw("COALESCE(sales.branch_id, {$fallback})"))
+            ->selectRaw("ANY_VALUE(COALESCE(sales.branch_id, {$fallback})) as branch_id, SUM(sale_items.quantity_value) as qty")
             ->get();
 
         $costoPorSucursal = [];
@@ -403,12 +408,8 @@ class ReportController extends Controller
         foreach ($itemRows as $row) {
             $bid = (int) $row->branch_id;
             $qty = (float) $row->qty;
-            $costoPorSucursal[$bid] = ($costoPorSucursal[$bid] ?? 0.0)
-                + ((float) ($avgCosts[$row->product_id] ?? 0)) * $qty;
-
-            if ($row->input_type === 'weight') {
-                $kgPorSucursal[$bid] = ($kgPorSucursal[$bid] ?? 0.0) + $qty;
-            }
+            $kgPorSucursal[$bid]    = $qty;
+            $costoPorSucursal[$bid] = round($qty * $costoPorKgBoveda, 2);
         }
 
         // ── Armar fila por sucursal ──────────────────────────────────────────
