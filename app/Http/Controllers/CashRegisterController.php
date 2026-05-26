@@ -279,8 +279,17 @@ class CashRegisterController extends Controller
         $openingBs   = (float) $cashRegister->opening_amount_bs;
         $movInBs     = round($movIn * $rate, 2);
         $movOutBs    = round($movOut * $rate, 2);
-        $ventasBs    = round($sales->sum('total_bs'), 2);
-        $expectedBs  = round($openingBs + $ventasBs + $movInBs - $movOutBs, 2);
+
+        // Solo ventas cobradas en efectivo — pago móvil/transferencia no entran a caja
+        $ventasEfectivo = (float) DB::table('sale_payments')
+            ->join('sales', 'sales.id', '=', 'sale_payments.sale_id')
+            ->join('payment_methods', 'payment_methods.id', '=', 'sale_payments.payment_method_id')
+            ->where('sales.cash_register_id', $cashRegister->id)
+            ->where('sales.status', 'paid')
+            ->where('payment_methods.type', 'cash')
+            ->sum('sale_payments.amount_bs');
+
+        $expectedBs  = round($openingBs + $ventasEfectivo + $movInBs - $movOutBs, 2);
         $expectedUsd = $rate > 0 ? round($expectedBs / $rate, 2) : 0.0;
 
         // ── Utilidad por Bóveda ───────────────────────────────────────────────
@@ -413,10 +422,13 @@ class CashRegisterController extends Controller
         $movInBs  = (float) $cashRegister->movements()->where('type', 'in')->sum('amount_usd') * $rate;
         $movOutBs = (float) $cashRegister->movements()->where('type', 'out')->sum('amount_usd') * $rate;
 
+        // Solo ventas cobradas en efectivo — pago móvil/transferencia no entran a caja
         $ventasBs = (float) DB::table('sale_payments')
             ->join('sales', 'sales.id', '=', 'sale_payments.sale_id')
+            ->join('payment_methods', 'payment_methods.id', '=', 'sale_payments.payment_method_id')
             ->where('sales.cash_register_id', $cashRegister->id)
             ->where('sales.status', 'paid')
+            ->where('payment_methods.type', 'cash')
             ->sum('sale_payments.amount_bs');
 
         // Usar opening_amount_bs guardado — no reconvertir
