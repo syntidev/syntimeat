@@ -511,6 +511,10 @@ class BovedaController extends Controller
             'RES - Medio Canal'        => 'Res',
             'CERDO - Canal'            => 'Cerdo',
             'POLLO - Entero Congelado' => 'Pollo',
+            // Legacy (por si hay entradas antiguas en DB)
+            'Medio Canal Res'          => 'Res',
+            'Canal Cerdo'              => 'Cerdo',
+            'Pollo Entero Congelado'   => 'Pollo',
         ];
         $catName  = $catMap[$entry->product_type] ?? null;
         $resOrder = ['Carne del Canal', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
@@ -521,6 +525,7 @@ class BovedaController extends Controller
             ->where('active', true)
             ->where('fabricable', false)
             ->when($catName, fn ($q) => $q->whereHas('category', fn ($q2) => $q2->where('name', $catName)))
+            ->when($catName === 'Res', fn ($q) => $q->whereIn('name', $resOrder))
             ->get()
             ->sortBy(fn ($p) => $catName === 'Res'
                 ? (($pos = array_search($p->name, $resOrder)) !== false ? $pos : 999)
