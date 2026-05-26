@@ -607,7 +607,7 @@ class ReportController extends Controller
             ->values()
             ->all();
 
-        $catOrder = ['Res', 'Trastes', 'Pollo', 'Cerdo', 'Charcutería', 'Víveres'];
+        $catOrder = ['Res', 'Pollo', 'Cerdo', 'Charcutería', 'Trastes', 'Víveres'];
         usort($categorias, function (array $a, array $b) use ($catOrder): int {
             $ai = array_search($a['categoria'], $catOrder);
             $bi = array_search($b['categoria'], $catOrder);
