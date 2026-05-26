@@ -362,9 +362,10 @@ class ReportController extends Controller
 
         $resultado = $canales->map(function ($canal) use ($fecha, $businessId) {
             // Productos del despiece de esta canal
-            $despieceItems = \App\Models\DespieceItem::where('boveda_entry_id', $canal->id)
-                ->with('product')
-                ->get();
+            $log = \App\Models\DespieceLog::where('boveda_entry_id', $canal->id)->first();
+            $despieceItems = $log
+                ? \App\Models\DespieceItem::where('despiece_log_id', $log->id)->with('product')->get()
+                : collect();
 
             // Stock actual de cada producto del despiece
             $productos = $despieceItems->map(function ($item) use ($fecha, $businessId) {
