@@ -1566,7 +1566,7 @@ const helpFaqs = [
 /* Back button — siempre visible a la izquierda */
 .nav-back {
     flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-    width: 32px; height: 32px; border-radius: 7px;
+    min-width: 44px; min-height: 44px; border-radius: 7px;
     border: 1.5px solid var(--border); background: var(--bg-base);
     color: var(--text-secondary); text-decoration: none;
     transition: color 0.15s, border-color 0.15s, background 0.15s;
@@ -1595,7 +1595,7 @@ const helpFaqs = [
 .rate-lbl { color: var(--text-muted); }
 .rate-val  { color: var(--amber); font-weight: 700; font-variant-numeric: tabular-nums; }
 /* Versión compacta visible en el drawer mobile */
-.rate-badge--drawer { font-size: 11px; padding: 3px 8px; margin-left: auto; }
+.rate-badge--drawer { font-size: 0.875rem; padding: 3px 8px; margin-left: auto; }
 
 /* Ticket tabs header */
 .header-tabs { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
@@ -1686,7 +1686,7 @@ const helpFaqs = [
 .user-role-label { font-size: 10px; color: var(--text-muted); text-transform: capitalize; line-height: 1.1; }
 .nav-back {
     flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-    width: 36px; height: 36px; border-radius: 8px;
+    min-width: 44px; min-height: 44px; border-radius: 8px;
     border: 1.5px solid var(--border); background: var(--bg-base);
     color: var(--text-primary); text-decoration: none;
     transition: color 0.15s, border-color 0.15s, background 0.15s;

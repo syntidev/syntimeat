@@ -1092,6 +1092,8 @@ function dismissBankingAlert() {
     .kpi-side  { grid-template-rows: none; grid-template-columns: repeat(3, 1fr); }
     .main-row  { grid-template-columns: 1fr; }
     .cc-grid   { grid-template-columns: repeat(2, 1fr); }
+    .cc-chip   { min-height: 44px; display: inline-flex; align-items: center; -webkit-tap-highlight-color: transparent; }
+    .btn-export { min-height: 44px; }
 }
 
 /* md: 960px+ — layout completo */

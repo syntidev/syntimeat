@@ -556,8 +556,8 @@ function submitCorte() {
 .cash-tab--help {
     margin-left: auto;
     border-radius: 50%;
-    width: 28px;
-    height: 28px;
+    width: 44px;
+    height: 44px;
     padding: 0;
     display: flex;
     align-items: center;

@@ -42,47 +42,60 @@ const showHelp = ref(false);
 
 const helpSteps = [
     {
+        title: 'Corte de turno vs Cierre del día — cuál es cuál',
+        body: 'El corte de turno es parcial: cuenta el efectivo en un momento del día, registra la diferencia, pero la caja sigue abierta y se puede seguir vendiendo. El cierre del día es definitivo: sella la caja, congela todas las cifras y ya no se pueden agregar ventas a ese día. Esta pantalla es el cierre — úsala al terminar la jornada completa.',
+        tip: 'Si solo cambias de turno o quieres cuadrar a mitad del día, usa el corte de turno desde la pantalla de Caja. Reserva esta pantalla para el cierre final.',
+    },
+    {
         title: 'Revisar el resumen del día',
-        body: 'Antes de cerrar, verifica las ventas cobradas, el total en Bs. y el desglose por método de pago.',
-        tip: 'Si hay diferencia, revisa Ventas del Día para encontrar el ticket.',
+        body: 'Antes de cerrar, revisa las ventas cobradas, el total en Bs. y el desglose por método de pago. El sistema ya calculó todo automáticamente — tu trabajo es confirmar que los números cuadran con lo que tienes en la caja física.',
+        tip: 'Si hay alguna venta que no reconoces, ve a Ventas del Día para ver el detalle de cada ticket antes de cerrar.',
     },
     {
-        title: 'Contar el efectivo',
-        body: 'Ingresa el monto físico que tienes en caja. El sistema calcula la diferencia contra lo esperado.',
-        tip: 'Sé exacto. Este número queda registrado en el historial.',
+        title: 'Por qué el saldo esperado solo cuenta efectivo',
+        body: 'El "saldo esperado" es el dinero físico que debería estar en la gaveta. Los pagos por pago móvil, transferencia o punto de venta nunca entran a la gaveta — se liquidan por otros canales — así que el sistema los excluye del saldo esperado. Solo suma las ventas pagadas en efectivo más el monto de apertura de caja, menos los retiros manuales del día.',
+        tip: 'Si el cliente pagó por pago móvil, ese dinero ya está en tu cuenta bancaria, no en la gaveta. Es correcto que no aparezca en el saldo esperado.',
     },
     {
-        title: 'Revisar utilidad por bóveda',
-        body: 'Muestra cuánto costó la carne que entró vs. cuánto se vendió. Es la utilidad bruta del día por canal.',
-        tip: 'Si el costo aparece en $0, verifica que la bóveda tenga el costo de entrada registrado.',
+        title: 'La diferencia (+/-) y qué significa',
+        body: 'La diferencia es lo que ingresaste como efectivo físico contado menos lo que el sistema esperaba. Si es cero, cuadró perfecto. Si es positiva (+), hay más efectivo de lo esperado — posiblemente un cobro no registrado. Si es negativa (-), falta dinero en la gaveta. En cualquier caso, la diferencia queda registrada permanentemente en el historial para auditoría.',
+        tip: 'Una diferencia de 0 no es obligatoria para poder cerrar. El botón se habilita aunque el efectivo sea 0 Bs. Lo importante es que quede el registro real.',
     },
     {
-        title: 'Confirmar cierre',
-        body: 'Presiona "Confirmar Cierre". La caja queda cerrada y el día queda sellado. No se pueden agregar más ventas.',
-        tip: 'El cierre es irreversible. Verifica todo antes de confirmar.',
+        title: 'Revisar utilidad por bóveda y confirmar cierre',
+        body: 'La sección de utilidad muestra cuánto costó la carne que entró a bóveda versus cuánto se vendió — es la ganancia bruta del día por canal. Una vez revisado todo, presiona "Confirmar Cierre". La caja queda sellada y el día queda cerrado.',
+        tip: 'El cierre es irreversible desde esta pantalla. Si necesitas corregir algo después, contacta al administrador.',
     },
 ];
 
 const helpFaqs = [
     {
-        q: '¿Puedo cerrar sin contar el efectivo?',
-        a: 'Sí, puedes dejar el campo en 0 pero quedará registrada la diferencia.',
+        q: '¿Puedo cerrar si el efectivo contado es cero?',
+        a: 'Sí. El botón de cierre se habilita aunque ingreses 0 Bs. en efectivo. El sistema registrará la diferencia correspondiente. Esto es útil si todas las ventas del día fueron por pago móvil o transferencia y no hubo efectivo en la gaveta.',
+    },
+    {
+        q: '¿Por qué el saldo esperado no incluye los pagos móviles?',
+        a: 'Porque los pagos por pago móvil, punto de venta o transferencia nunca pasan por la gaveta física — se liquidan directamente en tu cuenta bancaria. El saldo esperado solo refleja el efectivo que debería estar en la caja: apertura + ventas en efectivo - retiros manuales.',
+    },
+    {
+        q: '¿Qué pasa si la diferencia no es cero?',
+        a: 'Nada se bloquea. El sistema registra la diferencia tal como está — positiva o negativa — y el cierre procede normalmente. El historial queda con esa diferencia para que el administrador pueda revisarla. Una diferencia de cero es ideal, pero no es un requisito para cerrar.',
+    },
+    {
+        q: '¿El corte de turno es lo mismo que el cierre del día?',
+        a: 'No son lo mismo. El corte de turno es parcial: registra el efectivo en un momento, anota la diferencia, pero la caja sigue abierta para seguir vendiendo. El cierre del día es definitivo: sella la caja y ya no entran más ventas a ese día.',
     },
     {
         q: '¿Qué pasa si cierro por error?',
-        a: 'Contacta al administrador. El cierre es irreversible desde aquí.',
-    },
-    {
-        q: '¿El corte de turno es lo mismo que el cierre?',
-        a: 'No. El corte es parcial, no cierra la caja. El cierre es definitivo.',
+        a: 'El cierre es irreversible desde esta pantalla. Si necesitas reabrir o corregir algo, contacta al administrador — solo un super_admin puede intervenir en un cierre ya confirmado.',
     },
     {
         q: '¿Por qué la utilidad muestra $0 en costo?',
-        a: 'La entrada de bóveda no tiene costo registrado. Agrégalo en el módulo Bóveda.',
+        a: 'La entrada de bóveda no tiene el costo registrado. Para que aparezca la utilidad correcta, asegúrate de registrar el precio de compra por kg al crear la entrada en el módulo Bóveda.',
     },
     {
         q: '¿Dónde veo cierres anteriores?',
-        a: 'En el módulo Caja, en el historial de aperturas y cierres.',
+        a: 'En el módulo Caja, en el historial de aperturas y cierres. Allí puedes ver la fecha, el monto de apertura, el efectivo contado al cierre y la diferencia registrada de cada día.',
     },
 ];
 
@@ -391,7 +404,7 @@ function submitClose() {
 .dc-wrap       { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem; }
 .dc-header          { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.5rem; gap: 1rem; }
 .dc-header-actions  { display: flex; align-items: center; gap: .5rem; }
-.btn-help           { width: 36px; height: 36px; padding: 0; justify-content: center; font-size: 1.1rem; font-weight: 700; border-radius: 50%; }
+.btn-help           { width: 44px; height: 44px; padding: 0; justify-content: center; font-size: 1.1rem; font-weight: 700; border-radius: 50%; }
 .dc-title      { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin: 0; }
 .dc-sub        { font-size: .875rem; color: var(--text-muted); margin: .25rem 0 0; }
 

@@ -1054,7 +1054,7 @@ async function deactivateProduct(product) {
 
 /* ─── Tabs ───────────────────────────────────────────────────────────────────*/
 .tabs-row { display: flex; gap: 0.4rem; margin-bottom: 1rem; }
-.tab-btn  { border: 1px solid var(--border); border-radius: 8px; padding: 0.35rem 0.9rem; background: transparent; cursor: pointer; font-family: inherit; font-size: 0.85rem; color: var(--text-muted); }
+.tab-btn  { border: 1px solid var(--border); border-radius: 8px; padding: 0.35rem 0.9rem; background: transparent; cursor: pointer; font-family: inherit; font-size: 0.85rem; color: var(--text-muted); min-height: 44px; display: inline-flex; align-items: center; }
 .tab-btn.active { border-color: var(--brand); color: var(--brand); font-weight: 600; background: rgba(37,99,235,0.07); }
 
 /* ─── Empty ──────────────────────────────────────────────────────────────────*/
@@ -1078,7 +1078,7 @@ async function deactivateProduct(product) {
 .product-badge { background: rgba(37,99,235,0.1); color: var(--brand); border-radius: 20px; padding: 0.15rem 0.55rem; font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
 
 /* ─── Botones tabla ──────────────────────────────────────────────────────────*/
-.btn-sm { border: none; border-radius: 6px; padding: 0.25rem 0.6rem; font-size: 0.78rem; font-weight: 600; cursor: pointer; font-family: inherit; white-space: nowrap; }
+.btn-sm { border: none; border-radius: 6px; padding: 0.25rem 0.6rem; font-size: 0.78rem; font-weight: 600; cursor: pointer; font-family: inherit; white-space: nowrap; min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
 .btn-sm:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-merma  { background: rgba(245,158,11,0.12); color: #d97706; }
 .btn-merma:not(:disabled):hover { background: rgba(245,158,11,0.22); }
@@ -1138,7 +1138,7 @@ async function deactivateProduct(product) {
 .surtir-info strong { color: var(--brand); }
 
 .surtir-cats { display: flex; flex-wrap: wrap; gap: 0.35rem; }
-.cat-chip { border: 1px solid var(--border); border-radius: 999px; padding: .2rem .65rem; background: transparent; cursor: pointer; font-family: inherit; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); transition: all .12s; }
+.cat-chip { border: 1px solid var(--border); border-radius: 999px; padding: 0 12px; background: transparent; cursor: pointer; font-family: inherit; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); transition: all .12s; min-height: 44px; display: inline-flex; align-items: center; }
 .cat-chip--active { border-color: var(--brand); background: rgba(37,99,235,.1); color: var(--brand); }
 .cat-chip:hover:not(.cat-chip--active) { border-color: var(--text-muted); }
 
@@ -1201,4 +1201,10 @@ async function deactivateProduct(product) {
                 margin:0; padding-top:4px; }
 .field-group  { display:flex; flex-direction:column; gap:4px; }
 .field-group label { font-size:0.8rem; color:var(--text-secondary); }
+
+@media (max-width: 768px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .kpi-grid  { grid-template-columns: repeat(2, 1fr); }
+    .boveda-page { padding: 1rem; }
+}
 </style>
