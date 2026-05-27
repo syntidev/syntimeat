@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import AppLayout  from '@/Layouts/AppLayout.vue';
 import HelpModal  from '@/Components/HelpModal.vue';
-import { Warehouse, Scissors, Factory, CheckCircle2, Package, Printer, Pencil } from '@lucide/vue';
+import { Warehouse, Scissors, Factory, CheckCircle2, Package, Printer, Pencil, Trash2 } from '@lucide/vue';
 
 const props = defineProps({
     activas:          { type: Array,  default: () => [] },
@@ -386,6 +386,35 @@ async function saveEdit() {
     }
 }
 
+// ─── Eliminar Entrada ─────────────────────────────────────────────────────────
+const showDeleteModal = ref(false);
+const entryToDelete   = ref(null);
+const deletingEntry   = ref(false);
+
+function openDelete(entry) {
+    entryToDelete.value   = entry;
+    showDeleteModal.value = true;
+}
+async function doDelete() {
+    if (deletingEntry.value || !entryToDelete.value) return;
+    deletingEntry.value = true;
+    try {
+        const res = await fetch(route('boveda.destroy', { entry: entryToDelete.value.id }), {
+            method:  'DELETE',
+            headers: { 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json' },
+        });
+        if (!res.ok) throw new Error('Error al eliminar');
+        showDeleteModal.value = false;
+        showFlash('Entrada eliminada.');
+        router.reload({ only: ['activas', 'historial', 'kpis'] });
+    } catch (e) {
+        alert(e?.message ?? 'Error al eliminar');
+    } finally {
+        deletingEntry.value = false;
+        entryToDelete.value = null;
+    }
+}
+
 // ─── Modal Producto Bóveda ────────────────────────────────────────────────────
 const showProductModal = ref(false);
 const editingProduct   = ref(null);
@@ -630,10 +659,10 @@ async function deactivateProduct(product) {
                                 <th>Producto</th>
                                 <th>Kg entrada</th>
                                 <th>Costo</th>
-                                <th>Kg surtido</th>
+                                <th class="col-surtido">Kg surtido</th>
                                 <th>Kg disponible</th>
-                                <th>Proveedor</th>
-                                <th>Fecha</th>
+                                <th class="col-proveedor">Proveedor</th>
+                                <th class="col-fecha">Fecha</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
@@ -643,12 +672,12 @@ async function deactivateProduct(product) {
                                 <td><span class="product-badge">{{ e.product_type }}</span></td>
                                 <td class="num">{{ fmtKg2(e.kg_entrada) }}</td>
                                 <td class="num">{{ fmtUsd(e.costo_usd) }}</td>
-                                <td class="num">{{ fmtKg2(e.kg_surtido_vitrina) }}</td>
+                                <td class="num col-surtido">{{ fmtKg2(e.kg_surtido_vitrina) }}</td>
                                 <td class="num" :class="e.kg_disponible <= 0 ? 'text-muted' : 'text-ok'">
                                     {{ fmtKg2(e.kg_disponible) }}
                                 </td>
-                                <td>{{ e.supplier || '—' }}</td>
-                                <td class="date-col">{{ e.entered_at }}</td>
+                                <td class="col-proveedor">{{ e.supplier || '—' }}</td>
+                                <td class="date-col col-fecha">{{ e.entered_at }}</td>
                                 <td class="actions-col">
                                     <button
                                         class="btn-sm btn-edit"
@@ -674,6 +703,12 @@ async function deactivateProduct(product) {
                                         @click="closeEntry(e)"
                                         title="Mover al historial"
                                     >Mover a Historial</button>
+                                    <button
+                                        v-if="e.kg_surtido_vitrina === 0"
+                                        class="btn-sm btn-danger"
+                                        @click="openDelete(e)"
+                                        title="Eliminar entrada"
+                                    ><Trash2 :size="12" style="vertical-align:middle;margin-right:3px;" />Eliminar</button>
                                 </td>
                             </tr>
                         </tbody>
@@ -918,6 +953,31 @@ async function deactivateProduct(product) {
                             <button class="btn-ghost" @click="showEditModal = false">Cancelar</button>
                             <button class="btn-brand" :disabled="savingEdit" @click="saveEdit">
                                 {{ savingEdit ? 'Guardando…' : 'Guardar cambios' }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </Transition>
+        </Teleport>
+
+        <!-- ── Modal Confirmar Eliminar ──────────────────────────────────── -->
+        <Teleport to="body">
+            <Transition name="mo">
+                <div v-if="showDeleteModal" class="modal-bg">
+                    <div class="modal-box modal-sm modal-confirm">
+                        <div class="modal-header">
+                            <h3>Eliminar entrada</h3>
+                            <button class="close-btn" @click="showDeleteModal = false">×</button>
+                        </div>
+                        <p class="confirm-body">
+                            ¿Eliminar <strong>{{ entryToDelete?.product_type }}</strong>
+                            <span v-if="entryToDelete?.description"> — {{ entryToDelete.description }}</span>?
+                            Esta acción no se puede deshacer.
+                        </p>
+                        <div class="modal-actions">
+                            <button class="btn-ghost" @click="showDeleteModal = false">Cancelar</button>
+                            <button class="btn-danger-solid" :disabled="deletingEntry" @click="doDelete">
+                                {{ deletingEntry ? 'Eliminando…' : 'Sí, eliminar' }}
                             </button>
                         </div>
                     </div>
@@ -1209,8 +1269,15 @@ async function deactivateProduct(product) {
 .btn-sm:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-merma  { background: rgba(245,158,11,0.12); color: #d97706; }
 .btn-merma:not(:disabled):hover { background: rgba(245,158,11,0.22); }
-.btn-edit   { background: rgba(75,85,99,0.12); color: var(--text-secondary); }
-.btn-edit:hover { background: rgba(75,85,99,0.22); color: var(--text-primary); }
+.btn-edit        { background: rgba(75,85,99,0.12); color: var(--text-secondary); }
+.btn-edit:hover  { background: rgba(75,85,99,0.22); color: var(--text-primary); }
+.btn-danger      { background: rgba(239,68,68,0.08); color: #ef4444; }
+.btn-danger:hover { background: rgba(239,68,68,0.18); }
+.btn-danger-solid { border: none; border-radius: 8px; padding: 0.45rem 1rem; font-size: 0.875rem; font-weight: 600; cursor: pointer; font-family: inherit; background: #ef4444; color: #fff; min-height: 44px; }
+.btn-danger-solid:hover { background: #dc2626; }
+.btn-danger-solid:disabled { opacity: 0.5; cursor: not-allowed; }
+.confirm-body { font-size: 0.9rem; color: var(--text-primary); line-height: 1.5; padding: 0.25rem 0; }
+.modal-confirm { gap: 1rem; }
 .btn-surtir { background: rgba(37,99,235,0.12); color: var(--brand); }
 .btn-surtir:not(:disabled):hover { background: rgba(37,99,235,0.22); }
 .btn-close  { background: rgba(239,68,68,0.1); color: #ef4444; }
@@ -1332,8 +1399,29 @@ async function deactivateProduct(product) {
 .field-group label { font-size:0.8rem; color:var(--text-secondary); }
 
 @media (max-width: 768px) {
-    .form-grid { grid-template-columns: 1fr; }
-    .kpi-grid  { grid-template-columns: repeat(2, 1fr); }
+    /* Layout */
     .boveda-page { padding: 1rem; }
+    .kpi-grid    { grid-template-columns: repeat(2, 1fr); }
+
+    /* Tabla: ocultar Kg surtido, Proveedor y Fecha en tablet */
+    .col-surtido,
+    .col-proveedor,
+    .col-fecha { display: none; }
+
+    /* Acciones: apilar verticalmente si no caben */
+    .actions-col {
+        flex-wrap: wrap;
+        gap: 0.35rem;
+    }
+    .actions-col .btn-sm {
+        flex: 1 1 auto;
+        min-height: 44px;
+        font-size: 0.75rem;
+    }
+
+    /* Modal: 1 columna, ancho completo */
+    .form-grid { grid-template-columns: 1fr; }
+    .modal-box { max-width: 100%; border-radius: 10px; }
+    .modal-sm  { max-width: 100%; }
 }
 </style>
