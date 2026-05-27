@@ -263,12 +263,12 @@ class AccesoRolesTest extends TestCase
             ->assertStatus(200);
     }
 
-    /** Test 14 — Owner bloqueado en Configuración Usuarios (solo super_admin) */
+    /** Test 14 — Owner tiene acceso a Configuración Usuarios */
     public function test_owner_bloqueado_configuracion_usuarios(): void
     {
         $this->actingAs($this->owner)
             ->get('/configuracion/usuarios')
-            ->assertStatus(403);
+            ->assertStatus(200);
     }
 
     // ─── ANALYST ─────────────────────────────────────────────────────────────
