@@ -17,6 +17,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SaleController;
 use App\Http\Controllers\FabricaController;
+use App\Http\Controllers\TeamController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -210,6 +211,12 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
             Route::post('/usuarios',          [SettingsController::class, 'storeUser'])->name('users.store');
             Route::put('/usuarios/{user}',    [SettingsController::class, 'updateUser'])->name('users.update');
             Route::delete('/usuarios/{user}', [SettingsController::class, 'destroyUser'])->name('users.destroy');
+
+            // Equipo
+            Route::get('/equipo',              [TeamController::class, 'index'])->name('team');
+            Route::post('/equipo',             [TeamController::class, 'store'])->name('team.store');
+            Route::put('/equipo/{user}',       [TeamController::class, 'update'])->name('team.update');
+            Route::delete('/equipo/{user}',    [TeamController::class, 'destroy'])->name('team.destroy');
         });
     });
 
