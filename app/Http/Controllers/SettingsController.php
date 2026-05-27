@@ -102,6 +102,8 @@ class SettingsController extends Controller
 
     public function storeUser(Request $request): RedirectResponse
     {
+        abort_if(Auth::user()->role === 'analyst', 403);
+
         $business = Auth::user()->business;
 
         $data = $request->validate([
@@ -151,6 +153,8 @@ class SettingsController extends Controller
 
     public function destroyUser(User $user): RedirectResponse
     {
+        abort_if(Auth::user()->role === 'analyst', 403);
+
         $this->authorizeBusinessOwnership($user);
 
         if ($user->id === Auth::id()) {

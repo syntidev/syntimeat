@@ -204,8 +204,8 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
         });
     });
 
-    // ── Solo super_admin / owner ──────────────────────────────────────────────
-    Route::middleware('role:super_admin,owner')->group(function () {
+    // ── Solo super_admin / owner / analyst (analyst solo lectura + editar) ──────
+    Route::middleware('role:super_admin,owner,analyst')->group(function () {
         Route::prefix('configuracion')->name('settings.')->group(function () {
             Route::get('/usuarios',           [SettingsController::class, 'users'])->name('users');
             Route::post('/usuarios',          [SettingsController::class, 'storeUser'])->name('users.store');
