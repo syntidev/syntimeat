@@ -41,6 +41,7 @@ class Sale extends Model
         'delivery_confirmed_at',
         'payment_status',
         'order_id',
+        'branch_id',
     ];
 
     protected function casts(): array
