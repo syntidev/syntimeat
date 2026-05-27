@@ -49,7 +49,7 @@ function submit() {
 }
 
 const inputClass = 'w-full bg-[var(--bg-input)] border border-[var(--border)] text-[var(--text-primary)] rounded-lg px-3.5 py-2.5 text-sm placeholder:text-[var(--text-muted)] focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)] outline-none transition'
-const labelClass = 'block text-xs font-medium text-[var(--text-secondary)] mb-1.5'
+const labelClass = 'block text-sm font-medium text-[var(--text-secondary)] mb-1.5'
 const errorClass = 'mt-1 text-xs text-red-400'
 
 // ─── Ayuda ────────────────────────────────────────────────────────────────────
@@ -238,10 +238,10 @@ const helpFaqs = [
 .header-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .help-btn {
     border-radius: 50%;
-    width: 28px; height: 28px;
+    width: 44px; height: 44px;
     padding: 0;
     display: flex; align-items: center; justify-content: center;
-    font-size: 0.85rem; font-weight: 700;
+    font-size: 0.875rem; font-weight: 700;
     border: 1.5px solid var(--border);
     background: none; color: var(--text-muted);
     cursor: pointer; flex-shrink: 0;
@@ -259,12 +259,12 @@ const helpFaqs = [
 .section-subtitle { font-size: 0.8125rem; font-weight: 600; color: var(--text-secondary); }
 .form-footer { display: flex; align-items: center; gap: 1rem; padding-top: 0.25rem; }
 .palette-row { display: flex; gap: 0.75rem; flex-wrap: wrap; padding-bottom: 0.5rem; }
-.palette-swatch { width: 36px; height: 36px; border-radius: 50%; border: 3px solid transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.15s, border-color 0.15s; }
+.palette-swatch { width: 44px; height: 44px; border-radius: 50%; border: 3px solid transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.15s, border-color 0.15s; }
 .palette-swatch:hover { transform: scale(1.1); }
 .palette-swatch--active { border-color: var(--text-primary); }
 .btn-primary { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1.25rem; background: var(--brand); color: #fff; font-size: 0.875rem; font-weight: 600; border-radius: 8px; border: none; cursor: pointer; transition: opacity 0.15s; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary:hover:not(:disabled) { opacity: 0.9; }
-.btn-secondary { display: inline-flex; align-items: center; padding: 0.4rem 0.875rem; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-secondary); font-size: 0.8125rem; font-weight: 500; border-radius: 7px; cursor: pointer; transition: border-color 0.15s; }
+.btn-secondary { display: inline-flex; align-items: center; min-height: 44px; padding: 0.4rem 0.875rem; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-secondary); font-size: 0.8125rem; font-weight: 500; border-radius: 7px; cursor: pointer; transition: border-color 0.15s; }
 .btn-secondary:hover { border-color: var(--brand); }
 </style>

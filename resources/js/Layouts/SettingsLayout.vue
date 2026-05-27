@@ -113,6 +113,7 @@ function routeExists(routeName) {
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 0.75rem;
+    min-height: 44px;
     border-radius: 8px;
     font-size: 0.8125rem;
     font-weight: 500;
@@ -139,5 +140,30 @@ function routeExists(routeName) {
 .settings-content {
     flex: 1;
     min-width: 0;
+}
+
+/* ── Mobile: sidebar → horizontal scrollable top strip ────────────── */
+@media (max-width: 767px) {
+    .settings-root {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .settings-sidebar {
+        width: 100%;
+        position: static;
+        padding: 0.25rem 0.5rem;
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 0;
+    }
+    .settings-sidebar__section { display: none; }
+    .settings-nav-item {
+        flex-shrink: 0;
+        white-space: nowrap;
+        border-radius: 8px;
+        padding: 0.5rem 0.875rem;
+    }
 }
 </style>

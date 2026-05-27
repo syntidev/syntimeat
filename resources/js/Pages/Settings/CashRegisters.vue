@@ -186,10 +186,10 @@ const helpFaqs = [
 .page-head-actions { display: flex; align-items: center; gap: 0.5rem; }
 .help-btn {
     border-radius: 50%;
-    width: 28px; height: 28px;
+    width: 44px; height: 44px;
     padding: 0;
     display: flex; align-items: center; justify-content: center;
-    font-size: 0.85rem; font-weight: 700;
+    font-size: 0.875rem; font-weight: 700;
     border: 1.5px solid var(--border);
     background: none; color: var(--text-muted);
     cursor: pointer; flex-shrink: 0;
@@ -220,11 +220,11 @@ const helpFaqs = [
 .modal      { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 380px; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); }
 .modal-head h3 { font-size: .9375rem; font-weight: 700; color: var(--text-primary); }
-.modal-head button { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; }
+.modal-head button { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
 .modal-body { padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
 .modal-foot { display: flex; justify-content: flex-end; gap: .6rem; padding-top: .25rem; }
 .field      { display: flex; flex-direction: column; gap: .3rem; }
-.field label { font-size: .78rem; font-weight: 600; color: var(--text-secondary); }
+.field label { font-size: 0.875rem; font-weight: 600; color: var(--text-secondary); }
 .input      { background: var(--hover); border: 1px solid var(--border); color: var(--text-primary); border-radius: 8px; padding: .5rem .75rem; font-size: .875rem; outline: none; font-family: inherit; width: 100%; }
 .input:focus { border-color: var(--brand); }
 .err        { font-size: .73rem; color: #ef4444; }

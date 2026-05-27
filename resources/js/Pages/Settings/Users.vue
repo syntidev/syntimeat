@@ -140,7 +140,7 @@ function destroy(user) {
 }
 
 const inputClass = 'w-full bg-[var(--bg-input)] border border-[var(--border)] text-[var(--text-primary)] rounded-lg px-3.5 py-2.5 text-sm placeholder:text-[var(--text-muted)] focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)] outline-none transition'
-const labelClass = 'block text-xs font-medium text-[var(--text-secondary)] mb-1.5'
+const labelClass = 'block text-sm font-medium text-[var(--text-secondary)] mb-1.5'
 const errorClass = 'mt-1 text-xs text-red-400'
 
 // ─── Ayuda ────────────────────────────────────────────────────────────────────
@@ -336,10 +336,10 @@ const helpFaqs = [
 .header-actions { display: flex; align-items: center; gap: 0.5rem; }
 .help-btn {
     border-radius: 50%;
-    width: 28px; height: 28px;
+    width: 44px; height: 44px;
     padding: 0;
     display: flex; align-items: center; justify-content: center;
-    font-size: 0.85rem; font-weight: 700;
+    font-size: 0.875rem; font-weight: 700;
     border: 1.5px solid var(--border);
     background: none; color: var(--text-muted);
     cursor: pointer; flex-shrink: 0;
@@ -363,7 +363,7 @@ const helpFaqs = [
 .badge-purple { background: #3b0764; color: #c084fc; }
 .badge-gray { background: var(--bg-input); color: var(--text-secondary); }
 
-.icon-action { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; transition: background 0.15s, color 0.15s; }
+.icon-action { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 6px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; transition: background 0.15s, color 0.15s; }
 .icon-action svg { width: 15px; height: 15px; }
 .icon-action:hover { background: var(--hover); color: var(--text-primary); }
 .icon-action--danger:hover { background: #3f0d0d; color: #f87171; }
@@ -373,7 +373,7 @@ const helpFaqs = [
 .modal { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 440px; overflow: hidden; }
 .modal__header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); }
 .modal__header h3 { font-size: 0.9375rem; font-weight: 700; color: var(--text-primary); }
-.modal__close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; padding: 0.25rem; }
+.modal__close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; padding: 0.25rem; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
 .modal__body { padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
 .modal__footer { display: flex; justify-content: flex-end; gap: 0.75rem; padding-top: 0.25rem; }
 
@@ -386,6 +386,6 @@ const helpFaqs = [
 .perm-panel { display: flex; flex-direction: column; gap: 0.5rem; border-top: 1px solid var(--border); padding-top: 1rem; }
 .perm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem 0.75rem; margin-top: 0.25rem; }
 @media (min-width: 480px) { .perm-grid { grid-template-columns: 1fr 1fr 1fr; } }
-.perm-check { display: flex; align-items: center; gap: 0.5rem; min-height: 40px; padding: 0.25rem 0; font-size: 0.8125rem; color: var(--text-secondary); cursor: pointer; }
+.perm-check { display: flex; align-items: center; gap: 0.5rem; min-height: 44px; padding: 0.25rem 0; font-size: 0.875rem; color: var(--text-secondary); cursor: pointer; }
 .perm-check input { width: 18px; height: 18px; accent-color: var(--brand); cursor: pointer; flex-shrink: 0; }
 </style>

@@ -267,9 +267,9 @@ const helpFaqs = [
 }
 
 .help-btn {
-    border-radius: 50%; width: 28px; height: 28px; padding: 0; flex-shrink: 0;
+    border-radius: 50%; width: 44px; height: 44px; padding: 0; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
-    font-size: .85rem; font-weight: 700;
+    font-size: 0.875rem; font-weight: 700;
     border: 1.5px solid var(--border);
     background: none; color: var(--text-muted); cursor: pointer;
     transition: background .15s, color .15s, border-color .15s;
@@ -327,8 +327,9 @@ const helpFaqs = [
 }
 .test-input:focus { border-color: var(--brand); }
 .test-clear {
-    font-size: .75rem; color: var(--text-muted); background: none;
-    border: 1px solid var(--border); border-radius: 6px; padding: .35rem .625rem; cursor: pointer;
+    font-size: 0.875rem; color: var(--text-muted); background: none;
+    border: 1px solid var(--border); border-radius: 6px; padding: .35rem .625rem;
+    min-height: 44px; min-width: 44px; cursor: pointer;
 }
 .test-clear:hover { color: var(--text-primary); border-color: var(--text-secondary); }
 

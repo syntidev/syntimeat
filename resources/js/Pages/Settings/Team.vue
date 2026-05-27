@@ -312,10 +312,10 @@ const helpFaqs = [
 .page-head-actions { display: flex; align-items: center; gap: 0.5rem; }
 .help-btn {
     border-radius: 50%;
-    width: 28px; height: 28px;
+    width: 44px; height: 44px;
     padding: 0;
     display: flex; align-items: center; justify-content: center;
-    font-size: 0.85rem; font-weight: 700;
+    font-size: 0.875rem; font-weight: 700;
     border: 1.5px solid var(--border);
     background: none; color: var(--text-muted);
     cursor: pointer; flex-shrink: 0;
@@ -350,7 +350,7 @@ const helpFaqs = [
 .dot--off    { background: #6b7280; }
 
 .actions    { display: flex; gap: .35rem; }
-.btn-act    { font-size: .72rem; font-weight: 500; padding: .25rem .6rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
+.btn-act    { font-size: 0.875rem; font-weight: 500; padding: .25rem .6rem; min-height: 36px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
 .btn-act:hover      { background: var(--hover); color: var(--text-primary); }
 .act--warn          { color: #f59e0b; border-color: color-mix(in srgb,#f59e0b 30%,transparent); }
 .act--warn:hover    { background: color-mix(in srgb,#f59e0b 10%,transparent); }
@@ -367,7 +367,7 @@ const helpFaqs = [
 .access-time  { font-size: .72rem; color: var(--text-muted); font-family: monospace; }
 
 .day-picker   { display: flex; gap: .35rem; flex-wrap: wrap; }
-.day-btn      { width: 2rem; height: 2rem; border-radius: 6px; border: 1px solid var(--border); background: var(--hover); color: var(--text-muted); font-size: .8rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.day-btn      { width: 2.75rem; height: 2.75rem; border-radius: 6px; border: 1px solid var(--border); background: var(--hover); color: var(--text-muted); font-size: .875rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .day-btn--on  { background: var(--brand); border-color: var(--brand); color: #fff; }
 
 .empty-row  { text-align: center; color: var(--text-muted); padding: 2rem; }
@@ -377,12 +377,12 @@ const helpFaqs = [
 .modal      { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 480px; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); }
 .modal-head h3 { font-size: .95rem; font-weight: 700; color: var(--text-primary); }
-.modal-head button { background: none; border: none; color: var(--text-muted); font-size: 1rem; cursor: pointer; }
+.modal-head button { background: none; border: none; color: var(--text-muted); font-size: 1rem; cursor: pointer; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
 .modal-body { padding: 1.25rem; display: flex; flex-direction: column; gap: .85rem; max-height: 75vh; overflow-y: auto; }
 .modal-foot { display: flex; justify-content: flex-end; gap: .6rem; padding-top: .5rem; }
 .field      { display: flex; flex-direction: column; gap: .3rem; }
 .field-row  { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
-.field label { font-size: .78rem; font-weight: 600; color: var(--text-secondary); }
+.field label { font-size: 0.875rem; font-weight: 600; color: var(--text-secondary); }
 .input      { background: var(--hover); border: 1px solid var(--border); color: var(--text-primary); border-radius: 8px; padding: .5rem .75rem; font-size: .875rem; outline: none; font-family: inherit; width: 100%; }
 .input:focus { border-color: var(--brand); }
 .err        { font-size: .73rem; color: #ef4444; }
@@ -406,6 +406,6 @@ const helpFaqs = [
     .field-row  { grid-template-columns: 1fr; }
     .input      { font-size: 1rem; min-height: 44px; touch-action: manipulation; }
     .day-btn    { width: 2.5rem; height: 2.5rem; touch-action: manipulation; }
-    .btn-act    { min-height: 36px; touch-action: manipulation; }
+    .btn-act    { min-height: 44px; touch-action: manipulation; }
 }
 </style>

@@ -64,7 +64,7 @@ const previewTotal = computed(() =>
 )
 
 const inputClass = 'w-full bg-[var(--bg-input)] border border-[var(--border)] text-[var(--text-primary)] rounded-lg px-3.5 py-2.5 text-sm placeholder:text-[var(--text-muted)] focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)] outline-none transition'
-const labelClass = 'block text-xs font-medium text-[var(--text-secondary)] mb-1.5'
+const labelClass = 'block text-sm font-medium text-[var(--text-secondary)] mb-1.5'
 
 // ─── Ayuda ────────────────────────────────────────────────────────────────────
 const showHelp = ref(false)
@@ -423,10 +423,10 @@ const helpFaqs = [
 .header-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .help-btn {
     border-radius: 50%;
-    width: 28px; height: 28px;
+    width: 44px; height: 44px;
     padding: 0;
     display: flex; align-items: center; justify-content: center;
-    font-size: 0.85rem; font-weight: 700;
+    font-size: 0.875rem; font-weight: 700;
     border: 1.5px solid var(--border);
     background: none; color: var(--text-muted);
     cursor: pointer; flex-shrink: 0;
@@ -524,6 +524,7 @@ const helpFaqs = [
 .tkt-format-name   { font-size: 0.75rem; color: var(--text-secondary); text-align: center; }
 
 .tkt-actions { display: flex; justify-content: flex-end; }
+.tkt-actions button { min-height: 44px; }
 
 /* ── Vista previa ─────────────────────────────────────────────── */
 .tkt-preview-wrap {
