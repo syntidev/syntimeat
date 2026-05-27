@@ -25,10 +25,14 @@ class FabricaController extends Controller
     {
         $user       = Auth::user();
         $businessId = $user->business_id;
+        $branchId   = in_array($user->role, ['branch_admin', 'cashier'])
+            ? $user->branch_id
+            : (session('current_branch_id') ?? $user->branch_id);
 
         // Productos habilitados para fabricar (chorizo, cesta, combo…)
         $fabricables = Product::with('category')
             ->where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->where('fabricable', true)
             ->where('active', true)
             ->orderBy('name')
@@ -44,6 +48,7 @@ class FabricaController extends Controller
         // Todos los productos activos usables como ingredientes (excluye boveda)
         $ingredientes = Product::with('category')
             ->where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->where('active', true)
             ->where('location', '!=', 'boveda')
             ->orderBy('name')

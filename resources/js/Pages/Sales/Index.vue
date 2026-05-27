@@ -216,6 +216,7 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
                             <th>Ticket</th>
                             <th>Hora</th>
                             <th>Cajero</th>
+                            <th>Cliente</th>
                             <th>Método</th>
                             <th class="text-right">Total Bs.</th>
                             <th>Estado</th>
@@ -224,12 +225,13 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
                     </thead>
                     <tbody>
                         <tr v-if="!sales.length">
-                            <td colspan="7" class="empty-row">Sin ventas para los filtros seleccionados</td>
+                            <td colspan="8" class="empty-row">Sin ventas para los filtros seleccionados</td>
                         </tr>
                         <tr v-for="sale in sales" :key="sale.id" :class="{ 'row--cancelled': sale.status === 'cancelled' }">
                             <td class="ticket-cell">{{ sale.ticket_number }}</td>
                             <td>{{ sale.sold_at }}</td>
                             <td>{{ sale.cashier ?? '—' }}</td>
+                            <td class="client-cell">{{ sale.client_name || '—' }}</td>
                             <td>{{ getMethodLabel(sale.payment_method) }}</td>
                             <td class="text-right font-mono">{{ fmtBs(sale.total_bs) }}</td>
                             <td>
@@ -268,6 +270,7 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
                         <span class="sv-ticket">{{ s.ticket_number }}</span>
                         <span class="sv-time">{{ s.sold_at }}</span>
                     </div>
+                    <div v-if="s.client_name" class="sv-client">{{ s.client_name }}</div>
                     <div class="sv-mid">
                         <span class="sv-total">{{ fmtBs(s.total_bs) }}</span>
                         <span class="sv-curr">Bs.</span>
@@ -469,7 +472,8 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
 .sales-table tr:hover td { background: var(--bg-elevated); }
 .row--cancelled td { opacity: 0.55; }
 
-.ticket-cell { font-weight: 600; font-family: monospace; font-size: 0.875rem; }
+.ticket-cell  { font-weight: 600; font-family: monospace; font-size: 0.875rem; }
+.client-cell  { font-size: 0.8rem; color: var(--text-secondary); max-width: 10rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .text-right  { text-align: right; }
 .font-mono   { font-variant-numeric: tabular-nums; }
 .empty-row   { text-align: center; color: var(--text-muted); padding: 2.5rem 1rem; }
@@ -646,6 +650,11 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
+}
+.sv-client {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    padding: 0 0 0.15rem 0;
 }
 .sv-ticket {
     font-family: monospace;
