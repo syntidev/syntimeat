@@ -53,11 +53,11 @@ const entradaForm = ref({
     customProductType: '',
     description:       '',
     kg_entrada:        '',
+    kg_pieza2:         '',
     precio_kg:         '',
     supplier:          '',
     entered_at:        localDateTimeString(),
     conCanal2:         false,
-    kg_par:            '',
 });
 const entradaErrors = ref({});
 const OTRO_LABEL = 'Otro (libre)';
@@ -67,7 +67,10 @@ const costoEntrada1 = computed(() =>
     ((entradaForm.value.kg_entrada || 0) * (entradaForm.value.precio_kg || 0)).toFixed(2)
 )
 const costoEntrada2 = computed(() =>
-    ((entradaForm.value.kg_par || 0) * (entradaForm.value.precio_kg || 0)).toFixed(2)
+    ((entradaForm.value.kg_pieza2 || 0) * (entradaForm.value.precio_kg || 0)).toFixed(2)
+)
+const costoEntradaTotal = computed(() =>
+    (parseFloat(costoEntrada1.value) + parseFloat(costoEntrada2.value)).toFixed(2)
 )
 
 function openEntrada() {
@@ -77,11 +80,11 @@ function openEntrada() {
         customProductType: '',
         description:       '',
         kg_entrada:        '',
+        kg_pieza2:         '',
         precio_kg:         '',
         supplier:          '',
         entered_at:        localDateTimeString(),
         conCanal2:         false,
-        kg_par:            '',
     };
     showEntradaModal.value = true;
 }
@@ -90,7 +93,7 @@ async function saveEntrada() {
     savingEntrada.value = true;
     entradaErrors.value = {};
     const isRes  = entradaForm.value.product_type === 'RES - Medio Canal';
-    const isDual = isRes && entradaForm.value.conCanal2 && entradaForm.value.kg_par > 0;
+    const isDual = isRes && entradaForm.value.conCanal2 && entradaForm.value.kg_pieza2 > 0;
     const productType = isCustomType.value
         ? entradaForm.value.customProductType.trim()
         : entradaForm.value.product_type;
@@ -104,7 +107,7 @@ async function saveEntrada() {
         if (isDual) {
             // Dos requests separadas: kg × precio_kg cada una
             const payload1 = { ...base, kg_entrada: entradaForm.value.kg_entrada, costo_usd: parseFloat(costoEntrada1.value) };
-            const payload2 = { ...base, kg_entrada: entradaForm.value.kg_par,     costo_usd: parseFloat(costoEntrada2.value) };
+            const payload2 = { ...base, kg_entrada: entradaForm.value.kg_pieza2,  costo_usd: parseFloat(costoEntrada2.value) };
             for (const payload of [payload1, payload2]) {
                 const res = await fetch(route('boveda.store'), {
                     method:  'POST',
@@ -804,49 +807,56 @@ async function deactivateProduct(product) {
                                 <input v-model="entradaForm.customProductType" type="text" class="form-input" maxlength="80" placeholder="Ej: Res Madurada, Cerdo Entero…" />
                                 <p v-if="entradaErrors.product_type && isCustomType" class="text-red-500 text-xs mt-1">{{ entradaErrors.product_type[0] }}</p>
                             </div>
+                            <!-- 2. Descripción -->
                             <div class="form-field full">
                                 <label>Descripción (opcional)</label>
                                 <input v-model="entradaForm.description" type="text" class="form-input" maxlength="100" placeholder="Ej: Media canal #3" />
                                 <span v-if="entradaErrors.description" class="field-err">{{ entradaErrors.description[0] }}</span>
                             </div>
+                            <!-- 3. Kg Pieza 1 -->
                             <div class="form-field">
-                                <label>Kg entrada</label>
+                                <label>Kg entrada (Pieza 1)</label>
                                 <input v-model.number="entradaForm.kg_entrada" type="number" class="form-input" min="0.001" step="0.001" placeholder="0.000" />
                                 <span v-if="entradaErrors.kg_entrada" class="field-err">{{ entradaErrors.kg_entrada[0] }}</span>
                             </div>
-                            <!-- Dual canal — solo RES Medio Canal -->
+                            <!-- 4. ¿Dos piezas? + Kg Pieza 2 (solo RES Medio Canal) -->
                             <template v-if="entradaForm.product_type === 'RES - Medio Canal'">
-                                <div class="form-field full">
+                                <div class="form-field">
                                     <label class="dual-toggle">
                                         <input type="checkbox" v-model="entradaForm.conCanal2" />
                                         <span>¿Ingresan dos piezas?</span>
                                     </label>
                                 </div>
-                                <div v-if="entradaForm.conCanal2" class="form-field full">
-                                    <div class="dual-fields">
-                                        <div class="field-group">
-                                            <label>Kg Pieza 2</label>
-                                            <input type="number" step="0.001" min="0.001" v-model.number="entradaForm.kg_par"
-                                                   placeholder="0.000" class="form-input" />
-                                            <span v-if="entradaErrors.kg_par" class="field-err">{{ entradaErrors.kg_par[0] }}</span>
-                                        </div>
-                                        <p v-if="entradaForm.kg_entrada > 0 && entradaForm.kg_par > 0 && entradaForm.precio_kg > 0"
-                                           class="dual-preview">
-                                            Pieza 1: {{ entradaForm.kg_entrada }} kg × ${{ entradaForm.precio_kg }}/kg = ${{ costoEntrada1 }}
-                                            · Pieza 2: {{ entradaForm.kg_par }} kg × ${{ entradaForm.precio_kg }}/kg = ${{ costoEntrada2 }}
-                                        </p>
-                                    </div>
+                                <div v-if="entradaForm.conCanal2" class="form-field">
+                                    <label>Kg Pieza 2</label>
+                                    <input type="number" step="0.001" min="0.001" v-model.number="entradaForm.kg_pieza2"
+                                           placeholder="0.000" class="form-input" />
+                                    <span v-if="entradaErrors.kg_pieza2" class="field-err">{{ entradaErrors.kg_pieza2[0] }}</span>
                                 </div>
                             </template>
+                            <!-- 5. Precio por kg -->
                             <div class="form-field">
                                 <label>Precio por kg ($/kg)</label>
-                                <input v-model.number="entradaForm.precio_kg" type="number" class="form-input" min="0" step="0.01" placeholder="0.00" />
+                                <input v-model.number="entradaForm.precio_kg" type="number" class="form-input" min="0" step="0.01" placeholder="$0.00/kg" />
                                 <span v-if="entradaErrors.costo_usd" class="field-err">{{ entradaErrors.costo_usd[0] }}</span>
                             </div>
+                            <!-- 6. Preview costo (solo lectura, tiempo real) -->
+                            <div v-if="entradaForm.kg_entrada > 0 && entradaForm.precio_kg > 0" class="form-field full">
+                                <p class="dual-preview">
+                                    <template v-if="entradaForm.conCanal2 && entradaForm.kg_pieza2 > 0">
+                                        Pieza 1: ${{ costoEntrada1 }} | Pieza 2: ${{ costoEntrada2 }} | Total: ${{ costoEntradaTotal }}
+                                    </template>
+                                    <template v-else>
+                                        Costo total: ${{ costoEntrada1 }}
+                                    </template>
+                                </p>
+                            </div>
+                            <!-- 7. Proveedor -->
                             <div class="form-field">
                                 <label>Proveedor</label>
                                 <input v-model="entradaForm.supplier" type="text" class="form-input" maxlength="100" placeholder="Nombre proveedor" />
                             </div>
+                            <!-- 8. Fecha / Hora -->
                             <div class="form-field">
                                 <label>Fecha / Hora</label>
                                 <input v-model="entradaForm.entered_at" type="datetime-local" class="form-input" />
