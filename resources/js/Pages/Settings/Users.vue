@@ -5,7 +5,8 @@ import { useForm } from '@inertiajs/vue3'
 import { ref } from 'vue'
 
 const props = defineProps({
-    users: Array,
+    users:    Array,
+    branches: { type: Array, default: () => [] },
 })
 
 const showModal = ref(false)
@@ -16,18 +17,25 @@ const form = useForm({
     email:       '',
     role:        'cashier',
     password:    '',
+    branch_id:   null,
     permissions: [],
 })
 
 const roleLabels = {
-    admin:      'Administrador',
-    supervisor: 'Supervisor',
-    cashier:    'Cajero',
+    admin:        'Administrador',
+    supervisor:   'Supervisor',
+    cashier:      'Cajero',
+    analyst:      'Analista',
+    branch_admin: 'Admin Sucursal',
+    owner:        'Dueño',
 }
 const roleBadgeClass = {
-    admin:      'badge-brand',
-    supervisor: 'badge-purple',
-    cashier:    'badge-gray',
+    admin:        'badge-brand',
+    supervisor:   'badge-purple',
+    cashier:      'badge-gray',
+    analyst:      'badge-blue',
+    branch_admin: 'badge-orange',
+    owner:        'badge-brand',
 }
 
 // ─── Permisos por módulo ────────────────────────────────────────────────────────
@@ -97,11 +105,12 @@ function openNew() {
 }
 
 function openEdit(user) {
-    editUser.value = user
-    form.name     = user.name
-    form.email    = user.email
-    form.role     = user.role
-    form.password = ''
+    editUser.value  = user
+    form.name       = user.name
+    form.email      = user.email
+    form.role       = user.role
+    form.password   = ''
+    form.branch_id  = user.branch_id ?? null
     const perms = Array.isArray(user.permissions) ? user.permissions : (rolePermissions[user.role] ?? [])
     form.permissions = [...perms]
     selectedPreset.value = detectPreset(form.permissions)
@@ -251,11 +260,22 @@ const helpFaqs = [
                         <div>
                             <label :class="labelClass">Rol <span class="text-[var(--brand)]">*</span></label>
                             <select v-model="form.role" :class="inputClass">
+                                <option value="owner">Dueño</option>
                                 <option value="admin">Administrador</option>
+                                <option value="branch_admin">Admin Sucursal</option>
                                 <option value="supervisor">Supervisor</option>
+                                <option value="analyst">Analista</option>
                                 <option value="cashier">Cajero</option>
                             </select>
                             <p v-if="form.errors.role" :class="errorClass">{{ form.errors.role }}</p>
+                        </div>
+                        <div v-if="branches.length > 0">
+                            <label :class="labelClass">Sucursal</label>
+                            <select v-model="form.branch_id" :class="inputClass">
+                                <option :value="null">— Sin asignar —</option>
+                                <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
+                            </select>
+                            <p v-if="form.errors.branch_id" :class="errorClass">{{ form.errors.branch_id }}</p>
                         </div>
                         <div>
                             <label :class="labelClass">

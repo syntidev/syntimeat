@@ -89,10 +89,14 @@ class SettingsController extends Controller
         $users = User::where('business_id', $business->id)
             ->where('role', '!=', 'super_admin')
             ->orderBy('name')
-            ->get(['id', 'name', 'email', 'role', 'permissions', 'created_at']);
+            ->get(['id', 'name', 'email', 'role', 'permissions', 'branch_id', 'created_at']);
+
+        $branches = \App\Models\Branch::where('business_id', $business->id)
+            ->get(['id', 'name']);
 
         return Inertia::render('Settings/Users', [
-            'users' => $users,
+            'users'    => $users,
+            'branches' => $branches,
         ]);
     }
 
@@ -101,10 +105,11 @@ class SettingsController extends Controller
         $business = Auth::user()->business;
 
         $data = $request->validate([
-            'name'     => ['required', 'string', 'max:255'],
-            'email'    => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
-            'role'     => ['required', Rule::in(['admin', 'cashier', 'supervisor'])],
-            'password' => ['required', 'string', 'min:8'],
+            'name'      => ['required', 'string', 'max:255'],
+            'email'     => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
+            'role'      => ['required', Rule::in(['admin', 'cashier', 'supervisor', 'analyst', 'branch_admin', 'owner'])],
+            'password'  => ['required', 'string', 'min:8'],
+            'branch_id' => ['nullable', 'exists:branches,id'],
         ]);
 
         User::create([
@@ -113,6 +118,7 @@ class SettingsController extends Controller
             'role'        => $data['role'],
             'password'    => Hash::make($data['password']),
             'business_id' => $business->id,
+            'branch_id'   => $data['branch_id'] ?? null,
         ]);
 
         return back()->with('success', 'Usuario creado correctamente.');
@@ -125,8 +131,9 @@ class SettingsController extends Controller
         $data = $request->validate([
             'name'          => ['required', 'string', 'max:255'],
             'email'         => ['required', 'email', Rule::unique('users', 'email')->ignore($user->id)],
-            'role'          => ['required', Rule::in(['admin', 'cashier', 'supervisor'])],
+            'role'          => ['required', Rule::in(['admin', 'cashier', 'supervisor', 'analyst', 'branch_admin', 'owner'])],
             'password'      => ['nullable', 'string', 'min:8'],
+            'branch_id'     => ['nullable', 'exists:branches,id'],
             'permissions'   => ['nullable', 'array'],
             'permissions.*' => [Rule::in(['dashboard', 'pos', 'cash', 'sales', 'dayclose', 'orders', 'clients', 'inventory', 'catalog', 'boveda', 'fabrica', 'contingency', 'reports', 'settings', 'users'])],
         ]);

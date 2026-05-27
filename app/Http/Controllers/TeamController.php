@@ -19,7 +19,7 @@ use Inertia\Response;
 class TeamController extends Controller
 {
     // Roles que el owner/admin pueden crear
-    private const ALLOWED_ROLES = ['admin', 'cashier', 'analyst'];
+    private const ALLOWED_ROLES = ['admin', 'cashier', 'analyst', 'branch_admin', 'owner'];
 
     // ─── Vista principal ──────────────────────────────────────────────────────
 
@@ -49,8 +49,9 @@ class TeamController extends Controller
             ]);
 
         return Inertia::render('Settings/Team', [
-            'branches' => $branches,
-            'users'    => $users,
+            'branches'     => $branches,
+            'users'        => $users,
+            'allowedRoles' => self::ALLOWED_ROLES,
         ]);
     }
 
