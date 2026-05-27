@@ -202,6 +202,74 @@ class BovedaController extends Controller
         return response()->json(['message' => 'Entrada registrada.']);
     }
 
+    public function update(Request $request, BovedaEntry $entry): \Illuminate\Http\JsonResponse
+    {
+        abort_unless($entry->business_id === Auth::user()->business_id, 403);
+        abort_if($entry->closed_at !== null, 422, 'No se puede editar una entrada ya cerrada.');
+
+        $data = $request->validate([
+            'kg_entrada'  => ['required', 'numeric', 'min:0.001', 'max:99999'],
+            'costo_usd'   => ['required', 'numeric', 'min:0'],
+            'supplier'    => ['nullable', 'string', 'max:100'],
+            'description' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        return DB::transaction(function () use ($entry, $data): \Illuminate\Http\JsonResponse {
+            $entry->update($data);
+
+            // Actualizar inventory_entry espejo (entrada boveda) si existe
+            $inventoryEntry = InventoryEntry::where('boveda_entry_id', $entry->id)
+                ->where('location', 'boveda')
+                ->where('quantity_kg', '>', 0)
+                ->first();
+
+            if ($inventoryEntry !== null) {
+                $costoPorKg = $data['kg_entrada'] > 0
+                    ? round((float) $data['costo_usd'] / (float) $data['kg_entrada'], 4)
+                    : null;
+
+                $inventoryEntry->update([
+                    'quantity_kg'     => $data['kg_entrada'],
+                    'cost_per_kg_usd' => $costoPorKg,
+                ]);
+            }
+
+            ActivityLog::create([
+                'business_id' => Auth::user()->business_id,
+                'user_id'     => Auth::id(),
+                'action'      => 'boveda.entry.update',
+                'model_type'  => 'BovedaEntry',
+                'model_id'    => $entry->id,
+                'description' => 'Entrada bóveda editada: #' . $entry->id . ' — ' . $entry->product_type,
+            ]);
+
+            return response()->json(['message' => 'Entrada actualizada.']);
+        });
+    }
+
+    public function destroy(BovedaEntry $entry): \Illuminate\Http\JsonResponse
+    {
+        abort_unless($entry->business_id === Auth::user()->business_id, 403);
+
+        return DB::transaction(function () use ($entry): \Illuminate\Http\JsonResponse {
+            ActivityLog::create([
+                'business_id' => Auth::user()->business_id,
+                'user_id'     => Auth::id(),
+                'action'      => 'boveda.entry.delete',
+                'model_type'  => 'BovedaEntry',
+                'model_id'    => $entry->id,
+                'description' => 'Entrada bóveda eliminada: #' . $entry->id . ' — ' . $entry->product_type,
+            ]);
+
+            // Eliminar inventory_entries espejo (boveda y vitrina ligadas a esta entrada)
+            InventoryEntry::where('boveda_entry_id', $entry->id)->delete();
+
+            $entry->delete();
+
+            return response()->json(['message' => 'Entrada eliminada.']);
+        });
+    }
+
     public function surte(Request $request, BovedaEntry $entry): \Illuminate\Http\JsonResponse
     {
         abort_unless($entry->business_id === Auth::user()->business_id, 403);
@@ -606,6 +674,7 @@ class BovedaController extends Controller
             'kg_disponible'      => (float) ($kgEntrada - (float) $e->kg_surtido_vitrina - (float) $e->waste_kg),
             'supplier'           => $e->supplier,
             'entered_at'         => $e->entered_at?->format('d/m/Y H:i'),
+            'entered_at_raw'     => $e->entered_at?->format('Y-m-d\TH:i'),
             'closed_at'          => $e->closed_at?->format('d/m/Y H:i'),
             'requires_despiece'  => $bovedaProduct?->requires_despiece ?? true,
         ];

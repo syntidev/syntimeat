@@ -163,6 +163,8 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
         // Bóveda
         Route::get('/boveda', [BovedaController::class, 'index'])->name('boveda.index');
         Route::post('/boveda', [BovedaController::class, 'store'])->name('boveda.store');
+        Route::put('/boveda/{entry}', [BovedaController::class, 'update'])->name('boveda.update');
+        Route::delete('/boveda/{entry}', [BovedaController::class, 'destroy'])->name('boveda.destroy');
         Route::patch('/boveda/{entry}/surtir', [BovedaController::class, 'surte'])->name('boveda.surte');
         Route::patch('/boveda/{entry}/cerrar', [BovedaController::class, 'close'])->name('boveda.close');
         Route::patch('/boveda/{entry}/merma', [BovedaController::class, 'registerMerma'])->name('boveda.merma');

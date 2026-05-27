@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import AppLayout  from '@/Layouts/AppLayout.vue';
 import HelpModal  from '@/Components/HelpModal.vue';
-import { Warehouse, Scissors, Factory, CheckCircle2, Package, Printer } from '@lucide/vue';
+import { Warehouse, Scissors, Factory, CheckCircle2, Package, Printer, Pencil } from '@lucide/vue';
 
 const props = defineProps({
     activas:          { type: Array,  default: () => [] },
@@ -53,28 +53,21 @@ const entradaForm = ref({
     customProductType: '',
     description:       '',
     kg_entrada:        '',
-    costo_usd:         '',
+    precio_kg:         '',
     supplier:          '',
     entered_at:        localDateTimeString(),
     conCanal2:         false,
     kg_par:            '',
-    costo_usd_par:     '',
 });
 const entradaErrors = ref({});
 const OTRO_LABEL = 'Otro (libre)';
 const isCustomType = computed(() => entradaForm.value.product_type === OTRO_LABEL);
 
-const kgTotal19    = computed(() => (entradaForm.value.kg_entrada || 0) + (entradaForm.value.kg_par || 0))
-const costoTotal19 = computed(() => (entradaForm.value.costo_usd || 0) + (entradaForm.value.costo_usd_par || 0))
-const prorrateo1   = computed(() =>
-    kgTotal19.value > 0
-        ? (costoTotal19.value * ((entradaForm.value.kg_entrada || 0) / kgTotal19.value)).toFixed(2)
-        : '0.00'
+const costoEntrada1 = computed(() =>
+    ((entradaForm.value.kg_entrada || 0) * (entradaForm.value.precio_kg || 0)).toFixed(2)
 )
-const prorrateo2   = computed(() =>
-    kgTotal19.value > 0
-        ? (costoTotal19.value * ((entradaForm.value.kg_par || 0) / kgTotal19.value)).toFixed(2)
-        : '0.00'
+const costoEntrada2 = computed(() =>
+    ((entradaForm.value.kg_par || 0) * (entradaForm.value.precio_kg || 0)).toFixed(2)
 )
 
 function openEntrada() {
@@ -84,41 +77,62 @@ function openEntrada() {
         customProductType: '',
         description:       '',
         kg_entrada:        '',
-        costo_usd:         '',
+        precio_kg:         '',
         supplier:          '',
         entered_at:        localDateTimeString(),
         conCanal2:         false,
         kg_par:            '',
-        costo_usd_par:     '',
     };
     showEntradaModal.value = true;
 }
 async function saveEntrada() {
     if (savingEntrada.value) return;
-    savingEntrada.value  = true;
-    entradaErrors.value  = {};
-    const isRes = entradaForm.value.product_type === 'RES - Medio Canal';
-    const payload = {
-        product_type: isCustomType.value ? entradaForm.value.customProductType.trim() : entradaForm.value.product_type,
+    savingEntrada.value = true;
+    entradaErrors.value = {};
+    const isRes  = entradaForm.value.product_type === 'RES - Medio Canal';
+    const isDual = isRes && entradaForm.value.conCanal2 && entradaForm.value.kg_par > 0;
+    const productType = isCustomType.value
+        ? entradaForm.value.customProductType.trim()
+        : entradaForm.value.product_type;
+    const base = {
+        product_type: productType,
         description:  entradaForm.value.description,
-        kg_entrada:   entradaForm.value.kg_entrada,
-        costo_usd:    entradaForm.value.costo_usd,
         supplier:     entradaForm.value.supplier,
         entered_at:   entradaForm.value.entered_at,
-        ...(isRes && entradaForm.value.conCanal2 ? { kg_par: entradaForm.value.kg_par, costo_usd_par: entradaForm.value.costo_usd_par } : {}),
     };
     try {
-        const res = await fetch(route('boveda.store'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json' },
-            body: JSON.stringify(payload),
-        });
-        if (res.status === 422) {
-            const body = await res.json();
-            entradaErrors.value = body.errors ?? {};
-            return;
+        if (isDual) {
+            // Dos requests separadas: kg × precio_kg cada una
+            const payload1 = { ...base, kg_entrada: entradaForm.value.kg_entrada, costo_usd: parseFloat(costoEntrada1.value) };
+            const payload2 = { ...base, kg_entrada: entradaForm.value.kg_par,     costo_usd: parseFloat(costoEntrada2.value) };
+            for (const payload of [payload1, payload2]) {
+                const res = await fetch(route('boveda.store'), {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json' },
+                    body:    JSON.stringify(payload),
+                });
+                if (res.status === 422) {
+                    const body = await res.json();
+                    entradaErrors.value = body.errors ?? {};
+                    return;
+                }
+                if (!res.ok) throw new Error('Error al guardar');
+            }
+        } else {
+            const costo = parseFloat(((entradaForm.value.kg_entrada || 0) * (entradaForm.value.precio_kg || 0)).toFixed(2));
+            const payload = { ...base, kg_entrada: entradaForm.value.kg_entrada, costo_usd: costo };
+            const res = await fetch(route('boveda.store'), {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json' },
+                body:    JSON.stringify(payload),
+            });
+            if (res.status === 422) {
+                const body = await res.json();
+                entradaErrors.value = body.errors ?? {};
+                return;
+            }
+            if (!res.ok) throw new Error('Error al guardar');
         }
-        if (!res.ok) throw new Error('Error al guardar');
         showEntradaModal.value = false;
         showFlash('Entrada registrada.');
         router.reload({ only: ['activas', 'historial', 'kpis'] });
@@ -300,7 +314,7 @@ watch(() => surtirForm.value.peso_real, (val) => {
 // ─── Cerrar entrada ───────────────────────────────────────────────────────────
 const closing = ref(null);
 async function closeEntry(entry) {
-    if (!confirm('¿Cerrar esta entrada? Ya no se podrá surtir más desde ella.')) return;
+    if (!confirm('¿Mover esta entrada al Historial? Ya no se podrá surtir más desde ella.')) return;
     closing.value = entry.id;
     try {
         const res = await fetch(route('boveda.close', { entry: entry.id }), {
@@ -317,6 +331,57 @@ async function closeEntry(entry) {
     }
 }
 
+
+// ─── Modal Editar Entrada ─────────────────────────────────────────────────────
+const showEditModal  = ref(false);
+const editingEntry   = ref(null);
+const savingEdit     = ref(false);
+const editErrors     = ref({});
+const editForm       = ref({ kg_entrada: '', precio_kg: '', supplier: '', description: '', entered_at: '' });
+
+function openEdit(entry) {
+    editErrors.value  = {};
+    editingEntry.value = entry;
+    editForm.value = {
+        kg_entrada:  entry.kg_entrada,
+        precio_kg:   entry.cost_per_kg_usd ?? '',
+        supplier:    entry.supplier ?? '',
+        description: entry.description ?? '',
+        entered_at:  entry.entered_at_raw ?? '',
+    };
+    showEditModal.value = true;
+}
+async function saveEdit() {
+    if (savingEdit.value || !editingEntry.value) return;
+    savingEdit.value = true;
+    editErrors.value = {};
+    const costo = parseFloat(((editForm.value.kg_entrada || 0) * (editForm.value.precio_kg || 0)).toFixed(2));
+    try {
+        const res = await fetch(route('boveda.update', { entry: editingEntry.value.id }), {
+            method:  'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), 'Accept': 'application/json' },
+            body:    JSON.stringify({
+                kg_entrada:  editForm.value.kg_entrada,
+                costo_usd:   costo,
+                supplier:    editForm.value.supplier,
+                description: editForm.value.description,
+            }),
+        });
+        if (res.status === 422) {
+            const body = await res.json();
+            editErrors.value = body.errors ?? {};
+            return;
+        }
+        if (!res.ok) throw new Error('Error al actualizar');
+        showEditModal.value = false;
+        showFlash('Entrada actualizada.');
+        router.reload({ only: ['activas', 'historial', 'kpis'] });
+    } catch (e) {
+        alert(e?.message ?? 'Error al actualizar');
+    } finally {
+        savingEdit.value = false;
+    }
+}
 
 // ─── Modal Producto Bóveda ────────────────────────────────────────────────────
 const showProductModal = ref(false);
@@ -583,6 +648,11 @@ async function deactivateProduct(product) {
                                 <td class="date-col">{{ e.entered_at }}</td>
                                 <td class="actions-col">
                                     <button
+                                        class="btn-sm btn-edit"
+                                        @click="openEdit(e)"
+                                        title="Editar entrada"
+                                    ><Pencil :size="12" style="vertical-align:middle;margin-right:3px;" />Editar</button>
+                                    <button
                                         class="btn-sm btn-surtir"
                                         :disabled="e.kg_disponible <= 0"
                                         @click="openSurtir(e)"
@@ -599,7 +669,8 @@ async function deactivateProduct(product) {
                                         class="btn-sm btn-close"
                                         :disabled="closing === e.id"
                                         @click="closeEntry(e)"
-                                    >Cerrar</button>
+                                        title="Mover al historial"
+                                    >Mover a Historial</button>
                                 </td>
                             </tr>
                         </tbody>
@@ -759,21 +830,17 @@ async function deactivateProduct(product) {
                                                    placeholder="0.000" class="form-input" />
                                             <span v-if="entradaErrors.kg_par" class="field-err">{{ entradaErrors.kg_par[0] }}</span>
                                         </div>
-                                        <div class="field-group">
-                                            <label>Costo Pieza 2 (USD)</label>
-                                            <input type="number" step="0.01" min="0" v-model.number="entradaForm.costo_usd_par"
-                                                   placeholder="0.00" class="form-input" />
-                                        </div>
-                                        <p v-if="entradaForm.kg_entrada > 0 && entradaForm.kg_par > 0 && (entradaForm.costo_usd + entradaForm.costo_usd_par) > 0"
+                                        <p v-if="entradaForm.kg_entrada > 0 && entradaForm.kg_par > 0 && entradaForm.precio_kg > 0"
                                            class="dual-preview">
-                                            Pieza 1: ${{ prorrateo1 }} · Pieza 2: ${{ prorrateo2 }}
+                                            Pieza 1: {{ entradaForm.kg_entrada }} kg × ${{ entradaForm.precio_kg }}/kg = ${{ costoEntrada1 }}
+                                            · Pieza 2: {{ entradaForm.kg_par }} kg × ${{ entradaForm.precio_kg }}/kg = ${{ costoEntrada2 }}
                                         </p>
                                     </div>
                                 </div>
                             </template>
                             <div class="form-field">
-                                <label>Costo USD (total)</label>
-                                <input v-model.number="entradaForm.costo_usd" type="number" class="form-input" min="0" step="0.01" placeholder="0.00" />
+                                <label>Precio por kg ($/kg)</label>
+                                <input v-model.number="entradaForm.precio_kg" type="number" class="form-input" min="0" step="0.01" placeholder="0.00" />
                                 <span v-if="entradaErrors.costo_usd" class="field-err">{{ entradaErrors.costo_usd[0] }}</span>
                             </div>
                             <div class="form-field">
@@ -791,6 +858,56 @@ async function deactivateProduct(product) {
                             <button class="btn-ghost" @click="showEntradaModal = false">Cancelar</button>
                             <button class="btn-brand" :disabled="savingEntrada" @click="saveEntrada">
                                 {{ savingEntrada ? 'Guardando…' : 'Registrar entrada' }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </Transition>
+        </Teleport>
+
+        <!-- ── Modal Editar Entrada ──────────────────────────────────────── -->
+        <Teleport to="body">
+            <Transition name="mo">
+                <div v-if="showEditModal" class="modal-bg">
+                    <div class="modal-box modal-sm">
+                        <div class="modal-header">
+                            <h3>Editar entrada bóveda</h3>
+                            <button class="close-btn" @click="showEditModal = false">×</button>
+                        </div>
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label>Kg entrada</label>
+                                <input v-model.number="editForm.kg_entrada" type="number" class="form-input"
+                                       min="0.001" step="0.001" placeholder="0.000" />
+                                <span v-if="editErrors.kg_entrada" class="field-err">{{ editErrors.kg_entrada[0] }}</span>
+                            </div>
+                            <div class="form-field">
+                                <label>Precio por kg ($/kg)</label>
+                                <input v-model.number="editForm.precio_kg" type="number" class="form-input"
+                                       min="0" step="0.01" placeholder="0.00" />
+                                <span v-if="editErrors.costo_usd" class="field-err">{{ editErrors.costo_usd[0] }}</span>
+                            </div>
+                            <div class="form-field full" v-if="editForm.kg_entrada > 0 && editForm.precio_kg > 0">
+                                <p class="dual-preview">
+                                    Costo total: {{ editForm.kg_entrada }} kg × ${{ editForm.precio_kg }}/kg
+                                    = ${{ ((editForm.kg_entrada || 0) * (editForm.precio_kg || 0)).toFixed(2) }}
+                                </p>
+                            </div>
+                            <div class="form-field">
+                                <label>Proveedor</label>
+                                <input v-model="editForm.supplier" type="text" class="form-input"
+                                       maxlength="100" placeholder="Nombre proveedor" />
+                            </div>
+                            <div class="form-field">
+                                <label>Descripción</label>
+                                <input v-model="editForm.description" type="text" class="form-input"
+                                       maxlength="100" placeholder="Opcional" />
+                            </div>
+                        </div>
+                        <div class="modal-actions">
+                            <button class="btn-ghost" @click="showEditModal = false">Cancelar</button>
+                            <button class="btn-brand" :disabled="savingEdit" @click="saveEdit">
+                                {{ savingEdit ? 'Guardando…' : 'Guardar cambios' }}
                             </button>
                         </div>
                     </div>
@@ -1082,6 +1199,8 @@ async function deactivateProduct(product) {
 .btn-sm:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-merma  { background: rgba(245,158,11,0.12); color: #d97706; }
 .btn-merma:not(:disabled):hover { background: rgba(245,158,11,0.22); }
+.btn-edit   { background: rgba(75,85,99,0.12); color: var(--text-secondary); }
+.btn-edit:hover { background: rgba(75,85,99,0.22); color: var(--text-primary); }
 .btn-surtir { background: rgba(37,99,235,0.12); color: var(--brand); }
 .btn-surtir:not(:disabled):hover { background: rgba(37,99,235,0.22); }
 .btn-close  { background: rgba(239,68,68,0.1); color: #ef4444; }
