@@ -280,6 +280,11 @@ function routeExists(routeName) {
                 <span class="sidebar-logo__text">
                     <span class="sidebar-logo__synti">SYNTI</span><span class="sidebar-logo__meat">meat</span>
                 </span>
+                <button class="sidebar-close" @click="closeSidebar" aria-label="Cerrar menú">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
             </div>
 
             <!-- Navegación -->
@@ -1088,5 +1093,29 @@ const icons = {
 }
 @media (max-width: 768px) {
     .sidebar-mobile-footer { display: flex; }
+}
+
+/* ── Botón X cerrar sidebar (solo mobile) ─────────────────────────────────── */
+.sidebar-close {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    margin-left: auto;
+    flex-shrink: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0.5rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background-color 0.15s, color 0.15s;
+}
+.sidebar-close:hover {
+    background-color: var(--bg-elevated);
+    color: var(--text-primary);
+}
+@media (max-width: 768px) {
+    .sidebar-close { display: flex; }
 }
 </style>
