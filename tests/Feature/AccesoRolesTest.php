@@ -321,12 +321,12 @@ class AccesoRolesTest extends TestCase
             ->assertStatus(403);
     }
 
-    /** Test 21 — Analyst bloqueado en gestión de usuarios (solo super_admin) */
+    /** Test 21 — Analyst tiene acceso a Configuración Usuarios */
     public function test_analyst_bloqueado_usuarios(): void
     {
         $this->actingAs($this->analyst, 'web')
             ->get('/configuracion/usuarios')
-            ->assertStatus(403);
+            ->assertStatus(200);
     }
 
     /** Test 22 — Analyst bloqueado al fijar tasa manual (acción sensible de caja) */

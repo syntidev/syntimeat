@@ -84,14 +84,19 @@ class SettingsController extends Controller
 
     public function users(): Response
     {
-        $business = Auth::user()->business;
+        $user          = Auth::user();
+        $business      = $user->business;
+        $branchId      = $user->branch_id;
+        $isBranchAdmin = $user->role === 'branch_admin';
 
         $users = User::where('business_id', $business->id)
             ->where('role', '!=', 'super_admin')
+            ->when($isBranchAdmin && $branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'role', 'permissions', 'branch_id', 'created_at']);
 
         $branches = \App\Models\Branch::where('business_id', $business->id)
+            ->when($isBranchAdmin && $branchId, fn ($q) => $q->where('id', $branchId))
             ->get(['id', 'name']);
 
         return Inertia::render('Settings/Users', [
@@ -170,17 +175,19 @@ class SettingsController extends Controller
 
     public function cashRegisters(): Response
     {
-        $user     = Auth::user();
-        $business = $user->business;
-        $branchId = $user->branch_id;
+        $user          = Auth::user();
+        $business      = $user->business;
+        $branchId      = $user->branch_id;
+        $isBranchAdmin = $user->role === 'branch_admin';
 
         $registers = CashRegister::where('business_id', $business->id)
-            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->when($isBranchAdmin && $branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->orderBy('id')
             ->get(['id', 'name', 'branch_id', 'opened_at', 'closed_at']);
 
         $branches = \App\Models\Branch::where('business_id', $business->id)
             ->where('is_active', true)
+            ->when($isBranchAdmin && $branchId, fn ($q) => $q->where('id', $branchId))
             ->orderBy('name')
             ->get(['id', 'name']);
 
