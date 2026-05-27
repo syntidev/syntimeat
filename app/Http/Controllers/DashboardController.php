@@ -160,7 +160,6 @@ class DashboardController extends Controller
         // ── Pedidos pendientes ────────────────────────────────────────────────
         $pedidosPendientes = Order::where('business_id', $businessId)
             ->where('status', 'pending')
-            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->count();
 
         // ── Ventas por categoría hoy ──────────────────────────────────────────
