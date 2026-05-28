@@ -110,8 +110,12 @@ class InventoryController extends Controller
             'entered_at'      => ['required', 'date'],
         ]);
 
-        $businessId = Auth::user()->business->id;
-        $userId     = Auth::id();
+        $user       = Auth::user();
+        $businessId = $user->business->id;
+        $userId     = $user->id;
+        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? $user->branch_id);
 
         $product = Product::where('id', $data['product_id'])
             ->where('business_id', $businessId)
@@ -131,6 +135,7 @@ class InventoryController extends Controller
 
         $entry = InventoryEntry::create([
             'business_id'     => $businessId,
+            'branch_id'       => $branchId,
             'product_id'      => $data['product_id'],
             'quantity_kg'     => $data['quantity_kg'],
             'waste_kg'        => $wasteKg,
@@ -144,12 +149,4 @@ class InventoryController extends Controller
             'business_id' => $businessId,
             'user_id'     => $userId,
             'action'      => 'inventory.entry',
-            'model_type'  => 'InventoryEntry',
-            'model_id'    => $entry->id,
-            'new_values'  => $entry->toArray(),
-            'ip_address'  => $request->ip(),
-        ]);
-
-        return back()->with('success', 'Entrada registrada correctamente.');
-    }
-}
+            'model_type'  => 'I

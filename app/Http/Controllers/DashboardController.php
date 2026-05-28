@@ -50,7 +50,9 @@ class DashboardController extends Controller
     private function buildData(int $businessId): array
     {
         $user     = Auth::user();
-        $branchId = in_array($user->role, ['super_admin', 'admin']) ? null : $user->branch_id;
+        $branchId = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? null);
 
         $rate       = $this->rates->getTodayRate();
         $today      = now('America/Caracas')->toDateString();
@@ -239,7 +241,4 @@ class DashboardController extends Controller
             'pedidos_pendientes'=> $pedidosPendientes,
             'categorias_hoy'    => $categoriasHoy,
             'utilidad_boveda'   => $utilidadBoveda,
-            'banking_alert'     => Cache::get('banking_alert'),
-        ];
-    }
-}
+            'ban

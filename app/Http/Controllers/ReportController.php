@@ -58,13 +58,18 @@ class ReportController extends Controller
             'status'       => ['nullable', 'string', 'in:open,pending,paid,cancelled'],
         ]);
 
-        $businessId = Auth::user()->business->id;
+        $user       = Auth::user();
+        $businessId = $user->business->id;
+        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? null);
 
         $query = Sale::with([
             'items.product.category',
             'salePayments.paymentMethod',
         ])
             ->where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->orderByDesc('created_at');
 
         if (! empty($data['fecha_desde'])) {
@@ -246,8 +251,14 @@ class ReportController extends Controller
 
         $fecha       = $data['fecha'] ?? now()->toDateString();
         $categoryIds = array_map('intval', $data['category_ids'] ?? []);
-        $businessId  = Auth::user()->business->id;
+        $user        = Auth::user();
+        $businessId  = $user->business->id;
         $branchId    = isset($data['branch_id']) ? (int) $data['branch_id'] : null;
+
+        // branch_admin/cashier solo pueden ver su propia sucursal — ignorar branch_id del request
+        if (in_array($user->role, ['branch_admin', 'cashier'], true)) {
+            $branchId = $user->branch_id;
+        }
 
         $result = $this->buildDayData($businessId, $fecha, $categoryIds, $branchId);
 
@@ -267,9 +278,14 @@ class ReportController extends Controller
 
         $fecha       = $data['fecha'] ?? now()->toDateString();
         $categoryIds = array_map('intval', $data['category_ids'] ?? []);
-        $business    = Auth::user()->business;
         $cashier     = Auth::user();
+        $business    = $cashier->business;
         $branchId    = isset($data['branch_id']) ? (int) $data['branch_id'] : null;
+
+        // branch_admin/cashier solo pueden ver su propia sucursal
+        if (in_array($cashier->role, ['branch_admin', 'cashier'], true)) {
+            $branchId = $cashier->branch_id;
+        }
 
         $result = $this->buildDayData($business->id, $fecha, $categoryIds, $branchId);
         $html   = $this->buildDayPdfHtml($business, $cashier, $fecha, $result['categories'], $result['totals']);
@@ -1013,33 +1029,4 @@ HTML;
         }
 
         if (! empty($filters['fecha_hasta'])) {
-            $query->whereDate($column, '<=', $filters['fecha_hasta']);
-        }
-    }
-}
-
-// ─── Export genérico para Maatwebsite Excel ───────────────────────────────────
-
-class GenericExport implements FromCollection, WithHeadings, WithTitle
-{
-    public function __construct(
-        private readonly \Illuminate\Support\Collection $rows,
-        private readonly array $headings,
-        private readonly string $title,
-    ) {}
-
-    public function collection(): \Illuminate\Support\Collection
-    {
-        return $this->rows;
-    }
-
-    public function headings(): array
-    {
-        return $this->headings;
-    }
-
-    public function title(): string
-    {
-        return ucfirst($this->title);
-    }
-}
+            $query->whereDate($column, '<=', $filters['fecha_hasta'])

@@ -128,6 +128,9 @@ class SaleController extends Controller
         $user       = Auth::user();
         $business   = $user->business;
         $businessId = $business->id;
+        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? $user->branch_id);
 
         // Rate needed to convert amount_bs → quantity_kg for weight items
         $rate = $this->rates->getTodayRate();
@@ -237,7 +240,7 @@ class SaleController extends Controller
 
                 $sale = Sale::create([
                     'business_id'     => $businessId,
-                    'branch_id'       => $user->branch_id,
+                    'branch_id'       => $branchId,
                     'ticket_number'   => $ticketNumber,
                     'status'          => 'pending',
                     'payment_status'  => 'pendiente_cobro',
@@ -295,7 +298,7 @@ class SaleController extends Controller
         $sale = DB::transaction(function () use ($businessId, $user, $ticketNumber, $totalUsd, $totalBs, $itemsToCreate, $origin, $channel, $status, $data) {
             $sale = Sale::create([
                 'business_id'   => $businessId,
-                'branch_id'     => $user->branch_id,
+                'branch_id'     => $branchId,
                 'ticket_number' => $ticketNumber,
                 'status'        => $status,
                 'total_usd'     => round($totalUsd, 2),
@@ -712,8 +715,4 @@ class SaleController extends Controller
                 ->lockForUpdate()
                 ->orderByDesc('id')
                 ->value('ticket_number');
-            $n = $last ? ((int) preg_replace('/\D/', '', $last)) + 1 : 1;
-            return $prefix . '-' . str_pad((string) $n, 4, '0', STR_PAD_LEFT);
-        });
-    }
-}
+           

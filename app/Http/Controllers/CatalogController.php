@@ -88,10 +88,15 @@ class CatalogController extends Controller
             'image'              => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
 
-        $businessId = Auth::user()->business_id;
+        $user       = Auth::user();
+        $businessId = $user->business_id;
+        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? $user->branch_id);
 
         $product = Product::create([
             'business_id'        => $businessId,
+            'branch_id'          => $branchId,
             'category_id'        => $validated['category_id'],
             'subcategory_id'     => $validated['subcategory_id'] ?? null,
             'name'               => $validated['name'],
@@ -236,6 +241,9 @@ class CatalogController extends Controller
         /** @var \App\Models\User $user */
         $user       = Auth::user();
         $businessId = $user->business_id;
+        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? $user->branch_id);
 
         // Leer Excel — mismo helper que ContingencyController
         $rows = Excel::toCollection(new EmptyImport(), $request->file('file'))
@@ -347,6 +355,7 @@ class CatalogController extends Controller
                     // CREAR
                     $createData = [
                         'business_id'    => $businessId,
+                        'branch_id'      => $branchId,
                         'category_id'    => $category->id,
                         'name'           => $nombre,
                         'sale_mode'      => $unidad,
@@ -371,6 +380,7 @@ class CatalogController extends Controller
                     if ($stockKg !== null && $stockKg > 0 && $unidad === 'weight') {
                         InventoryEntry::create([
                             'business_id'     => $businessId,
+                            'branch_id'       => $branchId,
                             'product_id'      => $product->id,
                             'quantity_kg'     => $stockKg,
                             'waste_kg'        => 0,
@@ -536,26 +546,4 @@ class CatalogController extends Controller
             imagesavealpha($dest, true);
             $transparent = imagecolorallocatealpha($dest, 0, 0, 0, 127);
             imagefilledrectangle($dest, 0, 0, $newW, $newH, $transparent);
-            imagecopyresampled($dest, $source, 0, 0, 0, 0, $newW, $newH, $origW, $origH);
-            imagedestroy($source);
-            $source = $dest;
-        }
-
-        $ok = imagewebp($source, $destPath, 82);
-        imagedestroy($source);
-
-        if (!$ok) {
-            return '';
-        }
-
-        return "business/{$businessId}/products/{$filename}";
-    }
-
-    private function deleteProductImage(string $imagePath): void
-    {
-        $fullPath = storage_path("app/public/{$imagePath}");
-        if (file_exists($fullPath)) {
-            unlink($fullPath);
-        }
-    }
-}
+            imagecopyresampled($dest, $source

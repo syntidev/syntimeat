@@ -186,6 +186,9 @@ class FabricaController extends Controller
     {
         $user       = Auth::user();
         $businessId = $user->business_id;
+        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? $user->branch_id);
 
         $data = $request->validate([
             'output_product_id'          => ['required', 'integer', 'exists:products,id'],
@@ -283,6 +286,7 @@ class FabricaController extends Controller
 
                 InventoryEntry::create([
                     'business_id' => $businessId,
+                    'branch_id'   => $branchId,
                     'product_id'  => $input['product_id'],
                     'quantity_kg' => -(float) $input['quantity_kg'],
                     'waste_kg'    => 0,
@@ -296,6 +300,7 @@ class FabricaController extends Controller
             // Ingresar producto fabricado al inventario
             InventoryEntry::create([
                 'business_id'     => $businessId,
+                'branch_id'       => $branchId,
                 'product_id'      => $data['output_product_id'],
                 'quantity_kg'     => (float) $data['output_kg'],
                 'waste_kg'        => 0,
@@ -325,6 +330,9 @@ class FabricaController extends Controller
     {
         $user       = Auth::user();
         $businessId = $user->business_id;
+        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? $user->branch_id);
 
         $data = $request->validate([
             'boveda_entry_id' => ['required', 'integer', 'exists:boveda_entries,id'],
@@ -364,6 +372,7 @@ class FabricaController extends Controller
             foreach ($cortesConKg as $corte) {
                 InventoryEntry::create([
                     'business_id'     => $businessId,
+                    'branch_id'       => $branchId,
                     'product_id'      => $corte['product_id'],
                     'boveda_entry_id' => $entry->id,
                     'quantity_kg'     => (float) $corte['kg'],
@@ -384,19 +393,4 @@ class FabricaController extends Controller
                 'business_id' => $businessId,
                 'user_id'     => $user->id,
                 'action'      => 'fabrica.despiece',
-                'model_type'  => BovedaEntry::class,
-                'model_id'    => $entry->id,
-                'new_values'  => [
-                    'total_cortes' => $kgSurtido,
-                    'documentado'  => round($kgSurtido - $merma, 3),
-                    'merma'        => $merma,
-                ],
-            ]);
-        });
-
-        return response()->json([
-            'message' => 'Despiece registrado. Stock de vitrina actualizado.',
-            'merma'   => $merma,
-        ]);
-    }
-}
+            
