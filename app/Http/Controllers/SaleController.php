@@ -715,4 +715,8 @@ class SaleController extends Controller
                 ->lockForUpdate()
                 ->orderByDesc('id')
                 ->value('ticket_number');
-           
+            $n = $last ? ((int) preg_replace('/\D/', '', $last)) + 1 : 1;
+            return $prefix . '-' . str_pad((string) $n, 4, '0', STR_PAD_LEFT);
+        });
+    }
+}
