@@ -23,9 +23,13 @@ class BovedaController extends Controller
     public function index(): Response
     {
         $businessId = Auth::user()->business_id;
+        $branchId   = in_array(Auth::user()->role, ['branch_admin', 'cashier'])
+            ? Auth::user()->branch_id
+            : (session('current_branch_id') ?? null);
 
         $activas = BovedaEntry::active()
             ->where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->orderByDesc('entered_at')
             ->get()
             ->map(fn ($e) => $this->format($e));
@@ -107,10 +111,14 @@ class BovedaController extends Controller
         $businessId = Auth::user()->business_id;
         $userId     = Auth::id();
         $kgPar      = isset($data['kg_par']) ? (float) $data['kg_par'] : null;
+        $branchId   = in_array(Auth::user()->role, ['branch_admin', 'cashier'])
+            ? Auth::user()->branch_id
+            : (session('current_branch_id') ?? null);
 
-        DB::transaction(function () use ($data, $businessId, $userId, $kgPar): void {
+        DB::transaction(function () use ($data, $businessId, $userId, $kgPar, $branchId): void {
             $entry = BovedaEntry::create([
                 'business_id' => $businessId,
+                'branch_id'   => $branchId,
                 ...$data,
             ]);
 
@@ -152,6 +160,7 @@ class BovedaController extends Controller
 
                 $entry2 = BovedaEntry::create([
                     'business_id'  => $businessId,
+                    'branch_id'    => $branchId,
                     'product_type' => $data['product_type'],
                     'description'  => ($data['description'] ?? '') . ' — Pieza 2',
                     'kg_entrada'   => (float) $data['kg_par'],
