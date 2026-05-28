@@ -149,4 +149,12 @@ class InventoryController extends Controller
             'business_id' => $businessId,
             'user_id'     => $userId,
             'action'      => 'inventory.entry',
-            'model_type'  => 'I
+            'model_type'  => 'InventoryEntry',
+            'model_id'    => $entry->id,
+            'new_values'  => $entry->toArray(),
+            'ip_address'  => $request->ip(),
+        ]);
+
+        return back()->with('success', 'Entrada registrada correctamente.');
+    }
+}
