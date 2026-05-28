@@ -549,7 +549,8 @@ function methodName(id) {
                         <div class="cobro-head">
                             <div class="cobro-meta">
                                 <span class="cobro-ticket">{{ sale.ticket_number }}</span>
-                                <span class="cobro-client">{{ sale.client_name }}</span>
+                                <span v-if="sale.client_name" class="cobro-client">{{ sale.client_name }}</span>
+                                <span v-else class="cobro-client-none">Sin cliente asignado</span>
                             </div>
                             <span class="cobro-elapsed">⏱ {{ elapsed(sale.created_at) }}</span>
                         </div>
@@ -756,6 +757,12 @@ function methodName(id) {
                         <button class="modal-close" @click="showCollectModal = false">✕</button>
                     </div>
 
+                    <div class="collect-client-bar">
+                        <span class="collect-client-lbl">Cliente:</span>
+                        <strong v-if="collectOrder?.client_name" class="collect-client-val">{{ collectOrder.client_name }}</strong>
+                        <span v-else class="collect-client-none">Sin cliente asignado</span>
+                    </div>
+
                     <!-- Resumen items -->
                     <div class="collect-items">
                         <div v-for="item in collectOrder?.items ?? []" :key="item.id" class="collect-item-row">
@@ -862,8 +869,12 @@ function methodName(id) {
                     </div>
 
                     <p class="pend-meta">
-                        Ticket <strong>{{ pendCollectSale?.ticket_number }}</strong> — {{ pendCollectSale?.client_name }}
+                        Ticket <strong>{{ pendCollectSale?.ticket_number }}</strong>
                     </p>
+                    <p v-if="pendCollectSale?.client_name" class="pend-client">
+                        Cliente: {{ pendCollectSale.client_name }}
+                    </p>
+                    <p v-else class="pend-client-none">Sin cliente asignado</p>
 
                     <!-- Resumen items -->
                     <div class="collect-items">
@@ -1125,14 +1136,21 @@ function methodName(id) {
     gap: 0.65rem;
 }
 .cobro-head    { display: flex; align-items: center; justify-content: space-between; }
-.cobro-meta    { display: flex; align-items: center; gap: 0.6rem; }
-.cobro-ticket  { font-size: 0.78rem; font-weight: 700; color: #ef4444; font-variant-numeric: tabular-nums; }
-.cobro-client  { font-weight: 700; font-size: 0.95rem; color: var(--text-primary); }
+.cobro-meta    { display: flex; flex-direction: column; align-items: flex-start; gap: 0.1rem; }
+.cobro-ticket  { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.cobro-client  { font-weight: 700; font-size: 1rem; color: var(--brand); }
 .cobro-elapsed { font-size: 0.75rem; color: var(--text-muted); }
 .cobro-items   { display: flex; flex-direction: column; gap: 0.25rem; }
 .cobro-item-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.84rem; }
 .cobro-footer  { display: flex; align-items: center; justify-content: space-between; padding-top: 0.5rem; border-top: 1px solid var(--border); }
-.pend-meta     { font-size: 0.88rem; color: var(--text-muted); }
+.pend-meta         { font-size: 0.82rem; color: var(--text-muted); }
+.pend-client       { font-size: 0.95rem; font-weight: 700; color: var(--brand); margin-top: 0.1rem; }
+.pend-client-none  { font-size: 0.82rem; color: var(--text-muted); font-style: italic; }
+.cobro-client-none { font-size: 0.82rem; color: var(--text-muted); font-style: italic; }
+.collect-client-bar { display: flex; align-items: center; gap: 0.4rem; padding: 0.5rem 0.75rem; background: var(--bg-base); border-radius: 8px; }
+.collect-client-lbl  { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.collect-client-val  { font-size: 0.95rem; color: var(--brand); }
+.collect-client-none { font-size: 0.85rem; color: var(--text-muted); font-style: italic; }
 
 /* ─── Card genérica ──────────────────────────────────────────────────────── */
 .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 1.25rem; }
