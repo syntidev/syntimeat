@@ -1027,6 +1027,8 @@ HTML;
         if (! empty($filters['fecha_desde'])) {
             $query->whereDate($column, '>=', $filters['fecha_desde']);
         }
-
         if (! empty($filters['fecha_hasta'])) {
-            $query->whereDate($column, '<=', $filters['fecha_hasta'])
+            $query->whereDate($column, '<=', $filters['fecha_hasta']);
+        }
+    }
+}
