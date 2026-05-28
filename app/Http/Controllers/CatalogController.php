@@ -26,53 +26,52 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 class CatalogController extends Controller
 {
     public function index(): Response
-    {
-        $businessId = Auth::user()->business_id;
+{
+    $user       = Auth::user();
+    $businessId = $user->business_id;
+    $branchId   = in_array($user->role, ['branch_admin', 'cashier'])
+        ? $user->branch_id
+        : (session('current_branch_id') ?? $user->branch_id);
 
-        $categories = Category::with(['subcategories' => fn ($q) => $q->orderBy('sort_order')])
-            ->where('business_id', $businessId)
-            ->where('name', '!=', 'Bóveda')
-            ->orderBy('sort_order')
-            ->get();
+    $categories = Category::with(['subcategories' => fn ($q) => $q->orderBy('sort_order')])
+        ->where('business_id', $businessId)
+        ->where('name', '!=', 'Bóveda')
+        ->orderBy('sort_order')
+        ->get();
 
-        $user     = Auth::user();
-        $branchId = in_array($user->role, ['branch_admin', 'cashier'])
-            ? $user->branch_id
-            : (session('current_branch_id') ?? $user->branch_id);
+    $products = Product::with(['category', 'subcategory'])
+        ->where('business_id', $businessId)
+        ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+        ->where('location', '!=', 'boveda')
+        ->orderBy('category_id')
+        ->orderBy('sort_order')
+        ->orderBy('name')
+        ->get();
 
-        $products = Product::with(['category', 'subcategory'])
-            ->where('business_id', $businessId)
-            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
-            ->where('location', '!=', 'boveda')
-            ->orderBy('category_id')
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get();
+    $stockIn = InventoryEntry::where('business_id', $businessId)
+        ->selectRaw('product_id, SUM(net_kg) as total_net')
+        ->groupBy('product_id')
+        ->pluck('total_net', 'product_id');
 
-        $stockIn = InventoryEntry::where('business_id', $businessId)
-            ->selectRaw('product_id, SUM(net_kg) as total_net')
-            ->groupBy('product_id')
-            ->pluck('total_net', 'product_id');
+    $stockOut = DB::table('sale_items')
+        ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
+        ->where('sales.business_id', $businessId)
+        ->where('sales.status', 'paid')
+        ->selectRaw('sale_items.product_id, SUM(sale_items.quantity_value) as total_sold')
+        ->groupBy('sale_items.product_id')
+        ->pluck('total_sold', 'product_id');
 
-        $stockOut = DB::table('sale_items')
-            ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
-            ->where('sales.business_id', $businessId)
-            ->where('sales.status', 'paid')
-            ->selectRaw('sale_items.product_id, SUM(sale_items.quantity_value) as total_sold')
-            ->groupBy('sale_items.product_id')
-            ->pluck('total_sold', 'product_id');
+    $products->each(function (Product $product) use ($stockIn, $stockOut): void {
+        $net                    = (float) ($stockIn[$product->id]  ?? 0);
+        $sold                   = (float) ($stockOut[$product->id] ?? 0);
+        $product->current_stock = round($net - $sold, 3);
+    });
 
-        $products->each(function (Product $product) use ($stockIn, $stockOut): void {
-            $net                    = (float) ($stockIn[$product->id]  ?? 0);
-            $sold                   = (float) ($stockOut[$product->id] ?? 0);
-            $product->current_stock = round($net - $sold, 3);
-        });
-
-        return Inertia::render('Catalog/Index', [
-            'categories' => $categories,
-            'products'   => $products,
-        ]);
-    }
+    return Inertia::render('Catalog/Index', [
+        'categories' => $categories,
+        'products'   => $products,
+    ]);
+}
 
     public function store(Request $request): RedirectResponse|\Illuminate\Http\JsonResponse
     {
@@ -88,15 +87,22 @@ class CatalogController extends Controller
             'image'              => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
 
-        $user       = Auth::user();
+        $user = Auth::user();
         $businessId = $user->business_id;
-        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
-            ? $user->branch_id
-            : (session('current_branch_id') ?? $user->branch_id);
+        $branchId = in_array($user->role, ['branch_admin','cashier']) ? $user->branch_id : (session('current_branch_id') ?? null);
+
+        // Validar nombre único por sucursal
+        $existe = Product::where('business_id', $businessId)
+            ->where('name', $validated['name'])
+            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
+            ->exists();
+        if ($existe) {
+            return response()->json(['errors' => ['name' => ['Ya existe un producto con ese nombre en esta sucursal.']]], 422);
+        }
 
         $product = Product::create([
             'business_id'        => $businessId,
-            'branch_id'          => $branchId,
+            'branch_id'          => in_array(Auth::user()->role, ['branch_admin','cashier']) ? Auth::user()->branch_id : (session('current_branch_id') ?? null),
             'category_id'        => $validated['category_id'],
             'subcategory_id'     => $validated['subcategory_id'] ?? null,
             'name'               => $validated['name'],
@@ -241,9 +247,6 @@ class CatalogController extends Controller
         /** @var \App\Models\User $user */
         $user       = Auth::user();
         $businessId = $user->business_id;
-        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
-            ? $user->branch_id
-            : (session('current_branch_id') ?? $user->branch_id);
 
         // Leer Excel — mismo helper que ContingencyController
         $rows = Excel::toCollection(new EmptyImport(), $request->file('file'))
@@ -355,7 +358,6 @@ class CatalogController extends Controller
                     // CREAR
                     $createData = [
                         'business_id'    => $businessId,
-                        'branch_id'      => $branchId,
                         'category_id'    => $category->id,
                         'name'           => $nombre,
                         'sale_mode'      => $unidad,
@@ -380,7 +382,6 @@ class CatalogController extends Controller
                     if ($stockKg !== null && $stockKg > 0 && $unidad === 'weight') {
                         InventoryEntry::create([
                             'business_id'     => $businessId,
-                            'branch_id'       => $branchId,
                             'product_id'      => $product->id,
                             'quantity_kg'     => $stockKg,
                             'waste_kg'        => 0,
@@ -417,7 +418,18 @@ class CatalogController extends Controller
             'macro_category' => ['nullable', 'string', 'in:RES,POLLO,CERDO,TRASTES,MISC'],
         ]);
 
-        $businessId = Auth::user()->business_id;
+        $user = Auth::user();
+        $businessId = $user->business_id;
+        $branchId = in_array($user->role, ['branch_admin','cashier']) ? $user->branch_id : (session('current_branch_id') ?? null);
+
+        // Validar nombre único por sucursal
+        $existe = Category::where('business_id', $businessId)
+            ->where('name', $validated['name'])
+            ->exists();
+        if ($existe) {
+            return redirect()->route('catalog.index')
+                ->with('error', 'Ya existe una categoría con ese nombre.');
+        }
 
         $maxSort = Category::where('business_id', $businessId)->max('sort_order') ?? 0;
 
@@ -546,4 +558,26 @@ class CatalogController extends Controller
             imagesavealpha($dest, true);
             $transparent = imagecolorallocatealpha($dest, 0, 0, 0, 127);
             imagefilledrectangle($dest, 0, 0, $newW, $newH, $transparent);
-            imagecopyresampled($dest, $source
+            imagecopyresampled($dest, $source, 0, 0, 0, 0, $newW, $newH, $origW, $origH);
+            imagedestroy($source);
+            $source = $dest;
+        }
+
+        $ok = imagewebp($source, $destPath, 82);
+        imagedestroy($source);
+
+        if (!$ok) {
+            return '';
+        }
+
+        return "business/{$businessId}/products/{$filename}";
+    }
+
+    private function deleteProductImage(string $imagePath): void
+    {
+        $fullPath = storage_path("app/public/{$imagePath}");
+        if (file_exists($fullPath)) {
+            unlink($fullPath);
+        }
+    }
+}
