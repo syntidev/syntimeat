@@ -594,7 +594,7 @@ class BovedaController extends Controller
             'Pollo Entero Congelado'   => 'Pollo',
         ];
         $catName  = $catMap[$entry->product_type] ?? null;
-        $resOrder = ['Carne del Canal', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
+        $resOrder = ['Carne Total', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
 
         $productos = Product::with('category')
             ->where('business_id', $businessId)
