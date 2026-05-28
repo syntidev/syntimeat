@@ -35,6 +35,19 @@ const flujos = [
         icon: Truck,
         pasos: [
             {
+                titulo: '¿Tienes pollos de diferentes marcas o tamaños?',
+                alerta: null,
+                cuerpo: [
+                    'Antes de registrar en Bóveda, crea en <strong>CATÁLOGO</strong> el producto de vitrina con su nombre y precio.',
+                    'Por ejemplo: "Pollo Campesino $4/kg", "Pollo Importado $6/kg".',
+                    'Luego ve a <strong>Configuración → Productos Bóveda</strong> y vincula tu producto bóveda con el de vitrina.',
+                    'Al surtir, los kilos irán directo a ese producto de vitrina con tu precio.',
+                    'Puedes crear tantas variedades como necesites.',
+                ],
+                tip: 'Si solo manejas un tipo de pollo no necesitas hacer esto — sigue al paso siguiente.',
+                nota: null,
+            },
+            {
                 titulo: 'Registra la canal en Bóveda',
                 alerta: null,
                 cuerpo: [
