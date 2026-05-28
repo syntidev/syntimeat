@@ -241,4 +241,7 @@ class DashboardController extends Controller
             'pedidos_pendientes'=> $pedidosPendientes,
             'categorias_hoy'    => $categoriasHoy,
             'utilidad_boveda'   => $utilidadBoveda,
-            'ban
+            'banking_alert'     => Cache::get('banking_alert'),
+        ];
+    }
+}
