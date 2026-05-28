@@ -107,7 +107,7 @@ class FabricaController extends Controller
             ->whereHas('bovedaProduct', fn ($q) => $q->where('requires_despiece', true)->where('business_id', $businessId))
             ->orderBy('updated_at')
             ->get()
-            ->map(function ($e) use ($businessId) {
+            ->map(function ($e) use ($businessId, $branchId) {
                 // Categoría → productos vitrina que reciben los cortes
                 $catMap = [
                     'RES - Medio Canal'        => 'Res',
@@ -120,6 +120,7 @@ class FabricaController extends Controller
                 $productos = $catName
                     ? Product::with('category')
                         ->where('business_id', $businessId)
+                        ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
                         ->where('location', 'vitrina')
                         ->when(
                             $catName === 'Res',
