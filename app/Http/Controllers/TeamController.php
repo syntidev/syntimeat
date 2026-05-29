@@ -25,6 +25,8 @@ class TeamController extends Controller
 
     public function index(): Response
     {
+        abort_unless(in_array(Auth::user()->role, ['owner', 'super_admin', 'admin', 'branch_admin', 'analyst'], true), 403);
+
         $businessId = Auth::user()->business_id;
 
         $branches = Branch::where('business_id', $businessId)
@@ -96,6 +98,8 @@ class TeamController extends Controller
 
     public function update(Request $request, User $user): RedirectResponse
     {
+        abort_unless(in_array(Auth::user()->role, ['owner', 'branch_admin', 'analyst', 'admin'], true), 403);
+
         $businessId = Auth::user()->business_id;
         abort_unless($user->business_id === $businessId, 403);
 
@@ -136,6 +140,7 @@ class TeamController extends Controller
 
     public function toggleActive(User $user): RedirectResponse
     {
+        abort_unless(in_array(Auth::user()->role, ['owner', 'branch_admin', 'analyst', 'admin'], true), 403);
         abort_unless($user->business_id === Auth::user()->business_id, 403);
         abort_if($user->id === Auth::id(), 422, 'No puedes suspender tu propia cuenta.');
 
@@ -153,6 +158,7 @@ class TeamController extends Controller
 
     public function killSession(User $user): RedirectResponse
     {
+        abort_unless(in_array(Auth::user()->role, ['owner', 'branch_admin', 'analyst', 'admin'], true), 403);
         abort_unless($user->business_id === Auth::user()->business_id, 403);
 
         $user->updateQuietly(['session_token' => null]);
