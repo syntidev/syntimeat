@@ -90,7 +90,9 @@ class CatalogController extends Controller
 
         $user = Auth::user();
         $businessId = $user->business_id;
-        $branchId = $user->branch_id ?? (session('current_branch_id') ?? null);
+        $branchId = $user->branch_id
+            ?? session('current_branch_id')
+            ?? \App\Models\Branch::where('business_id', $businessId)->orderBy('id')->value('id');
 
         // Validar nombre único por sucursal
         $existe = Product::where('business_id', $businessId)
@@ -424,7 +426,9 @@ class CatalogController extends Controller
 
         $user = Auth::user();
         $businessId = $user->business_id;
-        $branchId = in_array($user->role, ['branch_admin','cashier']) ? $user->branch_id : (session('current_branch_id') ?? null);
+        $branchId = $user->branch_id
+            ?? session('current_branch_id')
+            ?? \App\Models\Branch::where('business_id', $businessId)->orderBy('id')->value('id');
 
         // Validar nombre único por sucursal
         $existe = Category::where('business_id', $businessId)
