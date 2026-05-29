@@ -832,4 +832,18 @@ onMounted(() => {
     min-height: 44px;
 }
 .btn-reiniciar:hover { color: var(--text-primary, #f1f1f1); }
+
+@media (max-width: 640px) {
+    .ayuda-header { padding: 0.625rem 0.875rem; }
+    .ayuda-main   { padding: 1.25rem 1rem 3rem; }
+    .flujos-nav   { gap: 0.375rem; padding: 0.375rem; }
+    .flujo-btn    { font-size: 0.8rem; padding: 0.5rem 0.75rem; min-height: 44px; }
+    .ayuda-section-title { font-size: 1.1rem; }
+    .paso-title   { font-size: 0.9rem; }
+}
+
+@media (max-width: 1023px) {
+    .ayuda-main   { padding: 1.5rem 1.25rem 3rem; }
+    .flujos-nav   { flex-wrap: wrap; }
+}
 </style>
