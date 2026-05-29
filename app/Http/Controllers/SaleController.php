@@ -235,7 +235,7 @@ class SaleController extends Controller
                 : $nowCredit->toDateString();
 
             $sale = DB::transaction(function () use (
-                $businessId, $user, $ticketNumber, $totalUsd, $totalBs, $itemsToCreate, $channel, $rate, $cashRegister, $accountingDate
+                $businessId, $branchId, $user, $ticketNumber, $totalUsd, $totalBs, $itemsToCreate, $channel, $rate, $cashRegister, $accountingDate
             ) {
 
                 $sale = Sale::create([
@@ -295,7 +295,7 @@ class SaleController extends Controller
 
         $status  = $origin === 'delivery' ? 'pending' : 'open';
 
-        $sale = DB::transaction(function () use ($businessId, $user, $ticketNumber, $totalUsd, $totalBs, $itemsToCreate, $origin, $channel, $status, $data) {
+        $sale = DB::transaction(function () use ($businessId, $branchId, $user, $ticketNumber, $totalUsd, $totalBs, $itemsToCreate, $origin, $channel, $status, $data) {
             $sale = Sale::create([
                 'business_id'   => $businessId,
                 'branch_id'     => $branchId,
