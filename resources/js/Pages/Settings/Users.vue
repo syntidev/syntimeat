@@ -391,4 +391,18 @@ const helpFaqs = [
 @media (min-width: 480px) { .perm-grid { grid-template-columns: 1fr 1fr 1fr; } }
 .perm-check { display: flex; align-items: center; gap: 0.5rem; min-height: 44px; padding: 0.25rem 0; font-size: 0.875rem; color: var(--text-secondary); cursor: pointer; }
 .perm-check input { width: 18px; height: 18px; accent-color: var(--brand); cursor: pointer; flex-shrink: 0; }
+
+@media (max-width: 640px) {
+    .panel-body { padding: 1rem; }
+    .settings-panel__header { padding: 1rem; }
+    .data-table th { font-size: 10px; padding: 0 0.5rem 0.625rem; }
+    .data-table td { padding: 0.625rem 0.5rem; font-size: 0.8rem; }
+    .modal { max-width: 100%; border-radius: 18px 18px 0 0; }
+    .modal-overlay { align-items: flex-end; }
+}
+
+@media (max-width: 1023px) {
+    .settings-panel__header { padding: 1rem 1.25rem; }
+    .header-row { flex-wrap: wrap; gap: 0.75rem; }
+}
 </style>
