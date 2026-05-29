@@ -1409,4 +1409,51 @@ async function deactivateProduct(product) {
 @media (max-width: 768px) {
     /* Layout */
     .boveda-page { padding: 0.75rem; }
-    .kpi-grid    { grid-template-columns: repeat(2, 1fr)
+    .kpi-grid    { grid-template-columns: repeat(2, 1fr); }
+
+    /* Tabla: ocultar columnas no esenciales */
+    .col-surtido,
+    .col-proveedor,
+    .col-fecha { display: none; }
+
+    /* Acciones: apilar verticalmente si no caben */
+    .actions-col {
+        flex-wrap: wrap;
+        gap: 0.35rem;
+    }
+    .actions-col .btn-sm {
+        flex: 1 1 auto;
+        min-height: 44px;
+        font-size: 0.75rem;
+    }
+
+    /* Modal: 1 columna, ancho completo */
+    .form-grid { grid-template-columns: 1fr; }
+    .modal-box { max-width: 100%; border-radius: 10px; }
+    .modal-sm  { max-width: 100%; }
+}
+</style>
+; }
+
+    /* Tabla: ocultar columnas no esenciales */
+    .col-surtido,
+    .col-proveedor,
+    .col-fecha { display: none; }
+
+    /* Acciones: apilar verticalmente si no caben */
+    .actions-col {
+        flex-wrap: wrap;
+        gap: 0.35rem;
+    }
+    .actions-col .btn-sm {
+        flex: 1 1 auto;
+        min-height: 44px;
+        font-size: 0.75rem;
+    }
+
+    /* Modal: 1 columna, ancho completo */
+    .form-grid { grid-template-columns: 1fr; }
+    .modal-box { max-width: 100%; border-radius: 10px; }
+    .modal-sm  { max-width: 100%; }
+}
+</style>

@@ -1120,4 +1120,11 @@ const icons = {
     cursor: pointer;
     transition: background-color 0.15s, color 0.15s;
 }
-.sideba
+.sidebar-close:hover {
+    background-color: var(--bg-elevated);
+    color: var(--text-primary);
+}
+@media (max-width: 1023px) {
+    .sidebar-close { display: flex; }
+}
+</style>
