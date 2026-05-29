@@ -43,6 +43,13 @@ class SaleController extends Controller
             ->orderBy('sort_order')
             ->get();
 
+        $favoritos = Product::where('business_id', $businessId)
+            ->where('is_favorite', true)
+            ->where('active', true)
+            ->where('location', '!=', 'boveda')
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->get(['id', 'name', 'price_per_kg_usd', 'price_per_unit_usd', 'sale_mode']);
+
         $categories = Category::where('business_id', $businessId)
             ->where('active', true)
             ->orderBy('sort_order')
@@ -91,6 +98,7 @@ class SaleController extends Controller
             'paymentMethods' => $paymentMethods,
             'ticketPrefix'   => $business->ticket_prefix ?? 'VEN',
             'stockMap'       => $stockMap,
+            'favoritos'      => $favoritos,
             'posShowKg'      => $posShowKg,
             'businessInfo'   => [
                 'name'          => $business->name,
