@@ -115,7 +115,7 @@ class FabricaController extends Controller
                     'POLLO - Entero Congelado' => 'Pollo',
                 ];
                 $catName  = $catMap[$e->product_type] ?? null;
-                $resOrder = ['Carne Total', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
+                $resOrder = ['Carne Total', 'Carne del Canal', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
 
                 $productos = $catName
                     ? Product::with('category')
