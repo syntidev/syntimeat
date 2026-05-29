@@ -17,8 +17,10 @@ class PaymentMethodController extends Controller
     public function index(): Response
     {
         $business = Auth::user()->business;
+        $branchId = Auth::user()->branch_id ?? (session('current_branch_id') ?? null);
 
         $methods = PaymentMethod::where('business_id', $business->id)
+            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
@@ -43,12 +45,14 @@ class PaymentMethodController extends Controller
         ]);
 
         $business = Auth::user()->business;
+        $branchId = Auth::user()->branch_id ?? (session('current_branch_id') ?? null);
 
         $maxOrder = PaymentMethod::where('business_id', $business->id)->max('sort_order') ?? 0;
 
         PaymentMethod::create([
             ...$data,
             'business_id' => $business->id,
+            'branch_id'   => $branchId,
             'is_active'   => true,
             'sort_order'  => $maxOrder + 1,
         ]);
