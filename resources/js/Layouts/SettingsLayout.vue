@@ -166,4 +166,14 @@ function routeExists(routeName) {
         padding: 0.5rem 0.875rem;
     }
 }
+
+@media (max-width: 640px) {
+    .settings-sidebar { padding: 0.25rem 0.25rem; }
+    .settings-nav-item { padding: 0.5rem 0.625rem; font-size: 0.75rem; }
+}
+
+@media (max-width: 1023px) {
+    .settings-root { gap: 0.75rem; }
+    .settings-content { min-width: 0; }
+}
 </style>
