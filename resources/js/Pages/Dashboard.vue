@@ -335,12 +335,16 @@ function dismissBankingAlert() {
             </div>
 
             <!-- ─── Rendimiento por Canal ─────────────────────────────────────── -->
-            <section v-if="canales.length > 0" class="canal-section">
+            <section class="canal-section">
                 <h2 class="canal-title">
                     <BarChart2 :size="18" /> Rendimiento por Canal
                 </h2>
 
                 <div v-if="loadingCanales" class="canal-loading">Cargando canales…</div>
+
+                <div v-else-if="canales.length === 0" class="canal-empty">
+                    <p>Sin bóveda activa hoy — registra una entrada para ver el rendimiento del canal.</p>
+                </div>
 
                 <div v-else class="canal-grid">
                     <div v-for="canal in canales" :key="canal.boveda_entry_id" class="canal-card">
@@ -1144,6 +1148,7 @@ function dismissBankingAlert() {
 .canal-section { padding: 0 0.85rem 1.5rem; }
 @media (min-width: 640px) { .canal-section { padding: 0 1rem 1.5rem; } }
 .canal-title { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.85rem; }
+.canal-empty { padding: 1.5rem 1rem; text-align: center; color: var(--text-muted); font-size: 0.875rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; }
 .canal-grid { display: grid; gap: 0.75rem; grid-template-columns: 1fr; }
 @media (min-width: 700px) { .canal-grid { grid-template-columns: repeat(2, 1fr); } }
 .canal-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; }
