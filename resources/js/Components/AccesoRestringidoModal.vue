@@ -99,4 +99,15 @@ defineEmits(['close'])
     transition: background 0.15s;
 }
 .ar-btn:hover { background: #991b1b; }
+
+@media (max-width: 640px) {
+    .ar-overlay { padding: 0.75rem; }
+    .ar-modal   { padding: 1.5rem 1.25rem; border-radius: 0.875rem; }
+    .ar-title   { font-size: 1rem; }
+    .ar-btn     { width: 100%; padding: 0.7rem 1rem; min-height: 48px; }
+}
+
+@media (max-width: 1023px) {
+    .ar-modal { padding: 1.75rem 1.5rem; }
+}
 </style>
