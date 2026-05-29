@@ -102,7 +102,7 @@ class CatalogController extends Controller
 
         $product = Product::create([
             'business_id'        => $businessId,
-            'branch_id'          => in_array(Auth::user()->role, ['branch_admin','cashier']) ? Auth::user()->branch_id : (session('current_branch_id') ?? null),
+            'branch_id'          => $branchId,
             'category_id'        => $validated['category_id'],
             'subcategory_id'     => $validated['subcategory_id'] ?? null,
             'name'               => $validated['name'],
