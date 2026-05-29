@@ -252,4 +252,14 @@ const submit = () => {
     width: 16px; height: 16px;
     animation: spin 0.8s linear infinite;
 }
+
+@media (max-width: 640px) {
+    .login-card  { padding: 1.5rem 1.25rem 1.25rem; }
+    .login-field { font-size: 1rem; }
+    .login-btn   { min-height: 48px; font-size: 0.95rem; }
+}
+
+@media (max-width: 1023px) {
+    .login-card { max-width: 380px; }
+}
 </style>
