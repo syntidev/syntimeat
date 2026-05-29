@@ -2491,7 +2491,7 @@ const helpFaqs = [
 .sc-actions .btn { flex: 1; justify-content: center; display: flex; align-items: center; gap: 0.4rem; }
 
 /* ── Responsive ── */
-@media (max-width: 1024px) {
+@media (max-width: 1023px) {
     .hd-sep-tabs { display: none; }
     .rate-lbl    { display: none; }
 }
