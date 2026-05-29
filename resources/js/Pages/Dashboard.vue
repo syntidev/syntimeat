@@ -29,7 +29,6 @@ const d = ref({
     pedidos_pendientes:  props.pedidos_pendientes,
     categorias_hoy:      props.categorias_hoy,
     utilidad_boveda:     props.utilidad_boveda,
-    kilos_por_categoria: [],
     banking_alert:       props.banking_alert,
 })
 
@@ -95,9 +94,9 @@ const maxMonto = computed(() => Math.max(1, ...d.value.top_productos.map(p => p.
 function barWidth(monto) { return Math.round((monto / maxMonto.value) * 100) }
 
 const totalMontoCat = computed(() =>
-    (d.value.kilos_por_categoria ?? []).reduce((s, c) => s + c.monto_bs, 0)
+    (d.value.categorias_hoy ?? []).reduce((s, c) => s + c.total_bs, 0)
 )
-const maxMontoCat = computed(() => Math.max(1, ...(d.value.kilos_por_categoria ?? []).map(c => c.monto_bs)))
+const maxMontoCat = computed(() => Math.max(1, ...(d.value.categorias_hoy ?? []).map(c => c.total_bs)))
 const maxKgCat    = computed(() => Math.max(1, ...catCardsData.value.map(c => c.kg_vendidos)))
 function kgBarWidth(kg) { return Math.min(100, Math.round((kg / maxKgCat.value) * 100)) }
 
