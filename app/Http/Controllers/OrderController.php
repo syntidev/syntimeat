@@ -34,7 +34,9 @@ class OrderController extends Controller
         $business   = $user->business;
         $businessId = $business->id;
         $rate       = $this->rates->getTodayRate();
-        $branchId   = $user->branch_id ?? (session('current_branch_id') ?? null);
+        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? null);
 
         $activeOrders = Order::with(['items.product.category'])
             ->where('business_id', $businessId)
@@ -68,6 +70,7 @@ class OrderController extends Controller
             ->get(['id', 'bank_name', 'method', 'commercial_number']);
 
         $cobradosHoy = Order::where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->where('status', 'paid')
             ->whereDate('updated_at', today())
             ->count();
@@ -125,6 +128,9 @@ class OrderController extends Controller
 
         $user       = Auth::user();
         $businessId = $user->business->id;
+        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? \App\Models\Branch::where('business_id', $businessId)->orderBy('id')->value('id'));
         $rate       = $this->rates->getTodayRate();
 
         $productIds = collect($data['items'])->pluck('product_id')->unique()->values()->all();
@@ -163,9 +169,10 @@ class OrderController extends Controller
             ];
         }
 
-        $order = DB::transaction(function () use ($businessId, $user, $data, $totalUsd, $itemsToCreate) {
+        $order = DB::transaction(function () use ($businessId, $branchId, $user, $data, $totalUsd, $itemsToCreate) {
             $order = Order::create([
                 'business_id' => $businessId,
+                'branch_id'   => $branchId,
                 'client_name' => $data['client_name'],
                 'client_type' => $data['client_type'],
                 'status'      => 'pending',
