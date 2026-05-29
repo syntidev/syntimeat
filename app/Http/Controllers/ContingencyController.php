@@ -192,6 +192,7 @@ class ContingencyController extends Controller
                 // Crear Sale
                 $sale = Sale::create([
                     'business_id'  => $businessId,
+                    'branch_id'    => Auth::user()->branch_id ?? (session('current_branch_id') ?? null),
                     'ticket_number' => $ticket,
                     'status'       => 'paid',
                     'total_usd'    => $totalUsd,
