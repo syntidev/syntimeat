@@ -947,7 +947,19 @@ function setPeriod(key) {
 .period-btn:hover { border-color: var(--brand); color: var(--brand); }
 .period-btn--active { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 12%, transparent); color: var(--brand); }
 
-/* Tablet: 640-1023px ajustes adicionales */
+/* Mobile: ≤ 640px — todo apilado, fuentes ajustadas */
+@media (max-width: 640px) {
+    .emp-wrap    { padding: 0.85rem 0.75rem; gap: 0.75rem; }
+    .emp-title   { font-size: 1.25rem; }
+    .kpi-grid    { grid-template-columns: 1fr 1fr; }
+    .kpi-value   { font-size: 1.15rem; }
+    .split-grid  { grid-template-columns: 1fr; }
+    .period-btn  { min-height: 44px; padding: 0 0.75rem; display: inline-flex; align-items: center; }
+    .modal-backdrop { padding: 0; align-items: flex-end; }
+    .modal-box   { border-radius: 18px 18px 0 0; width: 100%; max-width: 100%; }
+}
+
+/* Tablet: ≤ 1023px — ajustes adicionales */
 @media (max-width: 1023px) {
     .emp-wrap { padding: 1.25rem 1rem; }
     .period-btn { min-height: 36px; padding: 0 0.75rem; display: inline-flex; align-items: center; }
