@@ -1055,8 +1055,8 @@ function dismissBankingAlert() {
 
 /* ═══ RESPONSIVE — mobile-first ═══════════════════════════════════════════════ */
 
-/* Base: ≤ 639px — todo apilado, cards, touch targets */
-@media (max-width: 639px) {
+/* Base: ≤ 640px — todo apilado, cards, touch targets */
+@media (max-width: 640px) {
     .dash-wrap       { padding: 0.85rem 0.75rem; gap: 0.85rem; }
     .kpi-hero        { grid-template-columns: 1fr; gap: 0.7rem; }
     .kpi-main        { min-height: 130px; padding: 1.25rem; }
@@ -1097,6 +1097,12 @@ function dismissBankingAlert() {
     .cc-grid   { grid-template-columns: repeat(2, 1fr); }
     .cc-chip   { min-height: 44px; display: inline-flex; align-items: center; -webkit-tap-highlight-color: transparent; }
     .btn-export { min-height: 44px; }
+}
+
+/* tablet: ≤ 1023px — sidebar y canal en columna */
+@media (max-width: 1023px) {
+    .main-row { grid-template-columns: 1fr; }
+    .cc-grid  { grid-template-columns: repeat(2, 1fr); }
 }
 
 /* md: 960px+ — layout completo */
