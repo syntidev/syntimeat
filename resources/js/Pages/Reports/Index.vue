@@ -323,7 +323,7 @@ const helpFaqs = [
 
                 <!-- ── TAB VENTAS ────────────────────────────────────────── -->
                 <div v-if="activeTab === 'ventas'" class="table-wrap">
-                    <table class="rep-table">
+                    <table class="rep-table mobile-cards">
                         <thead>
                             <tr>
                                 <th>Ticket</th>
@@ -338,14 +338,14 @@ const helpFaqs = [
                         </thead>
                         <tbody>
                             <tr v-for="r in pageRows" :key="r.id">
-                                <td class="mono">{{ r.ticket_number }}</td>
-                                <td class="muted">{{ fmtDate(r.fecha) }}</td>
-                                <td>{{ r.client_name }}</td>
-                                <td class="center muted">{{ r.items_count }}</td>
-                                <td class="muted small">{{ r.metodos_pago }}</td>
-                                <td class="right amount">{{ fmtUsd(r.total_usd) }}</td>
-                                <td class="right muted">{{ fmtBs(r.total_bs) }}</td>
-                                <td><span class="pill" :class="statusClass[r.status]">{{ statusLabel[r.status] ?? r.status }}</span></td>
+                                <td class="mono" data-label="Ticket">{{ r.ticket_number }}</td>
+                                <td class="muted" data-label="Fecha">{{ fmtDate(r.fecha) }}</td>
+                                <td data-label="Cliente">{{ r.client_name }}</td>
+                                <td class="center muted" data-label="Items">{{ r.items_count }}</td>
+                                <td class="muted small" data-label="Métodos">{{ r.metodos_pago }}</td>
+                                <td class="right amount" data-label="Total USD">{{ fmtUsd(r.total_usd) }}</td>
+                                <td class="right muted" data-label="Total Bs.">{{ fmtBs(r.total_bs) }}</td>
+                                <td data-label="Estado"><span class="pill" :class="statusClass[r.status]">{{ statusLabel[r.status] ?? r.status }}</span></td>
                             </tr>
                             <tr v-if="!rows.ventas.length && !loading">
                                 <td colspan="8" class="empty-row">Aplica filtros y presiona Consultar.</td>
@@ -356,7 +356,7 @@ const helpFaqs = [
 
                 <!-- ── TAB INVENTARIO ────────────────────────────────────── -->
                 <div v-else-if="activeTab === 'inventario'" class="table-wrap">
-                    <table class="rep-table">
+                    <table class="rep-table mobile-cards">
                         <thead>
                             <tr>
                                 <th>Fecha</th>
@@ -371,14 +371,14 @@ const helpFaqs = [
                         </thead>
                         <tbody>
                             <tr v-for="r in pageRows" :key="r.id">
-                                <td class="muted">{{ fmtDate(r.fecha) }}</td>
-                                <td>{{ r.producto }}</td>
-                                <td class="muted small">{{ r.categoria }}</td>
-                                <td class="right">{{ fmtKg(r.recibido) }}</td>
-                                <td class="right muted">{{ fmtKg(r.merma) }}</td>
-                                <td class="right amount">{{ fmtKg(r.neto) }}</td>
-                                <td class="right muted">{{ fmtUsd(r.costo_usd) }}</td>
-                                <td class="muted small">{{ r.proveedor }}</td>
+                                <td class="muted" data-label="Fecha">{{ fmtDate(r.fecha) }}</td>
+                                <td data-label="Producto">{{ r.producto }}</td>
+                                <td class="muted small" data-label="Categoría">{{ r.categoria }}</td>
+                                <td class="right" data-label="Recibido">{{ fmtKg(r.recibido) }}</td>
+                                <td class="right muted" data-label="Merma">{{ fmtKg(r.merma) }}</td>
+                                <td class="right amount" data-label="Neto">{{ fmtKg(r.neto) }}</td>
+                                <td class="right muted" data-label="Costo USD/kg">{{ fmtUsd(r.costo_usd) }}</td>
+                                <td class="muted small" data-label="Proveedor">{{ r.proveedor }}</td>
                             </tr>
                             <tr v-if="!rows.inventario.length && !loading">
                                 <td colspan="8" class="empty-row">Aplica filtros y presiona Consultar.</td>
@@ -389,7 +389,7 @@ const helpFaqs = [
 
                 <!-- ── TAB CIERRES ────────────────────────────────────────── -->
                 <div v-else-if="activeTab === 'cierres'" class="table-wrap">
-                    <table class="rep-table">
+                    <table class="rep-table mobile-cards">
                         <thead>
                             <tr>
                                 <th>Caja</th>
@@ -403,13 +403,13 @@ const helpFaqs = [
                         </thead>
                         <tbody>
                             <tr v-for="r in pageRows" :key="r.id">
-                                <td>{{ r.nombre }}</td>
-                                <td class="muted">{{ fmtDate(r.abierto_at) }}</td>
-                                <td class="muted">{{ fmtDate(r.cerrado_at) }}</td>
-                                <td class="right">{{ fmtBs(r.apertura_usd * r.tasa) }}</td>
-                                <td class="right muted">{{ fmtUsd(r.esperado_usd) }}</td>
-                                <td class="right">{{ fmtUsd(r.contado_usd) }}</td>
-                                <td class="right" :class="r.diferencia_usd < 0 ? 'text-red' : r.diferencia_usd > 0 ? 'text-green' : 'muted'">
+                                <td data-label="Caja">{{ r.nombre }}</td>
+                                <td class="muted" data-label="Apertura">{{ fmtDate(r.abierto_at) }}</td>
+                                <td class="muted" data-label="Cierre">{{ fmtDate(r.cerrado_at) }}</td>
+                                <td class="right" data-label="Apertura Bs.">{{ fmtBs(r.apertura_usd * r.tasa) }}</td>
+                                <td class="right muted" data-label="Esperado USD">{{ fmtUsd(r.esperado_usd) }}</td>
+                                <td class="right" data-label="Contado USD">{{ fmtUsd(r.contado_usd) }}</td>
+                                <td class="right" data-label="Diferencia" :class="r.diferencia_usd < 0 ? 'text-red' : r.diferencia_usd > 0 ? 'text-green' : 'muted'">
                                     {{ fmtUsd(r.diferencia_usd) }}
                                 </td>
                             </tr>
@@ -422,7 +422,7 @@ const helpFaqs = [
 
                 <!-- ── TAB PEDIDOS ────────────────────────────────────────── -->
                 <div v-else-if="activeTab === 'pedidos'" class="table-wrap">
-                    <table class="rep-table">
+                    <table class="rep-table mobile-cards">
                         <thead>
                             <tr>
                                 <th>Fecha</th>
@@ -435,16 +435,16 @@ const helpFaqs = [
                         </thead>
                         <tbody>
                             <tr v-for="r in pageRows" :key="r.id">
-                                <td class="muted">{{ fmtDate(r.fecha) }}</td>
-                                <td>{{ r.cliente }}</td>
-                                <td>
+                                <td class="muted" data-label="Fecha">{{ fmtDate(r.fecha) }}</td>
+                                <td data-label="Cliente">{{ r.cliente }}</td>
+                                <td data-label="Tipo">
                                     <span class="type-badge" :class="typeClass[r.tipo]">
                                         {{ typeLabel[r.tipo] ?? r.tipo }}
                                     </span>
                                 </td>
-                                <td class="center muted">{{ r.items_count }}</td>
-                                <td class="right amount">{{ fmtUsd(r.total_usd) }}</td>
-                                <td><span class="pill" :class="statusClass[r.status]">{{ statusLabel[r.status] ?? r.status }}</span></td>
+                                <td class="center muted" data-label="Items">{{ r.items_count }}</td>
+                                <td class="right amount" data-label="Total USD">{{ fmtUsd(r.total_usd) }}</td>
+                                <td data-label="Estado"><span class="pill" :class="statusClass[r.status]">{{ statusLabel[r.status] ?? r.status }}</span></td>
                             </tr>
                             <tr v-if="!rows.pedidos.length && !loading">
                                 <td colspan="6" class="empty-row">Aplica filtros y presiona Consultar.</td>
@@ -459,7 +459,7 @@ const helpFaqs = [
 
                     <div v-if="dayData.categories && dayData.categories.length > 0">
                         <!-- Tabla por categoría -->
-                        <table class="rep-table dia-table">
+                        <table class="rep-table dia-table mobile-cards">
                             <thead>
                                 <tr>
                                     <th>Categoría</th>
@@ -473,29 +473,29 @@ const helpFaqs = [
                             <tbody>
                                 <template v-for="row in dayData.categories" :key="row.categoria">
                                 <tr class="cat-row" style="cursor:pointer" @click="toggleCat(row.categoria)">
-                                    <td>
+                                    <td data-label="Categoría">
                                         <span class="cat-toggle-icon">
                                             <ChevronDown v-if="expandedCats.has(row.categoria)" :size="14" />
                                             <ChevronRight v-else :size="14" />
                                         </span>
                                         {{ row.categoria }}
                                     </td>
-                                    <td class="right amount">{{ fmtUsd(row.vendido_usd) }}</td>
-                                    <td class="right muted">{{ fmtBs(row.vendido_bs) }}</td>
-                                    <td class="right muted">{{ fmtUsd(row.costo_usd) }}</td>
-                                    <td class="right" :class="row.utilidad_usd >= 0 ? 'text-green' : 'text-red'">{{ fmtUsd(row.utilidad_usd) }}</td>
-                                    <td class="right">{{ row.margen_pct }}%</td>
+                                    <td class="right amount" data-label="Vendido USD">{{ fmtUsd(row.vendido_usd) }}</td>
+                                    <td class="right muted" data-label="Vendido Bs.">{{ fmtBs(row.vendido_bs) }}</td>
+                                    <td class="right muted" data-label="Costo USD">{{ fmtUsd(row.costo_usd) }}</td>
+                                    <td class="right" data-label="Utilidad USD" :class="row.utilidad_usd >= 0 ? 'text-green' : 'text-red'">{{ fmtUsd(row.utilidad_usd) }}</td>
+                                    <td class="right" data-label="Margen %">{{ row.margen_pct }}%</td>
                                 </tr>
                                 <template v-if="expandedCats.has(row.categoria)">
                                     <tr v-for="p in row.productos" :key="p.producto" class="prod-row">
-                                        <td class="prod-name">↳ {{ p.producto }}<span class="prod-kg">{{ fmtKg(p.kg) }}</span></td>
-                                        <td class="right amount">{{ fmtUsd(p.vendido_usd) }}</td>
-                                        <td class="right muted">{{ fmtBs(p.vendido_bs) }}</td>
-                                        <td class="right muted">{{ fmtUsd(p.costo_usd) }}</td>
-                                        <td class="right" :class="(p.vendido_usd - p.costo_usd) >= 0 ? 'green' : 'red'">
+                                        <td class="prod-name" data-label="Producto">↳ {{ p.producto }}<span class="prod-kg">{{ fmtKg(p.kg) }}</span></td>
+                                        <td class="right amount" data-label="Vendido USD">{{ fmtUsd(p.vendido_usd) }}</td>
+                                        <td class="right muted" data-label="Vendido Bs.">{{ fmtBs(p.vendido_bs) }}</td>
+                                        <td class="right muted" data-label="Costo USD">{{ fmtUsd(p.costo_usd) }}</td>
+                                        <td class="right" data-label="Utilidad USD" :class="(p.vendido_usd - p.costo_usd) >= 0 ? 'green' : 'red'">
                                             {{ fmtUsd(p.vendido_usd - p.costo_usd) }}
                                         </td>
-                                        <td></td>
+                                        <td data-label=""></td>
                                     </tr>
                                 </template>
                                 </template>

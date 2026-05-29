@@ -538,7 +538,7 @@ const helpFaqs = [
 
             <!-- ─── Tabla de productos ────────────────────────────────────── -->
             <div class="table-wrap" v-if="(activeTab || searchQuery) && mainTab === 'products'">
-                <table class="prod-table">
+                <table class="prod-table mobile-cards">
                     <thead>
                         <tr>
                             <th>Nombre</th>
@@ -557,22 +557,22 @@ const helpFaqs = [
                             </td>
                         </tr>
                         <tr v-for="p in tabProducts" :key="p.id">
-                            <td class="prod-name">{{ p.name }}</td>
-                            <td v-if="searchQuery">
+                            <td class="prod-name" data-label="Nombre">{{ p.name }}</td>
+                            <td v-if="searchQuery" data-label="Categoría">
                                 <span class="cat-pill" :style="{ borderColor: categoryColor(p.category_id) }">
                                     {{ p.category?.name ?? '—' }}
                                 </span>
                             </td>
-                            <td>
+                            <td data-label="Tipo">
                                 <span class="badge" :class="p.sale_mode === 'weight' ? 'badge-weight' : 'badge-unit'">
                                     <Scale v-if="p.sale_mode === 'weight'" :size="12" style="vertical-align:middle;margin-right:3px;" />
                                     <Package v-else :size="12" style="vertical-align:middle;margin-right:3px;" />
                                     {{ p.sale_mode === 'weight' ? 'Por kilo' : 'Por unidad' }}
                                 </span>
                             </td>
-                            <td class="price-cell">{{ priceDisplay(p) }}</td>
-                            <td>{{ stockLabel(p) }}</td>
-                            <td>
+                            <td class="price-cell" data-label="Precio">{{ priceDisplay(p) }}</td>
+                            <td data-label="Existencia">{{ stockLabel(p) }}</td>
+                            <td data-label="Estado">
                                 <span
                                     class="badge"
                                     :class="{
@@ -589,7 +589,7 @@ const helpFaqs = [
                                     <template v-else>Activo</template>
                                 </span>
                             </td>
-                            <td class="actions-cell">
+                            <td class="actions-cell" data-label="">
                                 <button class="btn-icon" title="Editar" @click="openEdit(p)"><Pencil :size="14" /></button>
                                 <button
                                     class="btn-icon"

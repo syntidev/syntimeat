@@ -62,3 +62,35 @@ select option {
 ::-webkit-scrollbar-thumb        { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover  { background: var(--brand); }
 * { scrollbar-width: thin; scrollbar-color: var(--border) var(--bg-base); }
+
+@media (max-width: 640px) {
+  /* Tablas → cards en mobile */
+  .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  table.mobile-cards, .mobile-cards table {
+    display: block;
+  }
+  .mobile-cards thead { display: none; }
+  .mobile-cards tbody { display: block; }
+  .mobile-cards tr {
+    display: block;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
+  }
+  .mobile-cards td {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+    border: none;
+    font-size: 0.875rem;
+  }
+  .mobile-cards td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-right: 0.5rem;
+  }
+}

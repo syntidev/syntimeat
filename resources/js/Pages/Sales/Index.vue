@@ -210,7 +210,7 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
 
             <!-- ── Tabla (tablet+) ────────────────────────────────────────── -->
             <div class="table-wrapper hide-sm">
-                <table class="sales-table">
+                <table class="sales-table mobile-cards">
                     <thead>
                         <tr>
                             <th>Ticket</th>
@@ -228,18 +228,18 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
                             <td colspan="8" class="empty-row">Sin ventas para los filtros seleccionados</td>
                         </tr>
                         <tr v-for="sale in sales" :key="sale.id" :class="{ 'row--cancelled': sale.status === 'cancelled' }">
-                            <td class="ticket-cell">{{ sale.ticket_number }}</td>
-                            <td>{{ sale.sold_at }}</td>
-                            <td>{{ sale.cashier ?? '—' }}</td>
-                            <td class="client-cell">{{ sale.client_name || '—' }}</td>
-                            <td>{{ getMethodLabel(sale.payment_method) }}</td>
-                            <td class="text-right font-mono">{{ fmtBs(sale.total_bs) }}</td>
-                            <td>
+                            <td class="ticket-cell" data-label="Ticket">{{ sale.ticket_number }}</td>
+                            <td data-label="Hora">{{ sale.sold_at }}</td>
+                            <td data-label="Cajero">{{ sale.cashier ?? '—' }}</td>
+                            <td class="client-cell" data-label="Cliente">{{ sale.client_name || '—' }}</td>
+                            <td data-label="Método">{{ getMethodLabel(sale.payment_method) }}</td>
+                            <td class="text-right font-mono" data-label="Total Bs.">{{ fmtBs(sale.total_bs) }}</td>
+                            <td data-label="Estado">
                                 <span :class="statusClass[sale.status] ?? 'badge'">
                                     {{ statusLabel[sale.status] ?? sale.status }}
                                 </span>
                             </td>
-                            <td v-if="userRole === 'admin' || userRole === 'supervisor'" class="actions-cell">
+                            <td v-if="userRole === 'admin' || userRole === 'supervisor'" class="actions-cell" data-label="">
                                 <button
                                     v-if="sale.status === 'paid'"
                                     type="button"

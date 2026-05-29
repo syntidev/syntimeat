@@ -102,7 +102,7 @@ const helpFaqs = [
             </div>
 
             <div class="table-wrap">
-                <table class="tbl" v-if="registers.length">
+                <table class="tbl mobile-cards" v-if="registers.length">
                     <thead>
                         <tr>
                             <th>Nombre</th>
@@ -113,17 +113,17 @@ const helpFaqs = [
                     </thead>
                     <tbody>
                         <tr v-for="reg in registers" :key="reg.id">
-                            <td class="reg-name">
+                            <td class="reg-name" data-label="Nombre">
                                 <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                                 {{ reg.name }}
                             </td>
-                            <td class="muted">{{ branchName(reg.branch_id) }}</td>
-                            <td>
+                            <td class="muted" data-label="Sucursal">{{ branchName(reg.branch_id) }}</td>
+                            <td data-label="Estado">
                                 <span :class="['pill', reg.opened_at && !reg.closed_at ? 'pill--open' : 'pill--closed']">
                                     {{ reg.opened_at && !reg.closed_at ? 'Abierta' : 'Cerrada' }}
                                 </span>
                             </td>
-                            <td class="actions">
+                            <td class="actions" data-label="">
                                 <button class="btn-act" @click="openEdit(reg)">Editar</button>
                                 <button class="btn-act act--danger" @click="destroy(reg)">Eliminar</button>
                             </td>

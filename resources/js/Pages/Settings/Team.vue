@@ -153,7 +153,7 @@ const helpFaqs = [
 
             <!-- Tabla -->
             <div class="table-wrap">
-                <table class="tbl">
+                <table class="tbl mobile-cards">
                     <thead>
                         <tr>
                             <th>Usuario</th>
@@ -169,13 +169,13 @@ const helpFaqs = [
                             <td colspan="6" class="empty-row">No hay usuarios. Crea el primero.</td>
                         </tr>
                         <tr v-for="user in users" :key="user.id" :class="{ 'row--dim': !user.is_active }">
-                            <td>
+                            <td data-label="Usuario">
                                 <div class="user-name">{{ user.name }}</div>
                                 <div class="user-email">{{ user.email?.includes('@internal.syntimeat') ? '—' : user.email }}</div>
                             </td>
-                            <td><span :class="['role-badge', `role--${user.role}`]">{{ roleLabels[user.role] ?? user.role }}</span></td>
-                            <td class="muted">{{ branchName(user.branch_id) }}</td>
-                            <td>
+                            <td data-label="Rol"><span :class="['role-badge', `role--${user.role}`]">{{ roleLabels[user.role] ?? user.role }}</span></td>
+                            <td class="muted" data-label="Sucursal">{{ branchName(user.branch_id) }}</td>
+                            <td data-label="Acceso">
                                 <div class="access-info">
                                     <span class="access-days">{{ daysLabel(user.access_days) }}</span>
                                     <span v-if="user.access_start && user.access_end" class="access-time muted mono">
@@ -183,11 +183,11 @@ const helpFaqs = [
                                     </span>
                                 </div>
                             </td>
-                            <td>
+                            <td data-label="Estado">
                                 <span :class="['status-dot', user.is_active ? 'dot--on' : 'dot--off']" />
                                 {{ user.is_active ? 'Activo' : 'Suspendido' }}
                             </td>
-                            <td class="actions">
+                            <td class="actions" data-label="">
                                 <button class="btn-act" @click="openEdit(user)" title="Editar">Editar</button>
                                 <button
                                     class="btn-act act--session"

@@ -173,7 +173,7 @@ function toggleActive(client) {
 
             <!-- ─── Tabla ─────────────────────────────────────────────────── -->
             <div class="table-wrap">
-                <table class="data-table">
+                <table class="data-table mobile-cards">
                     <thead>
                         <tr>
                             <th>Cédula</th>
@@ -192,17 +192,17 @@ function toggleActive(client) {
                             class="data-row"
                             @click="openDrawer(c)"
                         >
-                            <td><span class="code-badge">{{ c.cedula ?? '—' }}</span></td>
-                            <td class="name-cell">{{ c.name }}</td>
-                            <td class="muted-cell">{{ c.phone ?? '—' }}</td>
-                            <td class="muted-cell">{{ fmtDate(c.sales_max_sold_at) }}</td>
-                            <td class="muted-cell">{{ c.sales_count }}</td>
-                            <td>
+                            <td data-label="Cédula"><span class="code-badge">{{ c.cedula ?? '—' }}</span></td>
+                            <td class="name-cell" data-label="Nombre">{{ c.name }}</td>
+                            <td class="muted-cell" data-label="Teléfono">{{ c.phone ?? '—' }}</td>
+                            <td class="muted-cell" data-label="Última compra">{{ fmtDate(c.sales_max_sold_at) }}</td>
+                            <td class="muted-cell" data-label="Compras">{{ c.sales_count }}</td>
+                            <td data-label="Estado">
                                 <span class="status-pill" :class="c.active ? 'active' : 'inactive'">
                                     {{ c.active ? 'Activo' : 'Inactivo' }}
                                 </span>
                             </td>
-                            <td @click.stop>
+                            <td @click.stop data-label="">
                                 <button class="icon-btn" title="Editar" @click="openEdit(c)">✎</button>
                             </td>
                         </tr>

@@ -576,7 +576,7 @@ function methodName(id) {
             <!-- ─── Tab: Historial ────────────────────────────────────────── -->
             <div v-else-if="activeTab === 'history'" class="card">
                 <div class="table-wrap">
-                    <table class="hist-table">
+                    <table class="hist-table mobile-cards">
                         <thead>
                             <tr>
                                 <th>Fecha</th>
@@ -589,16 +589,16 @@ function methodName(id) {
                         </thead>
                         <tbody>
                             <tr v-for="o in historial" :key="o.id">
-                                <td class="muted">{{ fmtDatetime(o.updated_at) }}</td>
-                                <td>{{ o.client_name }}</td>
-                                <td>
+                                <td class="muted" data-label="Fecha">{{ fmtDatetime(o.updated_at) }}</td>
+                                <td data-label="Cliente">{{ o.client_name }}</td>
+                                <td data-label="Tipo">
                                     <span class="type-badge-sm" :class="o.client_type === 'internal' ? 'badge-amber' : 'badge-blue'">
                                         {{ o.client_type === 'internal' ? 'Consumo Interno' : 'Delivery' }}
                                     </span>
                                 </td>
-                                <td class="center muted">{{ o.items_count }}</td>
-                                <td class="amount">{{ fmtBs(o.total_bs) }}</td>
-                                <td>
+                                <td class="center muted" data-label="Items">{{ o.items_count }}</td>
+                                <td class="amount" data-label="Total Bs.">{{ fmtBs(o.total_bs) }}</td>
+                                <td data-label="Estado">
                                     <span class="status-pill" :class="o.status === 'paid' ? 'pill-paid' : 'pill-cancelled'">
                                         {{ o.status === 'paid' ? 'Cobrado' : 'Cancelado' }}
                                     </span>
