@@ -386,6 +386,7 @@ class ReportController extends Controller
             $log = $prodBoveda
                 ? \App\Models\DespieceLog::where('business_id', $businessId)
                     ->where('product_id', $prodBoveda->id)
+                    ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
                     ->whereDate('processed_at', $fecha)
                     ->latest()
                     ->first()
