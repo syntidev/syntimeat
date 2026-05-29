@@ -25,7 +25,7 @@ class BovedaController extends Controller
         $businessId = Auth::user()->business_id;
         $branchId   = in_array(Auth::user()->role, ['branch_admin', 'cashier'])
             ? Auth::user()->branch_id
-            : (session('current_branch_id') ?? null);
+            : (session('current_branch_id') ?? \App\Models\Branch::where('business_id', $businessId)->orderBy('id')->value('id'));
 
         $activas = BovedaEntry::active()
             ->where('business_id', $businessId)
@@ -113,7 +113,7 @@ class BovedaController extends Controller
         $kgPar      = isset($data['kg_par']) ? (float) $data['kg_par'] : null;
         $branchId   = in_array(Auth::user()->role, ['branch_admin', 'cashier'])
             ? Auth::user()->branch_id
-            : (session('current_branch_id') ?? null);
+            : (session('current_branch_id') ?? \App\Models\Branch::where('business_id', $businessId)->orderBy('id')->value('id'));
 
         DB::transaction(function () use ($data, $businessId, $userId, $kgPar, $branchId): void {
             $entry = BovedaEntry::create([
