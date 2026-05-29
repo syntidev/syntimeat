@@ -44,6 +44,7 @@ class TeamController extends Controller
                 'is_active'    => $u->is_active,
                 'access_start' => $u->access_start,
                 'access_end'   => $u->access_end,
+                'access_days'  => $u->access_days,
                 'has_sales'    => Sale::where('cashier_id', $u->id)->exists(),
                 'created_at'   => $u->created_at?->format('d/m/Y'),
             ]);
