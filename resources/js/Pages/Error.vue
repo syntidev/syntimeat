@@ -116,4 +116,16 @@ const info = computed(() => {
     background: var(--bg-elevated, rgba(255,255,255,0.05));
     color: var(--text-primary, rgba(255,255,255,0.92));
 }
+
+@media (max-width: 640px) {
+    .error-page    { padding: 1.25rem; }
+    .error-code    { font-size: 3.5rem; }
+    .error-title   { font-size: 1.1rem; }
+    .error-actions { flex-direction: column; width: 100%; }
+    .error-btn     { width: 100%; justify-content: center; min-height: 48px; }
+}
+
+@media (max-width: 1023px) {
+    .error-card { max-width: 380px; }
+}
 </style>
