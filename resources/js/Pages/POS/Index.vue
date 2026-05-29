@@ -61,17 +61,21 @@ onMounted(() => {
     tick();
     clockTimer = setInterval(tick, 1000);
     window.addEventListener('keydown', onPhysKeyDown);
+    window.addEventListener('keydown', onKeyDown);
     window.addEventListener('resize', updateTabArrows);
     nextTick(updateTabArrows);
 });
 onUnmounted(() => {
     clearInterval(clockTimer);
+    clearTimeout(scanTimer);
     window.removeEventListener('keydown', onPhysKeyDown);
+    window.removeEventListener('keydown', onKeyDown);
     window.removeEventListener('resize', updateTabArrows);
 });
 
 // ─── Animación "recién añadido" ───────────────────────────────────────────────
-const justAdded = ref(null);
+const justAdded    = ref(null);
+const scanFeedback = ref(null);
 
 // ─── Tickets (tabs paralelos, max 5) ─────────────────────────────────────────
 function emptyTicket(n) {
@@ -695,6 +699,91 @@ function processBarcode(code) {
     search.value = ''
 }
 
+// ─── Scanner global — multi-estándar EAN-13 / Code128 ────────────────────────
+let scanBuffer = ''
+let scanTimer  = null
+
+function onKeyDown(e) {
+    // Ceder si un input está enfocado (onSearchKeydown lo maneja)
+    const tag = document.activeElement?.tagName
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+    // Ceder si el numpad modal está abierto
+    if (qtyModal.value) return
+
+    if (e.key === 'Enter' && scanBuffer.length > 3) {
+        handleScan(scanBuffer)
+        scanBuffer = ''
+        return
+    }
+    if (e.key.length === 1) {
+        scanBuffer += e.key
+        clearTimeout(scanTimer)
+        scanTimer = setTimeout(() => { scanBuffer = '' }, 300)
+    }
+}
+
+function parseBarcodeScale(code) {
+    const raw = code.trim()
+
+    // EAN-13 (13 dígitos)
+    if (/^\d{13}$/.test(raw)) {
+        const prefix = parseInt(raw.substring(0, 2))
+
+        // Prefijo 20-29 = interno de báscula
+        if (prefix >= 20 && prefix <= 29) {
+            const productCode = raw.substring(2, 7)  // 5 dígitos producto
+            const valueRaw    = raw.substring(7, 12) // 5 dígitos valor
+
+            const asPriceBs  = parseInt(valueRaw) / 100   // Bs con 2 decimales
+            const asWeightKg = parseInt(valueRaw) / 1000  // kg con 3 decimales
+
+            return { type: 'scale_ean13', productCode, priceBs: asPriceBs, weightKg: asWeightKg, raw }
+        }
+
+        // EAN-13 estándar — buscar por barcode en productos
+        return { type: 'ean13_standard', barcode: raw, raw }
+    }
+
+    // Code128 o cualquier otro — buscar directo por barcode
+    return { type: 'direct', barcode: raw, raw }
+}
+
+function handleScan(code) {
+    const parsed = parseBarcodeScale(code)
+
+    if (parsed.type === 'scale_ean13') {
+        const product = props.products.find(p =>
+            p.barcode === parsed.productCode ||
+            String(p.id).padStart(5, '0') === parsed.productCode
+        )
+        if (product) {
+            const isWeight  = product.sale_mode === 'weight'
+            const priceBsKg = isWeight ? parseFloat(product.price_per_kg_usd || 0) * props.todayRate : 0
+            const amountBs  = isWeight && priceBsKg > 0
+                ? parsed.weightKg * priceBsKg
+                : parseFloat(product.price_per_unit_usd || 0) * props.todayRate
+            addToCartFromScanner(product, amountBs)
+            showScanFeedback(product.name, isWeight ? parsed.weightKg : 1)
+        }
+    } else {
+        const product = props.products.find(p => p.barcode === parsed.barcode)
+        if (product) {
+            const amountBs = parseFloat(
+                product.sale_mode === 'weight'
+                    ? (product.price_per_kg_usd || 0) * props.todayRate
+                    : (product.price_per_unit_usd || 0) * props.todayRate
+            )
+            addToCartFromScanner(product, amountBs)
+            showScanFeedback(product.name, 1)
+        }
+    }
+}
+
+function showScanFeedback(name, qty) {
+    scanFeedback.value = { name, qty }
+    setTimeout(() => { scanFeedback.value = null }, 1500)
+}
+
 function addToCartFromScanner(product, amountBs) {
     const isWeight  = product.sale_mode === 'weight'
     const priceBsKg = isWeight
@@ -948,7 +1037,12 @@ const helpFaqs = [
 
                 <!-- Scanner feedback ─────────────────────────────────────── -->
                 <Transition name="scanner-toast">
-                    <div v-if="scannerFired" class="scanner-toast">
+                    <div v-if="scanFeedback" class="scanner-toast scanner-toast--rich">
+                        <Check :size="14" />
+                        <span class="scanner-toast__name">{{ scanFeedback.name }}</span>
+                        <span class="scanner-toast__qty">{{ scanFeedback.qty }} {{ scanFeedback.qty !== 1 ? 'kg' : 'und' }}</span>
+                    </div>
+                    <div v-else-if="scannerFired" class="scanner-toast">
                         <Check :size="14" />
                         Escaneado
                     </div>
@@ -2565,6 +2659,9 @@ const helpFaqs = [
     margin-bottom: 0.5rem;
     width: fit-content;
 }
+.scanner-toast--rich { gap: 8px; padding: 0.4rem 1rem; }
+.scanner-toast__name { font-weight: 700; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scanner-toast__qty  { opacity: 0.75; font-weight: 500; }
 .scanner-toast-enter-active, .scanner-toast-leave-active { transition: opacity 0.2s, transform 0.2s; }
 .scanner-toast-enter-from,   .scanner-toast-leave-to     { opacity: 0; transform: translateY(-4px); }
 

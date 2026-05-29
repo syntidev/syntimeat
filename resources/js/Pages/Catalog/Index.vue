@@ -46,6 +46,7 @@ const submitting = ref(false)
 
 const form = useForm({
     name:               '',
+    barcode:            '',
     category_id:        props.categories[0]?.id ?? '',
     subcategory_id:     '',
     sale_mode:          'weight',
@@ -95,6 +96,7 @@ function openEdit(product) {
     editProduct.value          = product
     selectedImagePreview.value = null
     form.name               = product.name
+    form.barcode            = product.barcode ?? ''
     form.category_id        = product.category_id
     form.subcategory_id     = product.subcategory_id ?? ''
     form.sale_mode          = product.sale_mode
@@ -149,6 +151,7 @@ function submitForm() {
     // passed to router.post() does NOT trigger that detection in v2.
     const data = {
         name:               form.name,
+        barcode:            form.barcode || null,
         category_id:        form.category_id,
         subcategory_id:     form.subcategory_id || null,
         sale_mode:          form.sale_mode,
@@ -713,6 +716,17 @@ const helpFaqs = [
                                         required
                                     />
                                     <p v-if="form.errors.name" class="field-error">{{ form.errors.name }}</p>
+
+                                    <!-- Código de barras -->
+                                    <label class="field-label">Código de barras <small style="font-weight:400;opacity:0.6">(opcional)</small></label>
+                                    <input
+                                        v-model="form.barcode"
+                                        class="field-input"
+                                        type="text"
+                                        maxlength="50"
+                                        placeholder="Escanea o escribe el código"
+                                    />
+                                    <p v-if="form.errors.barcode" class="field-error">{{ form.errors.barcode }}</p>
 
                                     <!-- Categoría -->
                                     <label class="field-label">Categoría</label>

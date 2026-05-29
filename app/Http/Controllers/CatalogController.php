@@ -77,6 +77,7 @@ class CatalogController extends Controller
     {
         $validated = $request->validate([
             'name'               => ['required', 'string', 'max:120'],
+            'barcode'            => ['nullable', 'string', 'max:50'],
             'category_id'        => ['required', 'integer', 'exists:categories,id'],
             'subcategory_id'     => ['nullable', 'integer', 'exists:subcategories,id'],
             'sale_mode'          => ['required', 'in:weight,unit'],
@@ -109,6 +110,7 @@ class CatalogController extends Controller
             'category_id'        => $validated['category_id'],
             'subcategory_id'     => $validated['subcategory_id'] ?? null,
             'name'               => $validated['name'],
+            'barcode'            => $validated['barcode'] ?? null,
             'sale_mode'          => $validated['sale_mode'],
             'base_unit_label'    => $validated['sale_mode'] === 'weight' ? 'kg' : 'und',
             'price_per_kg_usd'   => $validated['price_per_kg_usd'] ?? null,
@@ -147,6 +149,7 @@ class CatalogController extends Controller
     {
         $validated = $request->validate([
             'name'               => ['required', 'string', 'max:120'],
+            'barcode'            => ['nullable', 'string', 'max:50'],
             'category_id'        => ['required', 'integer', 'exists:categories,id'],
             'subcategory_id'     => ['nullable', 'integer', 'exists:subcategories,id'],
             'sale_mode'          => ['required', 'in:weight,unit'],
@@ -164,6 +167,7 @@ class CatalogController extends Controller
             'category_id'        => $validated['category_id'],
             'subcategory_id'     => $validated['subcategory_id'] ?? null,
             'name'               => $validated['name'],
+            'barcode'            => $validated['barcode'] ?? null,
             'sale_mode'          => $validated['sale_mode'],
             'base_unit_label'    => $validated['sale_mode'] === 'weight' ? 'kg' : 'und',
             'price_per_kg_usd'   => $validated['price_per_kg_usd'] ?? null,
