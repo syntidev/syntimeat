@@ -870,10 +870,12 @@ const icons = {
 }
 
 /* ── Responsive ─────────────────────────────────────────────────────────── */
-@media (max-width: 768px) {
+
+/* Tablet + móvil: sidebar pasa a drawer, hamburguesa visible */
+@media (max-width: 1023px) {
     .sidebar {
         transform: translateX(-100%);
-        width: min(280px, 85vw);
+        width: min(300px, 85vw);
     }
 
     .sidebar--open {
@@ -900,6 +902,13 @@ const icons = {
         display: none;
     }
 
+    .page-content {
+        padding: 1rem;
+    }
+}
+
+/* Móvil únicamente */
+@media (max-width: 767px) {
     .icon-btn {
         display: none;
     }
@@ -1056,7 +1065,7 @@ const icons = {
     background: var(--bg-card);
     color: var(--text-primary);
 }
-@media (max-width: 768px) {
+@media (max-width: 767px) {
     .branch-picker { display: none; }
 }
 
@@ -1091,11 +1100,11 @@ const icons = {
     border-radius: 0.5rem;
     padding: 0.375rem 0.75rem;
 }
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
     .sidebar-mobile-footer { display: flex; }
 }
 
-/* ── Botón X cerrar sidebar (solo mobile) ─────────────────────────────────── */
+/* ── Botón X cerrar sidebar (tablet y móvil) ──────────────────────────────── */
 .sidebar-close {
     display: none;
     align-items: center;
@@ -1111,11 +1120,4 @@ const icons = {
     cursor: pointer;
     transition: background-color 0.15s, color 0.15s;
 }
-.sidebar-close:hover {
-    background-color: var(--bg-elevated);
-    color: var(--text-primary);
-}
-@media (max-width: 768px) {
-    .sidebar-close { display: flex; }
-}
-</style>
+.sideba
