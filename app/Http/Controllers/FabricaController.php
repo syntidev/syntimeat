@@ -187,6 +187,9 @@ class FabricaController extends Controller
     {
         $user       = Auth::user();
         $businessId = $user->business_id;
+        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? \App\Models\Branch::where('business_id', $businessId)->orderBy('id')->value('id'));
 
         $data = $request->validate([
             'output_product_id'          => ['required', 'integer', 'exists:products,id'],
@@ -262,9 +265,10 @@ class FabricaController extends Controller
 
         $totalCostUsd = collect($data['inputs'])->sum(fn ($i) => (float) ($i['cost_usd'] ?? 0));
 
-        DB::transaction(function () use ($data, $user, $businessId, $totalCostUsd, $inputIds): void {
+        DB::transaction(function () use ($data, $user, $businessId, $branchId, $totalCostUsd, $inputIds): void {
             $batch = FabricaBatch::create([
                 'business_id'       => $businessId,
+                'branch_id'         => $branchId,
                 'created_by'        => $user->id,
                 'output_product_id' => $data['output_product_id'],
                 'output_kg'         => $data['output_kg'],
@@ -326,6 +330,9 @@ class FabricaController extends Controller
     {
         $user       = Auth::user();
         $businessId = $user->business_id;
+        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? \App\Models\Branch::where('business_id', $businessId)->orderBy('id')->value('id'));
 
         $data = $request->validate([
             'boveda_entry_id' => ['required', 'integer', 'exists:boveda_entries,id'],
