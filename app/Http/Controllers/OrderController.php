@@ -34,15 +34,18 @@ class OrderController extends Controller
         $business   = $user->business;
         $businessId = $business->id;
         $rate       = $this->rates->getTodayRate();
+        $branchId   = $user->branch_id ?? (session('current_branch_id') ?? null);
 
         $activeOrders = Order::with(['items.product.category'])
             ->where('business_id', $businessId)
+            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
             ->whereIn('status', ['open', 'pending'])
             ->orderByDesc('created_at')
             ->get();
 
         $historial = Order::with(['items'])
             ->where('business_id', $businessId)
+            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
             ->whereIn('status', ['paid', 'cancelled'])
             ->orderByDesc('updated_at')
             ->limit(30)
