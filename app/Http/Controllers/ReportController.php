@@ -565,7 +565,7 @@ class ReportController extends Controller
             $rateEf      = $vendidoUsd > 0 ? $vendidoBs / $vendidoUsd : 0.0;
             $utilidadUsd = round($vendidoUsd - $costoUsd, 2);
             $utilidadBs  = round($vendidoBs - ($costoUsd * $rateEf), 2);
-            $margen      = $vendidoUsd > 0 ? round(($utilidadUsd / $vendidoUsd) * 100, 1) : 0.0;
+            $margen      = $costoUsd > 0 ? round(($utilidadUsd / $costoUsd) * 100, 1) : 0.0;
             $ticketProm  = $ventas > 0 ? round($vendidoBs / $ventas, 2) : 0.0;
 
             $branches[] = [
@@ -759,8 +759,8 @@ class ReportController extends Controller
         $categories = collect($byCat)->map(function (array $row, int|string $catId) use ($byProd): array {
             $utilidadUsd = $row['vendido_usd'] - $row['costo_usd'];
             $utilidadBs  = $row['vendido_bs']  - $row['costo_bs'];
-            $margen      = $row['vendido_usd'] > 0
-                ? round(($utilidadUsd / $row['vendido_usd']) * 100, 1)
+            $margen      = $row['costo_usd'] > 0
+                ? round(($utilidadUsd / $row['costo_usd']) * 100, 1)
                 : 0.0;
 
             return [
