@@ -1398,30 +1398,15 @@ async function deactivateProduct(product) {
 .field-group  { display:flex; flex-direction:column; gap:4px; }
 .field-group label { font-size:0.8rem; color:var(--text-secondary); }
 
+/* ─── Tablet (769px – 1023px) ────────────────────────────────────────────── */
+@media (min-width: 769px) and (max-width: 1023px) {
+    .boveda-page { padding: 0.75rem; }
+    .kpi-grid    { grid-template-columns: repeat(3, 1fr); }
+    .col-proveedor { display: none; }
+}
+
+/* ─── Móvil (≤ 768px) ────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
     /* Layout */
-    .boveda-page { padding: 1rem; }
-    .kpi-grid    { grid-template-columns: repeat(2, 1fr); }
-
-    /* Tabla: ocultar Kg surtido, Proveedor y Fecha en tablet */
-    .col-surtido,
-    .col-proveedor,
-    .col-fecha { display: none; }
-
-    /* Acciones: apilar verticalmente si no caben */
-    .actions-col {
-        flex-wrap: wrap;
-        gap: 0.35rem;
-    }
-    .actions-col .btn-sm {
-        flex: 1 1 auto;
-        min-height: 44px;
-        font-size: 0.75rem;
-    }
-
-    /* Modal: 1 columna, ancho completo */
-    .form-grid { grid-template-columns: 1fr; }
-    .modal-box { max-width: 100%; border-radius: 10px; }
-    .modal-sm  { max-width: 100%; }
-}
-</style>
+    .boveda-page { padding: 0.75rem; }
+    .kpi-grid    { grid-template-columns: repeat(2, 1fr)
