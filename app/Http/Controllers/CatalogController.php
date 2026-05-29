@@ -89,7 +89,7 @@ class CatalogController extends Controller
 
         $user = Auth::user();
         $businessId = $user->business_id;
-        $branchId = in_array($user->role, ['branch_admin','cashier']) ? $user->branch_id : (session('current_branch_id') ?? null);
+        $branchId = $user->branch_id ?? (session('current_branch_id') ?? null);
 
         // Validar nombre único por sucursal
         $existe = Product::where('business_id', $businessId)
