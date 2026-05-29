@@ -196,4 +196,13 @@ onMounted(() => {
     color: rgba(255,255,255,0.2);
     margin: 0;
 }
+
+@media (max-width: 640px) {
+    .guest-root { padding: 1rem; }
+    .guest-card { padding: 1.5rem 1.25rem 1.25rem; border-radius: 1rem; }
+}
+
+@media (max-width: 1023px) {
+    .guest-card { max-width: 100%; }
+}
 </style>
