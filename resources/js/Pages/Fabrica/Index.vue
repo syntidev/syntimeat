@@ -715,6 +715,12 @@ async function submitDespiece(entry) {
     overflow: hidden;
     flex: 1;
 }
+/* Tablet intermedia: columna izquierda más estrecha */
+@media (min-width: 641px) and (max-width: 900px) {
+    .fab-modal-body { grid-template-columns: 240px 1fr; }
+    .fab-root { padding: 1rem 0.75rem; }
+}
+/* Móvil: una sola columna */
 @media (max-width: 640px) { .fab-modal-body { grid-template-columns: 1fr; } }
 
 .fab-modal-left  { padding: 1.25rem 1.5rem; border-right: 1px solid var(--border); overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; }
