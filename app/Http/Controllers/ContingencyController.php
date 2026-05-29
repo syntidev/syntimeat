@@ -330,6 +330,7 @@ class ContingencyController extends Controller
 
                 InventoryEntry::create([
                     'business_id'    => $businessId,
+                    'branch_id'      => $user->branch_id ?? session('current_branch_id') ?? \App\Models\Branch::where('business_id', $businessId)->orderBy('id')->value('id'),
                     'product_id'     => $productId,
                     'quantity_kg'    => $qtyKg,
                     'waste_kg'       => $wasteKg,
