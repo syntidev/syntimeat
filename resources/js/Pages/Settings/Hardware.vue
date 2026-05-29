@@ -373,4 +373,32 @@ const helpFaqs = [
     font-size: .8125rem; color: var(--text-secondary); line-height: 1.5;
 }
 .info-steps__list em { font-style: normal; color: var(--text-primary); }
+
+/* ─── Responsive ──────────────────────────────────────────────────────────────── */
+@media (max-width: 1023px) {
+    .hw-page { gap: 1rem; }
+    /* Sections: padding reducido */
+    .hw-section-head { padding: 1rem; }
+    .info-card { margin: 1rem; }
+    /* Test block: ajustar */
+    .test-block { padding: 0 1rem 1rem; }
+    /* Info steps: ajustar */
+    .info-steps { padding: 0 1rem 1rem; }
+    /* Header apila en tablet chico */
+    .hw-head { flex-wrap: wrap; gap: 0.75rem; }
+}
+
+@media (max-width: 640px) {
+    /* hw-head apila */
+    .hw-head { flex-direction: column; align-items: flex-start; }
+    /* Paper options: flex-wrap */
+    .paper-options { flex-wrap: wrap; }
+    .paper-card { flex: 1 1 calc(50% - 0.25rem); min-width: 80px; }
+    /* EAN diagram: scroll horizontal */
+    .ean-diagram { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    /* Test input row: apila */
+    .test-input-row { flex-direction: column; }
+    .test-input { width: 100%; font-size: 1rem; }
+    .test-clear { width: 100%; min-height: 44px; justify-content: center; }
+}
 </style>

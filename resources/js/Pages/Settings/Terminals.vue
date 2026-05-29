@@ -343,4 +343,31 @@ const helpFaqs = [
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary:hover:not(:disabled) { opacity: 0.9; }
 .btn-secondary { display: inline-flex; align-items: center; padding: 0.5rem 1rem; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-secondary); font-size: 0.875rem; font-weight: 500; border-radius: 8px; cursor: pointer; }
+
+/* ─── Responsive ──────────────────────────────────────────────────────────────── */
+@media (max-width: 1023px) {
+    .panel-body { padding: 1rem; }
+    /* Terminal card: apila en tablet */
+    .terminal-card { flex-wrap: wrap; }
+    .terminal-card__actions { width: 100%; justify-content: flex-end; }
+    /* Touch targets */
+    .icon-action { min-width: 44px; min-height: 44px; }
+    /* Header row: wrap */
+    .header-row { flex-wrap: wrap; }
+}
+
+@media (max-width: 640px) {
+    /* Modal → bottom sheet */
+    .modal-overlay { align-items: flex-end; padding: 0; }
+    .modal { border-radius: 16px 16px 0 0; max-height: 92dvh; overflow-y: auto; max-width: 100%; }
+    /* Modal footer: apila */
+    .modal__footer { flex-direction: column-reverse; gap: 0.5rem; }
+    .modal__footer .btn-primary,
+    .modal__footer .btn-secondary { width: 100%; justify-content: center; min-height: 44px; }
+    /* Grid 2 → 1 col */
+    .grid-2 { grid-template-columns: 1fr; }
+    /* Header row: apila */
+    .header-row { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+    .header-actions .btn-primary { width: 100%; justify-content: center; min-height: 44px; }
+}
 </style>

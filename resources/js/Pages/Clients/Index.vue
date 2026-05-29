@@ -435,4 +435,16 @@ function toggleActive(client) {
     .btn          { min-height: 44px; touch-action: manipulation; }
     .icon-btn     { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
 }
+
+@media (max-width: 1023px) {
+    .clients-wrap { padding: 1rem 0.75rem; }
+    /* KPIs: 2 col en tablet */
+    .kpi-grid     { grid-template-columns: repeat(2, 1fr); }
+    /* Tabla: scroll táctil */
+    .table-wrap   { -webkit-overflow-scrolling: touch; }
+    /* Top bar: apila */
+    .top-bar      { flex-wrap: wrap; }
+    /* Drawer: ancho casi completo en tablet */
+    .drawer       { width: min(400px, 95vw); }
+}
 </style>

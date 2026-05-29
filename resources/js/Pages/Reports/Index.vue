@@ -774,6 +774,18 @@ const helpFaqs = [
     .dia-table { font-size: 0.8rem; }
 }
 
+@media (max-width: 1023px) {
+    .rep-wrap { padding: 1rem 0.75rem; }
+    /* Tab bar scrollable en tablet */
+    .tab-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
+    /* Filter bar agrupa mejor */
+    .filter-bar { gap: 0.5rem; }
+    .filter-actions { margin-left: 0; }
+    /* Touch targets */
+    .tab { min-height: 44px; }
+    .btn-brand, .btn-outline { min-height: 44px; }
+}
+
 /* ─── Reporte del Día ────────────────────────────────────────────────────────── */
 .cat-checks { display: flex; flex-wrap: wrap; gap: 0.4rem 0.75rem; max-width: 400px; }
 .cat-check-label {

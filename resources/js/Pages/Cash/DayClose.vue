@@ -516,6 +516,13 @@ function submitClose() {
     .bov-metrics { grid-template-columns: 1fr 1fr; }
 }
 
+@media (max-width: 1023px) {
+    .dc-wrap { padding: 1rem 0.75rem; }
+    .dc-kpis { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+    /* bov-grid en tablet: 1 col */
+    .bov-grid { grid-template-columns: 1fr; }
+}
+
 /* ── Utilidad por Bóveda ──────────────────────────────────────────────────── */
 .bov-section   { margin-bottom: 0; }
 .bov-title     { margin-bottom: 1rem; }

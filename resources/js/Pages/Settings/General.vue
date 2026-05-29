@@ -267,4 +267,26 @@ const helpFaqs = [
 .btn-primary:hover:not(:disabled) { opacity: 0.9; }
 .btn-secondary { display: inline-flex; align-items: center; min-height: 44px; padding: 0.4rem 0.875rem; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-secondary); font-size: 0.8125rem; font-weight: 500; border-radius: 7px; cursor: pointer; transition: border-color 0.15s; }
 .btn-secondary:hover { border-color: var(--brand); }
+
+/* ─── Responsive ──────────────────────────────────────────────────────────────── */
+@media (max-width: 1023px) {
+    .settings-panel__body { padding: 1.25rem 1rem; }
+    /* Form grid: 1 col en tablet */
+    .form-grid { grid-template-columns: 1fr; }
+    .col-span-2 { grid-column: span 1; }
+    /* Logo section: apila */
+    .logo-section { flex-direction: column; align-items: flex-start; }
+    /* Palette: scroll horizontal si hay muchos swatches */
+    .palette-row { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
+    /* Form footer: apila */
+    .form-footer { flex-direction: column; align-items: flex-start; }
+}
+
+@media (max-width: 640px) {
+    .settings-panel__body { padding: 1rem 0.75rem; }
+    /* Header row apila */
+    .header-row { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+    /* Touch targets */
+    .btn-primary, .btn-secondary { min-height: 44px; }
+}
 </style>

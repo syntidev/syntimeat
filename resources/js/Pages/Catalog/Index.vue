@@ -1341,6 +1341,14 @@ const helpFaqs = [
     flex-direction: column;
     gap: 0.4rem;
 }
+@media (max-width: 1023px) {
+    .catalog-wrap { padding: 1rem; }
+    .cat-search-bar { flex-wrap: wrap; }
+    .cat-search-wrap { max-width: 100%; }
+    /* tabla: tabla con scroll táctil en tablet */
+    .table-wrap { -webkit-overflow-scrolling: touch; }
+}
+
 @media (max-width: 640px) {
     .prod-modal-box { max-height: 92dvh; }
     .prod-modal-body { grid-template-columns: 1fr; }
@@ -1353,8 +1361,16 @@ const helpFaqs = [
     /* tabs con altura mínima táctil */
     .tab-btn { min-height: 44px; }
     .tab-btn--help { width: 44px; height: 44px; }
-    /* tabla: scroll horizontal explícito + scroll hint */
+    /* tabla: scroll horizontal explícito */
     .table-wrap { -webkit-overflow-scrolling: touch; }
+    /* modal → bottom sheet */
+    .modal-overlay { align-items: flex-end; padding: 0; }
+    .modal-box { border-radius: 16px 16px 0 0; max-height: 92dvh; max-width: 100%; }
+    /* inputs anti-zoom iOS */
+    .field-input { font-size: 1rem; min-height: 44px; }
+    .modal-footer { flex-direction: column-reverse; gap: 0.5rem; }
+    .modal-footer .btn-primary,
+    .modal-footer .btn-secondary { width: 100%; justify-content: center; min-height: 44px; }
 }
 
 .modal-header {

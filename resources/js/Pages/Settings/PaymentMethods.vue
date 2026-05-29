@@ -505,4 +505,31 @@ const helpFaqs = [
 .btn-brand:disabled { opacity: .5; cursor: not-allowed; }
 .btn-ghost  { font-size: .8125rem; font-weight: 500; color: var(--text-secondary); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: .5rem 1rem; cursor: pointer; font-family: inherit; }
 .sr-only    { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+
+/* ─── Responsive ──────────────────────────────────────────────────────────────── */
+@media (max-width: 1023px) {
+    /* Card head apila en tablet */
+    .card-head { flex-direction: column; align-items: flex-start; gap: 0.35rem; }
+    /* Row actions: touch targets */
+    .btn-act { min-height: 44px; padding: .35rem .75rem; }
+    /* Method/terminal rows: padding reducido */
+    .method-row, .terminal-row { padding: .65rem 1rem; }
+}
+
+@media (max-width: 640px) {
+    /* Modal → bottom sheet */
+    .overlay { align-items: flex-end; padding: 0; }
+    .modal { border-radius: 16px 16px 0 0; max-height: 92dvh; overflow-y: auto; max-width: 100%; }
+    /* Modal foot: apila */
+    .modal-foot { flex-direction: column-reverse; gap: 0.5rem; }
+    .modal-foot .btn-brand,
+    .modal-foot .btn-ghost { width: 100%; justify-content: center; min-height: 44px; }
+    /* Field row → 1 col */
+    .field-row { grid-template-columns: 1fr; }
+    /* Inputs anti-zoom iOS */
+    .input { font-size: 1rem; min-height: 44px; }
+    /* Section head apila */
+    .section-head { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+    .section-head .btn-brand { width: 100%; justify-content: center; min-height: 44px; }
+}
 </style>

@@ -1076,4 +1076,16 @@ const helpFaqs = [
     .field-input  { font-size: 1rem; }
     .filter-select { font-size: 1rem; min-height: 44px; }
 }
+
+/* Tablet: mostrar tabla, pero con padding reducido */
+@media (max-width: 1023px) {
+    .inv-wrap { padding: 1rem 0.75rem; }
+    /* modal: 1 col si el max-width es 720px — reducir */
+    .modal-box { max-width: 95vw; }
+    /* drawer: ancho completo en tablet chico */
+    .drawer { width: min(380px, 94vw); }
+    /* filter bar: alinear en columna */
+    .filter-bar { flex-wrap: wrap; }
+    .filter-count { margin-left: 0; }
+}
 </style>

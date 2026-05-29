@@ -693,4 +693,31 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
     color: var(--text-muted);
     flex: 1;
 }
+
+/* ── Responsive ──────────────────────────────────────────────────────────────── */
+@media (max-width: 1023px) {
+    .sales-page { padding: 1rem 0.75rem; }
+    /* Filters apilan en tablet */
+    .filters-bar { flex-direction: column; align-items: stretch; }
+    .filter-input { width: 100%; }
+    /* Tabla: scroll táctil */
+    .table-wrapper { -webkit-overflow-scrolling: touch; }
+    /* Totals bar: scroll horizontal */
+    .totals-bar { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .totals-bar__item { flex-shrink: 0; }
+}
+
+@media (max-width: 640px) {
+    /* Totals bar: apila en 2 col */
+    .totals-bar { flex-wrap: wrap; overflow-x: unset; }
+    .totals-bar__item { flex: 1 1 calc(50% - 0.5rem); min-width: 0; }
+    /* Modal → bottom sheet */
+    .modal-overlay { align-items: flex-end; padding: 0; }
+    .modal { border-radius: 16px 16px 0 0; max-height: 92dvh; max-width: 100%; }
+    /* Textarea anti-zoom iOS */
+    .modal__textarea { font-size: 1rem; }
+    /* Touch targets */
+    .modal__footer .btn-ghost,
+    .modal__footer .btn-danger { min-height: 44px; flex: 1; justify-content: center; }
+}
 </style>

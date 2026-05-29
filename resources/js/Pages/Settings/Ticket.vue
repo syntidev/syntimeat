@@ -443,6 +443,26 @@ const helpFaqs = [
     .tkt-layout { grid-template-columns: 1fr; }
 }
 
+@media (max-width: 1023px) {
+    /* Preview: deja de ser sticky en tablet */
+    .tkt-preview-wrap { position: static; }
+    /* Layout: 1 col en tablet */
+    .tkt-layout { grid-template-columns: 1fr; gap: 1.25rem; }
+    /* Touch targets */
+    .tkt-actions button { min-height: 44px; }
+}
+
+@media (max-width: 640px) {
+    /* Format options: apilan en móvil */
+    .tkt-format-options { flex-direction: column; gap: 0.5rem; }
+    .tkt-format-opt { flex: none; flex-direction: row; gap: 0.75rem; align-items: center; }
+    /* toggle rows: touch target */
+    .tkt-toggle { min-height: 44px; align-items: center; }
+    /* Header row: apila */
+    .header-row { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+    .header-row .help-btn { align-self: flex-end; margin-top: -2.5rem; }
+}
+
 .tkt-form { display: flex; flex-direction: column; gap: 1.5rem; }
 
 .tkt-section {

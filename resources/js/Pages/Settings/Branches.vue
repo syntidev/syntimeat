@@ -290,4 +290,13 @@ const helpFaqs = [
     .modal-foot { flex-direction: column-reverse; gap: 0.5rem; }
     .modal-foot .btn-brand, .modal-foot .btn-ghost { width: 100%; justify-content: center; min-height: 44px; }
 }
+
+@media (max-width: 1023px) {
+    /* Branch row: más compacto en tablet */
+    .branch-row { padding: 0.75rem 0.9rem; }
+    /* Stats: wrap en tablet */
+    .branch-stats { flex-wrap: wrap; }
+    /* Touch targets: mínimo 44px en botones de acción */
+    .btn-sm { min-height: 44px; }
+}
 </style>

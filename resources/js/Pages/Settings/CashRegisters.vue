@@ -254,4 +254,14 @@ const helpFaqs = [
     .modal-foot { flex-direction: column-reverse; gap: 0.5rem; }
     .modal-foot .btn-primary, .modal-foot .btn-ghost { width: 100%; justify-content: center; min-height: 44px; }
 }
+
+@media (max-width: 1023px) {
+    /* Tabla: scroll táctil */
+    .table-wrap { -webkit-overflow-scrolling: touch; }
+    /* Actions: touch targets */
+    .btn-act { min-height: 44px; padding: .35rem .75rem; }
+    /* Page head: wrap */
+    .page-head { flex-wrap: wrap; }
+    .page-head-actions .btn-primary { min-height: 44px; }
+}
 </style>

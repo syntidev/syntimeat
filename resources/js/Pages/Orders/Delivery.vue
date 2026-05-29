@@ -356,4 +356,33 @@ const localPedidos = ref([...props.pedidos]);
 /* ─── Transición modal ───────────────────────────────────────────────────────*/
 .mo-enter-active, .mo-leave-active { transition: opacity .18s; }
 .mo-enter-from, .mo-leave-to { opacity: 0; }
+
+/* ─── Responsive ──────────────────────────────────────────────────────────────*/
+@media (max-width: 1023px) {
+    .delivery-page { padding: 1rem 0.75rem; }
+    /* Grid: 1 col en tablet */
+    .delivery-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+    /* Header apila */
+    .page-header { flex-direction: column; align-items: flex-start; }
+    .btn-back { min-height: 44px; display: inline-flex; align-items: center; }
+
+    /* Modal → bottom sheet */
+    .modal-bg { align-items: flex-end; padding: 0; }
+    .modal-box { border-radius: 16px 16px 0 0; max-height: 92dvh; max-width: 100%; }
+
+    /* Inputs anti-zoom iOS */
+    .pay-input { font-size: 1rem; min-height: 44px; }
+
+    /* Touch targets */
+    .btn-cobrar { width: 100%; min-height: 44px; }
+    .pay-method-card { min-height: 44px; display: inline-flex; align-items: center; }
+
+    /* Modal actions */
+    .modal-actions { flex-direction: column-reverse; }
+    .modal-actions .btn-brand,
+    .modal-actions .btn-ghost { width: 100%; justify-content: center; min-height: 44px; }
+}
 </style>

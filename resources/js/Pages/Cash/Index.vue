@@ -787,4 +787,35 @@ function submitCorte() {
     border-radius: 999px;
     font-weight: 600;
 }
+
+/* ─── Responsive ──────────────────────────────────────────────────────────────── */
+@media (max-width: 1023px) {
+    .cash-wrap { padding: 1rem 0.75rem; }
+    /* Tabs: scroll horizontal */
+    .cash-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
+    /* KPIs: 2 col */
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    /* Info bar apila */
+    .cash-info-bar { flex-direction: column; align-items: flex-start; gap: 0.25rem; }
+    .ci-sep { display: none; }
+    /* Tabla scroll táctil */
+    .table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+@media (max-width: 640px) {
+    /* Header apila */
+    .cash-actions { width: 100%; }
+    .cash-actions .btn { width: 100%; justify-content: center; }
+    /* Modal → bottom sheet */
+    .modal-overlay { align-items: flex-end; padding: 0; }
+    .modal-box { border-radius: 16px 16px 0 0; max-height: 92dvh; max-width: 100%; }
+    /* Inputs anti-zoom iOS */
+    .form-input { font-size: 1rem; min-height: 44px; }
+    /* Touch targets */
+    .cash-tab { min-height: 44px; }
+    .type-btn  { min-height: 44px; }
+    /* Modal actions */
+    .modal-actions { flex-direction: column-reverse; gap: 0.5rem; }
+    .modal-actions .btn { width: 100%; justify-content: center; min-height: 44px; }
+}
 </style>

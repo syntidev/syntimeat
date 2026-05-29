@@ -946,4 +946,10 @@ function setPeriod(key) {
 .period-btn { padding: 0.25rem 0.6rem; font-size: 0.75rem; font-weight: 600; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--text-muted); cursor: pointer; transition: border-color 0.15s, color 0.15s, background 0.15s; white-space: nowrap; line-height: 1.6; }
 .period-btn:hover { border-color: var(--brand); color: var(--brand); }
 .period-btn--active { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 12%, transparent); color: var(--brand); }
+
+/* Tablet: 640-1023px ajustes adicionales */
+@media (max-width: 1023px) {
+    .emp-wrap { padding: 1.25rem 1rem; }
+    .period-btn { min-height: 36px; padding: 0 0.75rem; display: inline-flex; align-items: center; }
+}
 </style>

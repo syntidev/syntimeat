@@ -612,4 +612,29 @@ section { display: flex; flex-direction: column; gap: 1rem; }
     .import-grid { grid-template-columns: 1fr; }
     .cards-row   { grid-template-columns: 1fr; }
 }
+
+@media (max-width: 1023px) {
+    .cont-wrap { padding: 1rem 0.75rem; }
+    /* import-grid ya es 1 col en 768 — redundante pero explícito */
+    .import-grid { grid-template-columns: 1fr; }
+    .cards-row   { grid-template-columns: 1fr; }
+    /* Result table scroll táctil */
+    .result-table-wrap { -webkit-overflow-scrolling: touch; }
+}
+
+@media (max-width: 640px) {
+    /* Page title: apila */
+    .page-title-row { flex-wrap: wrap; }
+    .page-title { font-size: 1.3rem; }
+
+    /* Import grid: min-width más pequeño */
+    .import-grid { grid-template-columns: 1fr; }
+
+    /* Touch targets */
+    .btn-import { width: 100%; min-height: 44px; align-self: stretch; }
+    .btn-download { min-height: 44px; display: flex; align-items: center; justify-content: center; }
+
+    /* Inputs anti-zoom iOS */
+    .file-label { font-size: 1rem; }
+}
 </style>

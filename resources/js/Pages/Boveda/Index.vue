@@ -1424,4 +1424,25 @@ async function deactivateProduct(product) {
     .modal-box { max-width: 100%; border-radius: 10px; }
     .modal-sm  { max-width: 100%; }
 }
+
+@media (max-width: 1023px) {
+    .boveda-page { padding: 1rem; }
+    .page-header { flex-wrap: wrap; }
+    .header-actions { flex-wrap: wrap; gap: 0.4rem; }
+}
+
+@media (max-width: 640px) {
+    .boveda-page { padding: 0.75rem; }
+    .page-header { flex-direction: column; align-items: flex-start; }
+    .header-actions { width: 100%; justify-content: flex-end; }
+    .tabs-row { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 0.25rem; }
+    .tab-btn  { white-space: nowrap; min-height: 44px; }
+    .modal-bg { align-items: flex-end; padding: 0; }
+    .modal-box { border-radius: 16px 16px 0 0; max-height: 92dvh; max-width: 100%; }
+    .modal-sm  { border-radius: 16px 16px 0 0; max-height: 80dvh; max-width: 100%; }
+    .form-input, .form-select { font-size: 1rem; min-height: 44px; }
+    .modal-actions { flex-direction: column-reverse; }
+    .modal-actions .btn-brand,
+    .modal-actions .btn-ghost { width: 100%; justify-content: center; min-height: 44px; }
+}
 </style>

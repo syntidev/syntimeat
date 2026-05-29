@@ -950,4 +950,18 @@ async function submitDespiece(entry) {
     .fab-table th, .fab-table td { padding: 0.4rem 0.5rem; font-size: 0.75rem; }
     .fab-table .fab-creator { display: none; }
 }
+
+@media (max-width: 1023px) {
+    .fab-root { padding: 1rem 0.75rem; }
+    /* Header: flex-wrap */
+    .fab-header { flex-wrap: wrap; }
+    /* Tabs: scroll si hay muchos */
+    .fab-tabs { flex-wrap: wrap; gap: 0.4rem; }
+    /* Cards: 2 col en tablet */
+    .fab-cards { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+    /* Modal body: 1 col en tablet angosto */
+    .fab-modal { max-width: 95vw; }
+    /* Tabla historial: scroll táctil */
+    .fab-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
 </style>

@@ -1352,4 +1352,33 @@ function methodName(id) {
 @media (min-width: 900px) {
     .new-order-body { grid-template-columns: 1fr 320px; }
 }
+
+@media (max-width: 1023px) {
+    .orders-wrap { padding: 1rem 0.75rem; }
+    /* Tabs scrollables en tablet */
+    .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
+    /* Header de pedidos apila */
+    .orders-header { flex-direction: column; align-items: flex-start; }
+    .orders-header .btn-brand { width: 100%; justify-content: center; }
+    /* Grid: 1 col en tablet chico */
+    .orders-grid { grid-template-columns: 1fr; }
+    /* Tabla historial scroll táctil */
+    .table-wrap { -webkit-overflow-scrolling: touch; overflow-x: auto; }
+}
+
+@media (max-width: 640px) {
+    /* Modal → bottom sheet */
+    .modal-overlay { align-items: flex-end; padding: 0; }
+    .modal-box { border-radius: 16px 16px 0 0; max-height: 92dvh; max-width: 100%; }
+    /* Inputs anti-zoom iOS */
+    .field-input { font-size: 1rem; min-height: 44px; }
+    /* touch targets */
+    .tab { min-height: 44px; }
+    .btn-brand, .btn-danger { min-height: 44px; }
+    /* Qty buttons: más fácil de tocar */
+    .qty-btn { width: 2rem; height: 2rem; }
+    /* Field input en cart */
+    .qty-input { font-size: 1rem; }
+    .bs-input  { font-size: 1rem; }
+}
 </style>

@@ -408,4 +408,14 @@ const helpFaqs = [
     .day-btn    { width: 2.5rem; height: 2.5rem; touch-action: manipulation; }
     .btn-act    { min-height: 44px; touch-action: manipulation; }
 }
+
+@media (max-width: 1023px) {
+    /* Tabla: scroll táctil en tablet */
+    .table-wrap { -webkit-overflow-scrolling: touch; }
+    /* Actions wrap en tablet */
+    .actions { flex-wrap: wrap; }
+    .btn-act { min-height: 44px; }
+    /* Page head wrap */
+    .page-head { flex-wrap: wrap; }
+}
 </style>
