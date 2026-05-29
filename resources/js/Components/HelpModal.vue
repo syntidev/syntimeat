@@ -337,7 +337,13 @@ function onKeydown(e) {
 .faq-expand-enter-from,
 .faq-expand-leave-to     { opacity: 0; }
 
-@media (max-width: 600px) {
-    .help-panel { width: 100vw; }
+@media (max-width: 640px) {
+    .help-panel  { width: 100vw; }
+    .help-header { padding: 16px 16px 12px; }
+    .help-title  { font-size: 0.95rem; }
+}
+
+@media (max-width: 1023px) {
+    .help-panel { width: min(440px, 100vw); }
 }
 </style>
