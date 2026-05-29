@@ -84,6 +84,7 @@ class CatalogController extends Controller
             'price_per_unit_usd' => ['nullable', 'numeric', 'min:0', 'required_if:sale_mode,unit'],
             'min_stock'          => ['nullable', 'numeric', 'min:0'],
             'fabricable'         => ['boolean'],
+            'is_favorite'        => ['boolean'],
             'image'              => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
 
@@ -112,6 +113,7 @@ class CatalogController extends Controller
             'price_per_unit_usd' => $validated['price_per_unit_usd'] ?? null,
             'min_stock'          => $validated['min_stock'] ?? 0,
             'fabricable'         => $validated['fabricable'] ?? false,
+            'is_favorite'        => $validated['is_favorite'] ?? false,
             'active'             => true,
         ]);
 
@@ -150,6 +152,7 @@ class CatalogController extends Controller
             'price_per_unit_usd' => ['nullable', 'numeric', 'min:0', 'required_if:sale_mode,unit'],
             'min_stock'          => ['nullable', 'numeric', 'min:0'],
             'fabricable'         => ['boolean'],
+            'is_favorite'        => ['boolean'],
             'active'             => ['boolean'],
             'image'              => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'remove_image'       => ['nullable', 'boolean'],
@@ -165,6 +168,7 @@ class CatalogController extends Controller
             'price_per_unit_usd' => $validated['price_per_unit_usd'] ?? null,
             'min_stock'          => $validated['min_stock'] ?? 0,
             'fabricable'         => $validated['fabricable'] ?? $product->fabricable,
+            'is_favorite'        => $validated['is_favorite'] ?? $product->is_favorite,
             'active'             => $validated['active'] ?? $product->active,
         ];
 

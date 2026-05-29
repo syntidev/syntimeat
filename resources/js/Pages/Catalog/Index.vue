@@ -54,6 +54,7 @@ const form = useForm({
     min_stock:          0,
     active:             true,
     fabricable:         false,
+    is_favorite:        false,
     image:              null,
     remove_image:       false,
 })
@@ -102,6 +103,7 @@ function openEdit(product) {
     form.min_stock          = product.min_stock ?? 0
     form.active             = product.active
     form.fabricable         = product.fabricable ?? false
+    form.is_favorite        = product.is_favorite ?? false
     form.image              = null
     form.remove_image       = false
     formTouched.value       = false
@@ -155,6 +157,7 @@ function submitForm() {
         min_stock:          form.min_stock ?? 0,
         active:             form.active,
         fabricable:         form.fabricable ? 1 : 0,
+        is_favorite:        form.is_favorite ? 1 : 0,
         remove_image:       form.remove_image,
     }
 
@@ -801,6 +804,13 @@ const helpFaqs = [
                                             <span>
                                                 <strong>Habilitar en Fábrica</strong>
                                                 <small> — chorizo, cesta, combo…</small>
+                                            </span>
+                                        </label>
+                                        <label class="field-check-row">
+                                            <input type="checkbox" v-model="form.is_favorite" class="field-chk" />
+                                            <span>
+                                                <strong>Producto favorito</strong>
+                                                <small> — aparece destacado en POS</small>
                                             </span>
                                         </label>
                                     </div>
