@@ -372,6 +372,7 @@ class FabricaController extends Controller
             foreach ($cortesConKg as $corte) {
                 InventoryEntry::create([
                     'business_id'     => $businessId,
+                    'branch_id'       => $branchId,
                     'product_id'      => $corte['product_id'],
                     'boveda_entry_id' => $entry->id,
                     'quantity_kg'     => (float) $corte['kg'],
