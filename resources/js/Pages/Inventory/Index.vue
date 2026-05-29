@@ -1072,7 +1072,7 @@ const helpFaqs = [
 }
 
 /* Mobile: iOS auto-zoom fix (inputs < 16px) + touch targets */
-@media (max-width: 639px) {
+@media (max-width: 640px) {
     .field-input  { font-size: 1rem; }
     .filter-select { font-size: 1rem; min-height: 44px; }
 }
