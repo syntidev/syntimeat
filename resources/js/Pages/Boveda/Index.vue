@@ -1183,6 +1183,7 @@ async function deactivateProduct(product) {
                             </button>
                         </div>
                     </div>
+                </div>
             </Transition>
         </Teleport>
 
@@ -1397,20 +1398,12 @@ async function deactivateProduct(product) {
 .field-group  { display:flex; flex-direction:column; gap:4px; }
 .field-group label { font-size:0.8rem; color:var(--text-secondary); }
 
-/* ─── Tablet (769px – 1023px) ────────────────────────────────────────────── */
-@media (min-width: 769px) and (max-width: 1023px) {
-    .boveda-page { padding: 0.75rem; }
-    .kpi-grid    { grid-template-columns: repeat(3, 1fr); }
-    .col-proveedor { display: none; }
-}
-
-/* ─── Móvil (≤ 768px) ────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
     /* Layout */
-    .boveda-page { padding: 0.75rem; }
+    .boveda-page { padding: 1rem; }
     .kpi-grid    { grid-template-columns: repeat(2, 1fr); }
 
-    /* Tabla: ocultar columnas no esenciales */
+    /* Tabla: ocultar Kg surtido, Proveedor y Fecha en tablet */
     .col-surtido,
     .col-proveedor,
     .col-fecha { display: none; }
