@@ -374,7 +374,7 @@ const helpFaqs = [
                                 <td class="muted" data-label="Fecha">{{ fmtDate(r.fecha) }}</td>
                                 <td data-label="Producto">{{ r.producto }}</td>
                                 <td class="muted small" data-label="Categoría">{{ r.categoria }}</td>
-                                <td class="right" data-label="Recibido">{{ fmtKg(r.recibido) }}</td>
+                                <td class="right" data-label="Recibido">{{ r.sale_mode === 'unit' ? parseInt(r.recibido) + ' und' : fmtKg(r.recibido) }}</td>
                                 <td class="right muted" data-label="Merma">{{ fmtKg(r.merma) }}</td>
                                 <td class="right amount" data-label="Neto">{{ fmtKg(r.neto) }}</td>
                                 <td class="right muted" data-label="Costo USD/kg">{{ fmtUsd(r.costo_usd) }}</td>

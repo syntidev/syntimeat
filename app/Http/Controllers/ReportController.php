@@ -143,6 +143,7 @@ class ReportController extends Controller
             'fecha'         => $e->entered_at?->toDateTimeString(),
             'producto'      => $e->product?->name ?? '—',
             'categoria'     => $e->product?->category?->name ?? '—',
+            'sale_mode'     => $e->product?->sale_mode ?? 'weight',
             'recibido'      => (float) $e->quantity_kg,
             'merma'         => (float) $e->waste_kg,
             'neto'          => round((float) $e->quantity_kg - (float) $e->waste_kg, 3),
