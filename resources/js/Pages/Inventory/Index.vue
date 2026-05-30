@@ -493,7 +493,7 @@ watch(drawerProduct, (val) => { if (! val) closeAdjust() })
                         </button>
 
                         <!-- Ajuste de stock -->
-                        <template v-if="['owner','branch_admin','analyst'].includes($page.props.auth.user.role)">
+                        <template v-if="$page.props.auth.user.role !== 'cashier'">
                             <button class="btn btn-ghost btn-full adjust-btn" @click="openAdjust()">
                                 <Scale :size="16" />
                                 Ajustar stock
