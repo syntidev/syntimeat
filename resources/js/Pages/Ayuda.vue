@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import {
     DollarSign, Package, ShoppingCart, BarChart2,
     RefreshCw, Moon, Truck, ChevronLeft, ChevronRight,
-    CheckCircle, Menu, X, AlertTriangle, Clock, Info,
+    CheckCircle, Menu, X, AlertTriangle, Clock, Info, Scale,
 } from '@lucide/vue'
 
 // ─── Flujos ───────────────────────────────────────────────────────────────────
@@ -267,6 +267,28 @@ const flujos = [
                 ],
                 tip: 'La barra se pone roja si todavía no cubriste el costo, verde cuando lo superaste.',
                 nota: null,
+            },
+        ],
+    },
+    {
+        id: 'flujo-8',
+        titulo: 'Ajuste de Stock',
+        subtitulo: 'Para cuando el conteo físico no coincide con lo que muestra el sistema',
+        icon: Scale,
+        pasos: [
+            {
+                titulo: 'Cómo corregir el stock de un producto',
+                alerta: null,
+                cuerpo: [
+                    'Ve a <strong>INVENTARIO</strong> y toca el producto que necesitas corregir.',
+                    'En el panel lateral aparece el botón <strong>Ajustar stock</strong> (el cajero no lo ve).',
+                    'El sistema muestra el stock actual registrado.',
+                    'Escribe el número real que hay físicamente en ese momento.',
+                    'Toca <strong>Confirmar ajuste</strong>.',
+                    'El sistema calcula la diferencia y corrige el stock automáticamente.',
+                ],
+                tip: '¿Quién puede usarlo? Dueño, Administrador y Contable. El cajero no tiene acceso.',
+                nota: 'El ajuste queda registrado en el historial del producto con la descripción "Ajuste de inventario". No borra entradas anteriores — crea un movimiento de corrección.',
             },
         ],
     },
