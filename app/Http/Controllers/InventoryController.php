@@ -23,7 +23,10 @@ class InventoryController extends Controller
         $businessId = $business->id;
 
         // ─── Productos activos con categoría y sucursal ───────────────────────
-        $branchId = session('current_branch_id') ?? Auth::user()->branch_id;
+        $user     = Auth::user();
+        $branchId = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? null);
 
         $products = Product::with(['category', 'branch'])
             ->where('business_id', $businessId)
@@ -113,9 +116,9 @@ class InventoryController extends Controller
         $user       = Auth::user();
         $businessId = $user->business->id;
         $userId     = $user->id;
-        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
-            ? $user->branch_id
-            : (session('current_branch_id') ?? $user->branch_id);
+        $branchId = $user->branch_id
+            ?? session('current_branch_id')
+            ?? \App\Models\Branch::where('business_id', $businessId)->orderBy('id')->value('id');
 
         $product = Product::where('id', $data['product_id'])
             ->where('business_id', $businessId)
