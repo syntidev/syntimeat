@@ -806,7 +806,7 @@ const helpFaqs = [
                                         v-model="form.min_stock"
                                         class="field-input"
                                         type="number"
-                                        step="0.001"
+                                        :step="form.sale_mode === 'weight' ? '0.001' : '1'"
                                         min="0"
                                         placeholder="0"
                                     />
