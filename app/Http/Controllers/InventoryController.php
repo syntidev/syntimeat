@@ -160,4 +160,56 @@ class InventoryController extends Controller
 
         return back()->with('success', 'Entrada registrada correctamente.');
     }
+
+    public function adjust(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'product_id' => ['required', 'integer', 'exists:products,id'],
+            'stock_real' => ['required', 'numeric', 'min:0', 'max:99999'],
+        ]);
+
+        $user       = Auth::user();
+        $businessId = $user->business->id;
+        $userId     = $user->id;
+        $branchId   = $user->branch_id
+            ?? session('current_branch_id')
+            ?? \App\Models\Branch::where('business_id', $businessId)->orderBy('id')->value('id');
+
+        Product::where('id', $data['product_id'])
+            ->where('business_id', $businessId)
+            ->firstOrFail();
+
+        $stockActual = (float) InventoryEntry::where('business_id', $businessId)
+            ->where('product_id', $data['product_id'])
+            ->sum('net_kg');
+
+        $diferencia = round((float) $data['stock_real'] - $stockActual, 3);
+
+        if (abs($diferencia) < 0.001) {
+            return back();
+        }
+
+        $entry = InventoryEntry::create([
+            'business_id' => $businessId,
+            'branch_id'   => $branchId,
+            'product_id'  => $data['product_id'],
+            'quantity_kg' => $diferencia,
+            'waste_kg'    => 0,
+            'entered_at'  => now(),
+            'created_by'  => $userId,
+            'notes'       => 'Ajuste de inventario — stock real: ' . $data['stock_real'],
+        ]);
+
+        ActivityLog::create([
+            'business_id' => $businessId,
+            'user_id'     => $userId,
+            'action'      => 'inventory.adjust',
+            'model_type'  => 'InventoryEntry',
+            'model_id'    => $entry->id,
+            'new_values'  => $entry->toArray(),
+            'ip_address'  => $request->ip(),
+        ]);
+
+        return back()->with('success', 'Stock ajustado correctamente.');
+    }
 }

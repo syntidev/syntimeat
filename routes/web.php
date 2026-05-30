@@ -94,6 +94,7 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
         // Inventario — todos los roles operativos (incluye cashier y analyst)
         Route::get('/inventario', [InventoryController::class, 'index'])->name('inventory.index');
         Route::post('/inventario', [InventoryController::class, 'store'])->name('inventory.store');
+        Route::post('/inventario/ajustar', [InventoryController::class, 'adjust'])->name('inventory.adjust');
 
         // Contingencia — todos los roles operativos (incluye cashier y analyst)
         Route::get('/contingencia', [ContingencyController::class, 'index'])->name('contingency.index');

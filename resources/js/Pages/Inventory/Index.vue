@@ -3,6 +3,7 @@ import AppLayout from '@/Layouts/AppLayout.vue'
 import HelpModal  from '@/Components/HelpModal.vue'
 import { ref, computed, watch } from 'vue'
 import { useForm } from '@inertiajs/vue3'
+import { Scale } from '@lucide/vue'
 
 const props = defineProps({
     products:     Array,
@@ -256,6 +257,30 @@ const helpFaqs = [
         a: 'En tiempo real. Cada venta confirmada descuenta al instante.',
     },
 ]
+
+// ─── Ajuste de stock ─────────────────────────────────────────────────────────
+const showAdjust = ref(false)
+const adjustForm = useForm({ product_id: '', stock_real: '' })
+
+function openAdjust() {
+    adjustForm.product_id = drawerProduct.value.id
+    adjustForm.stock_real  = stockValue(drawerProduct.value.id)
+    showAdjust.value = true
+}
+
+function closeAdjust() {
+    showAdjust.value = false
+    adjustForm.clearErrors()
+}
+
+function submitAdjust() {
+    adjustForm.post(route('inventory.adjust'), {
+        preserveScroll: true,
+        onSuccess: () => { closeAdjust(); closeDrawer() },
+    })
+}
+
+watch(drawerProduct, (val) => { if (! val) closeAdjust() })
 </script>
 
 <template>
@@ -466,6 +491,33 @@ const helpFaqs = [
                         <button class="btn btn-primary btn-full" @click="openModal(drawerProduct); closeDrawer()">
                             + Registrar Entrada
                         </button>
+
+                        <!-- Ajuste de stock -->
+                        <template v-if="['owner','branch_admin','analyst'].includes($page.props.auth.user.role)">
+                            <button class="btn btn-ghost btn-full adjust-btn" @click="openAdjust()">
+                                <Scale :size="16" />
+                                Ajustar stock
+                            </button>
+                            <div v-if="showAdjust" class="adjust-panel">
+                                <label class="field-label">Stock real actual (lo que hay físicamente)</label>
+                                <input
+                                    v-model="adjustForm.stock_real"
+                                    type="number"
+                                    step="0.001"
+                                    min="0"
+                                    max="99999"
+                                    class="field-input"
+                                    :class="{ 'field-error': adjustForm.errors.stock_real }"
+                                />
+                                <span v-if="adjustForm.errors.stock_real" class="error-msg">{{ adjustForm.errors.stock_real }}</span>
+                                <div class="adjust-actions">
+                                    <button type="button" class="btn btn-ghost" @click="closeAdjust">Cancelar</button>
+                                    <button type="button" class="btn btn-primary" :disabled="adjustForm.processing" @click="submitAdjust">
+                                        Confirmar ajuste
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
 
                         <!-- Historial del día -->
                         <div class="drawer-history">
@@ -1087,5 +1139,23 @@ const helpFaqs = [
     /* filter bar: alinear en columna */
     .filter-bar { flex-wrap: wrap; }
     .filter-count { margin-left: 0; }
+}
+
+/* ─── Ajuste de stock ─────────────────────────────────────────────────────── */
+.adjust-btn { display: flex; align-items: center; justify-content: center; gap: 0.4rem; }
+.adjust-panel {
+    background: var(--bg-base);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.adjust-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    margin-top: 0.25rem;
 }
 </style>
