@@ -294,7 +294,7 @@ watch(drawerProduct, (val) => { if (! val) closeAdjust() })
                     <span class="kpi-value">{{ fmtKg(kpis.kg_today) }} <small>kg</small></span>
                 </div>
                 <div class="kpi-card">
-                    <span class="kpi-label">Stock Disponible</span>
+                    <span class="kpi-label">Stock Disponible (kg)</span>
                     <span class="kpi-value">{{ fmtKg(kpis.total_stock) }} <small>kg</small></span>
                 </div>
                 <div class="kpi-card" :class="{ 'kpi-card--alert': kpis.below_min > 0 }">
@@ -461,7 +461,9 @@ watch(drawerProduct, (val) => { if (! val) closeAdjust() })
                             <div class="dstat">
                                 <span class="dstat-label">Stock actual</span>
                                 <span class="dstat-value" :class="'dstat-' + stockStatus(drawerProduct)">
-                                    {{ fmtKg(stockValue(drawerProduct.id)) }}
+                                    {{ drawerProduct.sale_mode === 'unit'
+                                        ? parseInt(stockValue(drawerProduct.id))
+                                        : fmtKg(stockValue(drawerProduct.id)) }}
                                     <small>{{ drawerProduct.sale_mode === 'weight' ? 'kg' : 'und' }}</small>
                                 </span>
                             </div>
@@ -503,7 +505,7 @@ watch(drawerProduct, (val) => { if (! val) closeAdjust() })
                                 <input
                                     v-model="adjustForm.stock_real"
                                     type="number"
-                                    step="0.001"
+                                    :step="drawerProduct?.sale_mode === 'unit' ? '1' : '0.001'"
                                     min="0"
                                     max="99999"
                                     class="field-input"
@@ -535,7 +537,9 @@ watch(drawerProduct, (val) => { if (! val) closeAdjust() })
                                     </div>
                                     <div class="history-nums">
                                         <span class="h-qty" :class="parseFloat(e.quantity_kg) < 0 ? 'h-qty--neg' : ''">
-                                            {{ fmtKg(Math.abs(parseFloat(e.quantity_kg))) }}
+                                            {{ drawerProduct.sale_mode === 'unit'
+                                                ? parseInt(Math.abs(parseFloat(e.quantity_kg)))
+                                                : fmtKg(Math.abs(parseFloat(e.quantity_kg))) }}
                                             {{ drawerProduct.sale_mode === 'unit' ? 'und' : 'kg' }}
                                         </span>
                                         <span v-if="drawerProduct.sale_mode !== 'unit' && parseFloat(e.waste_kg) > 0" class="h-waste">
