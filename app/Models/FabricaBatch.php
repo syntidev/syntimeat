@@ -12,6 +12,7 @@ class FabricaBatch extends Model
 {
     protected $fillable = [
         'business_id',
+        'branch_id',
         'created_by',
         'output_product_id',
         'output_kg',

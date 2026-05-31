@@ -13,6 +13,7 @@ class BovedaEntry extends Model
 {
     protected $fillable = [
         'business_id',
+        'branch_id',
         'product_type',
         'description',
         'kg_entrada',

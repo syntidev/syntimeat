@@ -456,11 +456,10 @@ try {
     $branchIdUsed  = strpos($src, "'branch_id'       => \$branchId") !== false;
 
     chk(
-        '$branchId ausente en use() closure → InventoryEntry.branch_id=NULL [BUG]',
-        ! $branchIdInUse && $branchIdUsed,
-        $pass, $fail, $failures, true
+        '$branchId presente en use() closure de storeDespiece → CORRECTO',
+        $branchIdInUse,
+        $pass, $fail, $failures
     );
-    echo "    FIX: agregar \$branchId al use() de la closure DB::transaction en storeDespiece\n";
 
     // ═══════════════════════════════════════════════════════════════════
     // BLOQUE 8 — Roles: cashier siempre usa su branch_id

@@ -11,6 +11,7 @@ class InventoryEntry extends Model
 {
     protected $fillable = [
         'business_id',
+        'branch_id',
         'product_id',
         'boveda_entry_id',
         'quantity_kg',

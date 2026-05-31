@@ -368,7 +368,7 @@ class FabricaController extends Controller
             ], 422);
         }
 
-        DB::transaction(function () use ($entry, $cortesConKg, $merma, $kgSurtido, $businessId, $user, $data): void {
+        DB::transaction(function () use ($entry, $cortesConKg, $merma, $kgSurtido, $businessId, $branchId, $user, $data): void {
             foreach ($cortesConKg as $corte) {
                 InventoryEntry::create([
                     'business_id'     => $businessId,
