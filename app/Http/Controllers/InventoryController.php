@@ -129,6 +129,9 @@ class InventoryController extends Controller
         }
 
         $isUnit  = $product->sale_mode === 'unit';
+        if ($isUnit) {
+            $data['quantity_kg'] = (int) round((float) $data['quantity_kg']);
+        }
         $wasteKg = $isUnit ? 0.0 : (float) ($data['waste_kg'] ?? 0);
 
         // Para productos por peso: waste no puede superar la cantidad

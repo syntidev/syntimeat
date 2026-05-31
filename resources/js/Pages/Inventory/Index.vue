@@ -378,7 +378,9 @@ watch(drawerProduct, (val) => { if (! val) closeAdjust() })
                                 </td>
                                 <td class="txt-muted">{{ p.branch?.name ?? '—' }}</td>
                                 <td class="txt-right mono">
-                                    {{ fmtKg(stockValue(p.id)) }}
+                                    {{ p.sale_mode === 'unit'
+                                        ? parseInt(stockValue(p.id))
+                                        : fmtKg(stockValue(p.id)) }}
                                     <small>{{ p.sale_mode === 'weight' ? 'kg' : 'und' }}</small>
                                 </td>
                                 <td>
@@ -411,7 +413,9 @@ watch(drawerProduct, (val) => { if (! val) closeAdjust() })
                         </div>
                         <div class="mc-right">
                             <div class="mc-stock">
-                                {{ fmtKg(stockValue(p.id)) }}
+                                {{ p.sale_mode === 'unit'
+                                    ? parseInt(stockValue(p.id))
+                                    : fmtKg(stockValue(p.id)) }}
                                 <small>{{ p.sale_mode === 'weight' ? 'kg' : 'und' }}</small>
                             </div>
                             <span class="status-badge" :class="'status-' + stockStatus(p)">{{ stockLabel(p) }}</span>
@@ -470,7 +474,11 @@ watch(drawerProduct, (val) => { if (! val) closeAdjust() })
                             <div class="dstat">
                                 <span class="dstat-label">Mínimo</span>
                                 <span class="dstat-value">
-                                    {{ parseFloat(drawerProduct.min_stock) > 0 ? fmtKg(drawerProduct.min_stock) + ' kg' : '—' }}
+                                    {{ parseFloat(drawerProduct.min_stock) > 0
+                                        ? (drawerProduct.sale_mode === 'unit'
+                                            ? parseInt(drawerProduct.min_stock) + ' und'
+                                            : fmtKg(drawerProduct.min_stock) + ' kg')
+                                        : '—' }}
                                 </span>
                             </div>
                             <div class="dstat">

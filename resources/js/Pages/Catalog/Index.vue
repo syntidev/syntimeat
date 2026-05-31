@@ -102,7 +102,9 @@ function openEdit(product) {
     form.sale_mode          = product.sale_mode
     form.price_per_kg_usd   = product.price_per_kg_usd ?? ''
     form.price_per_unit_usd = product.price_per_unit_usd ?? ''
-    form.min_stock          = product.min_stock ?? 0
+    form.min_stock          = product.sale_mode === 'unit'
+        ? Math.floor(parseFloat(product.min_stock || 0))
+        : (product.min_stock ?? 0)
     form.active             = product.active
     form.fabricable         = product.fabricable ?? false
     form.is_favorite        = product.is_favorite ?? false

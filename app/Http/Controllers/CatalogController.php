@@ -104,6 +104,10 @@ class CatalogController extends Controller
             return response()->json(['errors' => ['name' => ['Ya existe un producto con ese nombre en esta sucursal.']]], 422);
         }
 
+        if ($validated['sale_mode'] === 'unit') {
+            $validated['min_stock'] = (int) round($validated['min_stock'] ?? 0);
+        }
+
         $product = Product::create([
             'business_id'        => $businessId,
             'branch_id'          => $branchId,
@@ -162,6 +166,10 @@ class CatalogController extends Controller
             'image'              => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'remove_image'       => ['nullable', 'boolean'],
         ]);
+
+        if ($validated['sale_mode'] === 'unit') {
+            $validated['min_stock'] = (int) round($validated['min_stock'] ?? 0);
+        }
 
         $updates = [
             'category_id'        => $validated['category_id'],
