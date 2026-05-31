@@ -25,7 +25,7 @@ class BovedaController extends Controller
         $businessId = Auth::user()->business_id;
         $branchId   = in_array(Auth::user()->role, ['branch_admin', 'cashier'])
             ? Auth::user()->branch_id
-            : (session('current_branch_id') ?? \App\Models\Branch::where('business_id', $businessId)->orderBy('id')->value('id'));
+            : (session('current_branch_id') ?? null);
 
         $activas = BovedaEntry::active()
             ->where('business_id', $businessId)
