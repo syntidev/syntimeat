@@ -74,6 +74,24 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
         return view('soporte.guia');
     })->name('soporte.guia');
 
+    Route::get('/soporte/certificacion', function () {
+        $user = auth()->user();
+        abort_unless(
+            $user->email === 'carbolivar@gmail.com' || $user->role === 'super_admin',
+            403
+        );
+        $checks = [
+            'cert_file'    => file_exists(storage_path('app/qz/digital-certificate.txt'))
+                           || file_exists(storage_path('app/qz/digital-certificate')),
+            'key_file'     => file_exists(storage_path('app/qz/private-key.pem')),
+            'driver_zip'   => (bool) glob(base_path('Referencias/soporte/58MM*')),
+            'qz_installer' => file_exists(base_path('Referencias/soporte/qz-tray-2.2.6-x86_64.exe')),
+        ];
+        $tag = trim(shell_exec('git -C ' . base_path() . ' describe --tags --abbrev=0 2>/dev/null') ?? '');
+        $commit = trim(shell_exec('git -C ' . base_path() . ' rev-parse --short HEAD 2>/dev/null') ?? '');
+        return view('soporte.certificacion', compact('checks', 'tag', 'commit'));
+    })->name('soporte.certificacion');
+
     // ── Perfil (todos los roles) ──────────────────────────────────────────────
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
