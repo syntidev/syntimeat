@@ -49,6 +49,22 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
 
     Route::get('/qz-test', fn () => view('qz-test'));
 
+    Route::get('/soporte/driver-impresora', function () {
+        $path = base_path('Referencias/soporte/58MM Thermal Printer Driver & Tools.zip');
+        if (!file_exists($path)) {
+            $files = glob(base_path('Referencias/soporte/58MM*'));
+            $path = $files[0] ?? null;
+        }
+        abort_unless($path && file_exists($path), 404);
+        return response()->download($path);
+    })->name('soporte.driver');
+
+    Route::get('/soporte/qz-tray', function () {
+        $path = base_path('Referencias/soporte/qz-tray-2.2.6-x86_64.exe');
+        abort_unless(file_exists($path), 404);
+        return response()->download($path);
+    })->name('soporte.qz');
+
     // ── Perfil (todos los roles) ──────────────────────────────────────────────
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
