@@ -205,25 +205,6 @@ const helpFaqs = [
                     </div>
                 </div>
 
-                <div class="info-card">
-                    <p class="info-card__label">Anchos de papel soportados</p>
-                    <div class="paper-options">
-                        <div class="paper-card paper-card--active">
-                            <span class="paper-mm">80mm</span>
-                            <span class="paper-desc">Estándar POS</span>
-                            <span class="paper-badge">Recomendado</span>
-                        </div>
-                        <div class="paper-card">
-                            <span class="paper-mm">57mm</span>
-                            <span class="paper-desc">Compacto</span>
-                        </div>
-                    </div>
-                    <p class="info-card__example">
-                        El selector de ancho estará disponible próximamente.
-                        El ticket actual está optimizado para <strong>80mm</strong>.
-                    </p>
-                </div>
-
                 <div class="info-steps">
                     <p class="info-steps__title">Cómo configurar tu impresora térmica</p>
                     <ol class="info-steps__list">
@@ -348,22 +329,6 @@ const helpFaqs = [
 .test-result-enter-active, .test-result-leave-active { transition: opacity .2s, transform .2s; }
 .test-result-enter-from,   .test-result-leave-to     { opacity: 0; transform: translateY(-4px); }
 
-/* Paper options */
-.paper-options { display: flex; gap: .5rem; margin-bottom: .5rem; }
-.paper-card {
-    flex: 1; border-radius: 8px; padding: .75rem;
-    background: var(--bg-card); border: 1px solid var(--border);
-    display: flex; flex-direction: column; align-items: center; gap: 2px;
-}
-.paper-card--active { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 8%, transparent); }
-.paper-mm   { font-size: 1rem; font-weight: 800; color: var(--text-primary); }
-.paper-desc { font-size: .72rem; color: var(--text-muted); }
-.paper-badge {
-    font-size: .62rem; font-weight: 700; padding: 1px 6px; border-radius: 20px;
-    background: color-mix(in srgb, var(--brand) 15%, transparent); color: var(--brand);
-    margin-top: 2px;
-}
-
 /* Info steps */
 .info-steps { padding: 0 1.25rem 1.25rem; }
 .info-steps__title { font-size: .78rem; font-weight: 700; color: var(--text-secondary); margin-bottom: .5rem; }
@@ -391,9 +356,6 @@ const helpFaqs = [
 @media (max-width: 640px) {
     /* hw-head apila */
     .hw-head { flex-direction: column; align-items: flex-start; }
-    /* Paper options: flex-wrap */
-    .paper-options { flex-wrap: wrap; }
-    .paper-card { flex: 1 1 calc(50% - 0.25rem); min-width: 80px; }
     /* EAN diagram: scroll horizontal */
     .ean-diagram { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     /* Test input row: apila */
