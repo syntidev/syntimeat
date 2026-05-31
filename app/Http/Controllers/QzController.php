@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class QzController extends Controller
 {
@@ -30,11 +29,12 @@ class QzController extends Controller
             'toSign' => ['required', 'string'],
         ]);
 
-        if (! Storage::disk('local')->exists('qz/private-key.pem')) {
+        $keyPath = storage_path('app/qz/private-key.pem');
+        if (! file_exists($keyPath)) {
             abort(404, 'Clave privada QZ no configurada. Coloca el archivo en storage/app/qz/private-key.pem.');
         }
 
-        $privateKey = Storage::disk('local')->get('qz/private-key.pem');
+        $privateKey = file_get_contents($keyPath);
         $pkeyId     = openssl_pkey_get_private($privateKey);
 
         if ($pkeyId === false) {

@@ -38,12 +38,16 @@ Route::get('/ayuda', function () {
     return Inertia::render('Ayuda');
 })->name('ayuda');
 
+// ─── QZ Tray — sin auth, solo sesión web (CSRF ya protege el POST) ──────────
+Route::middleware('web')->group(function () {
+    Route::get('/qz/certificate', [QzController::class, 'certificate'])->name('qz.certificate');
+    Route::post('/qz/sign',       [QzController::class, 'sign'])->name('qz.sign');
+});
+
 // ─── Authenticated + onboarding complete ─────────────────────────────────────
 Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->group(function () {
 
-    // ── QZ Tray — firma de tickets para impresión silenciosa ─────────────────
-    Route::get('/qz/certificate', [QzController::class, 'certificate'])->name('qz.certificate');
-    Route::post('/qz/sign',       [QzController::class, 'sign'])->name('qz.sign');
+    Route::get('/qz-test', fn () => view('qz-test'));
 
     // ── Perfil (todos los roles) ──────────────────────────────────────────────
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

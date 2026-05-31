@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<title>QZ Tray — Test</title>
+<script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.js"></script>
+<style>
+  body { font-family: monospace; background: #0f0f0f; color: #e0e0e0; padding: 2rem; max-width: 640px; margin: 0 auto; }
+  h1   { color: #e53e3e; margin-bottom: 2rem; font-size: 1.2rem; }
+  .btn {
+    display: block; width: 100%; padding: 0.75rem 1rem; margin-bottom: 1rem;
+    background: #1a1a1a; border: 1px solid #333; color: #e0e0e0;
+    font-family: monospace; font-size: 1rem; cursor: pointer; border-radius: 6px;
+    text-align: left; transition: border-color 0.15s;
+  }
+  .btn:hover   { border-color: #e53e3e; }
+  .btn:disabled{ opacity: 0.4; cursor: not-allowed; }
+  .log {
+    background: #111; border: 1px solid #2a2a2a; border-radius: 6px;
+    padding: 1rem; min-height: 120px; white-space: pre-wrap;
+    font-size: 0.85rem; line-height: 1.6; margin-top: 1rem;
+  }
+  .ok  { color: #22c55e; }
+  .err { color: #ef4444; }
+  .inf { color: #60a5fa; }
+  .sep { border: none; border-top: 1px solid #2a2a2a; margin: 1.5rem 0; }
+  label { display: block; font-size: 0.8rem; color: #888; margin-bottom: 0.3rem; }
+  input {
+    width: 100%; padding: 0.5rem 0.75rem; background: #1a1a1a;
+    border: 1px solid #333; color: #e0e0e0; border-radius: 6px;
+    font-family: monospace; font-size: 0.9rem; margin-bottom: 1rem;
+    box-sizing: border-box;
+  }
+  input:focus { outline: none; border-color: #e53e3e; }
+</style>
+</head>
+<body>
+
+<h1>QZ Tray — Diagnóstico</h1>
+
+<label>Nombre de impresora</label>
+<input id="printerName" type="text" value="POS-58-ROCCIA" placeholder="Nombre exacto de la impresora" />
+
+<button class="btn" id="btnConnect" onclick="testConexion()">Test Conexión</button>
+<button class="btn" id="btnPrint"   onclick="testImprimir()">Test Imprimir</button>
+
+<hr class="sep">
+
+<div class="log" id="log">Esperando acción…</div>
+
+<script>
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+const logEl = document.getElementById('log')
+
+function log(msg, cls) {
+    const line = document.createElement('div')
+    if (cls) line.className = cls
+    line.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg
+    logEl.appendChild(line)
+    logEl.scrollTop = logEl.scrollHeight
+}
+
+function logOk(msg)  { log('✓ ' + msg, 'ok')  }
+function logErr(msg) { log('✗ ' + msg, 'err') }
+function logInf(msg) { log('→ ' + msg, 'inf') }
+
+function clearLog() {
+    logEl.innerHTML = ''
+}
+
+async function getCsrfToken() {
+    await fetch('/sanctum/csrf-cookie', { credentials: 'include' })
+    const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/)
+    return match ? decodeURIComponent(match[1]) :
+        document.querySelector('meta[name="csrf-token"]')?.content ?? ''
+}
+
+// ─── Configurar seguridad QZ ────────────────────────────────────────────────
+
+function configSecurity() {
+    qz.security.setSignatureAlgorithm('SHA512')
+
+    qz.security.setCertificatePromise((resolve, reject) => {
+        logInf('Obteniendo certificado desde /qz/certificate…')
+        fetch('/qz/certificate')
+            .then(r => {
+                if (!r.ok) throw new Error('HTTP ' + r.status + ' al obtener certificado')
+                return r.text()
+            })
+            .then(cert => {
+                logOk('Certificado recibido (' + cert.length + ' bytes)')
+                resolve(cert)
+            })
+            .catch(err => {
+                logErr('Error certificado: ' + err.message)
+                reject(err)
+            })
+    })
+
+    qz.security.setSignaturePromise(function(toSign) {
+        return function(resolve, reject) {
+            logInf('Firmando payload (' + toSign.length + ' chars)…')
+            getCsrfToken().then(csrf => fetch('/qz/sign', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrf,
+                },
+                body: JSON.stringify({ toSign }),
+            }))
+            .then(r => {
+                if (!r.ok) throw new Error('HTTP ' + r.status + ' al firmar')
+                return r.text()
+            })
+            .then(sig => {
+                logOk('Firma recibida (' + sig.length + ' chars)')
+                resolve(sig)
+            })
+            .catch(err => {
+                logErr('Error firma: ' + err.message)
+                reject(err)
+            })
+        }
+    })
+}
+
+// ─── Test Conexión ──────────────────────────────────────────────────────────
+
+async function testConexion() {
+    clearLog()
+    logInf('Iniciando test de conexión…')
+
+    if (typeof qz === 'undefined') {
+        logErr('qz-tray.js no cargó. Verifica la conexión a CDN.')
+        return
+    }
+    logOk('qz-tray.js cargado correctamente')
+
+    try {
+        configSecurity()
+
+        if (qz.websocket.isActive()) {
+            logInf('WebSocket ya activo — desconectando primero…')
+            await qz.websocket.disconnect()
+        }
+
+        logInf('Conectando al WebSocket de QZ Tray (ws://localhost:8181)…')
+        await qz.websocket.connect()
+        logOk('CONECTADO a QZ Tray')
+
+        const printers = await qz.printers.find()
+        logOk('Impresoras detectadas: ' + printers.join(', '))
+
+    } catch (err) {
+        logErr('FALLO CONEXIÓN: ' + (err?.message ?? String(err)))
+    }
+}
+
+// ─── Test Imprimir ──────────────────────────────────────────────────────────
+
+async function testImprimir() {
+    clearLog()
+    logInf('Iniciando test de impresión…')
+
+    const printerName = document.getElementById('printerName').value.trim()
+    if (!printerName) {
+        logErr('Escribe el nombre de la impresora primero.')
+        return
+    }
+
+    if (typeof qz === 'undefined') {
+        logErr('qz-tray.js no cargó.')
+        return
+    }
+
+    try {
+        configSecurity()
+
+        if (!qz.websocket.isActive()) {
+            logInf('Conectando…')
+            await qz.websocket.connect()
+            logOk('Conectado')
+        }
+
+        const printers = await qz.printers.find()
+        log('✓ Impresoras detectadas: ' + JSON.stringify(printers))
+
+        logInf('Creando configuración para "' + printerName + '"…')
+        const config = qz.configs.create(printerName, { scaleContent: false, rasterize: false })
+
+        logInf('Enviando a imprimir…')
+        await qz.print(config, [
+            { type: 'raw', format: 'command', data: '\x1b\x40' },
+            { type: 'raw', format: 'command', data: '\x1b\x61\x01' },
+            { type: 'raw', format: 'command', data: '=== TEST QZ TRAY ===\n' },
+            { type: 'raw', format: 'command', data: '\x1b\x61\x00' },
+            { type: 'raw', format: 'command', data: 'Impresora: POS-58-ROCCIA\n' },
+            { type: 'raw', format: 'command', data: 'Fecha: ' + new Date().toLocaleString() + '\n' },
+            { type: 'raw', format: 'command', data: '\n\n\n' },
+            { type: 'raw', format: 'command', data: '\x1d\x56\x42\x01' },
+        ])
+        logOk('IMPRIMIÓ correctamente en "' + printerName + '"')
+
+    } catch (err) {
+        logErr('FALLO IMPRESIÓN: ' + (err?.message ?? String(err)))
+    }
+}
+</script>
+
+</body>
+</html>

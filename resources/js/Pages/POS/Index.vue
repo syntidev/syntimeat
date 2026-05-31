@@ -517,24 +517,75 @@ function newSale() {
     successPayments.value = [];
 }
 
-async function printWithQZ(html) {
+async function printWithQZ(ticket) {
     const printerName = props.businessInfo?.printer_name ?? ''
 
-    if (! printerName || typeof window.qz === 'undefined') {
+    if (!printerName || typeof window.qz === 'undefined') {
         alert('Impresión silenciosa no disponible.\n\nPasos:\n1. Instala QZ Tray (https://qz.io/download)\n2. Escribe el nombre de la impresora en Configuración → Hardware.')
         return
     }
 
     try {
-        window.qz.security.setCertificatePromise((resolve) => resolve(''))
-        window.qz.security.setSignaturePromise((toSign, resolve) => resolve(''))
+        window.qz.security.setSignatureAlgorithm('SHA512')
+        window.qz.security.setCertificatePromise((resolve) =>
+            fetch('/qz/certificate').then(r => r.text()).then(resolve)
+        )
+        window.qz.security.setSignaturePromise(function(toSign) {
+            return function(resolve, reject) {
+                fetch('/qz/sign', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    },
+                    body: JSON.stringify({ toSign }),
+                }).then(r => r.text()).then(resolve).catch(reject)
+            }
+        })
 
         if (!window.qz.websocket.isActive()) {
             await window.qz.websocket.connect()
         }
 
-        const config = window.qz.configs.create(printerName)
-        await window.qz.print(config, [{ type: 'html', format: 'plain', data: html }])
+        const config = window.qz.configs.create(printerName, { scaleContent: false, rasterize: false })
+
+        const c = (data) => ({ type: 'raw', format: 'command', data })
+
+        const cmds = [
+            c('\x1b\x40'),                              // ESC @ init
+            c('\x1b\x61\x01'),                          // ESC a 1 centrar
+            c(ticket.biz + '\n'),
+            ...(ticket.sub ? ticket.sub.split('\n').map(l => c(l + '\n')) : []),
+            c('Ticket: ' + ticket.ticket + '\n'),
+            c(ticket.fecha + '\n'),
+            c('\x1b\x61\x00'),                          // ESC a 0 izquierda
+            c('--------------------------------\n'),
+        ]
+
+        for (const item of ticket.items) {
+            cmds.push(c('\x1d\x21\x00'))                // GS ! 0x00 tamaño normal
+            cmds.push(c(item.name + '\n'))
+            cmds.push(c('  ' + item.qty + '  ' + item.amount + ' Bs.\n'))
+        }
+
+        cmds.push(c('--------------------------------\n'))
+        cmds.push(c('\x1b\x45\x01'))                    // ESC E 1 negrita
+        cmds.push(c('TOTAL: ' + ticket.total + ' Bs.\n'))
+        cmds.push(c('\x1b\x45\x00'))                    // ESC E 0 apagar negrita
+
+        if (ticket.metodo) {
+            for (const line of ticket.metodo.split('\n')) {
+                cmds.push(c(line + '\n'))
+            }
+        }
+
+        cmds.push(c('\x1b\x61\x01'))                    // centrar
+        cmds.push(c(ticket.gracias + '\n'))
+        cmds.push(c('\x1b\x61\x00'))
+        cmds.push(c('\n\n\n'))
+        cmds.push(c('\x1d\x56\x42\x01'))                // GS V B 1 corte parcial
+
+        await window.qz.print(config, cmds)
 
     } catch (err) {
         const msg = err?.message ?? String(err)
@@ -543,92 +594,41 @@ async function printWithQZ(html) {
 }
 
 async function printTicket() {
-    const biz   = props.businessInfo
-    const name  = (biz.name  || 'Mi Negocio').toUpperCase()
-    const addr  = [biz.address, biz.city, biz.state].filter(Boolean).join(', ')
-    const phone = biz.phone || ''
+    const biz  = props.businessInfo
+    const name = (biz.name || 'Mi Negocio').toUpperCase()
 
-    const itemRows = successItems.value.map(i => {
-        const qty = i.sale_mode === 'weight'
+    const subParts = []
+    const addr = [biz.address, biz.city, biz.state].filter(Boolean).join(', ')
+    if (addr) subParts.push(addr)
+    if (biz.phone) subParts.push('Tel: ' + biz.phone)
+    if (successOrigin.value === 'delivery') subParts.push('** DELIVERY **')
+    else if (successOrigin.value === 'credit') subParts.push('** CREDITO **')
+    if (successClient.value?.name) subParts.push('Cliente: ' + successClient.value.name)
+
+    const items = successItems.value.map(i => ({
+        name:   i.product_name,
+        qty:    i.sale_mode === 'weight'
             ? fmtQty(i.quantity_value, 'weight')
-            : `${Math.round(i.quantity_value)} u.`
-        return `<tr>
-            <td class="t-name">${i.product_name}</td>
-            <td class="t-qty">${qty}</td>
-            <td class="t-amt">${fmtBs(i.subtotal_bs)}</td>
-        </tr>`
-    }).join('')
+            : Math.round(i.quantity_value) + ' u.',
+        amount: fmtBs(i.subtotal_bs),
+    }))
 
-    const payRows = successPayments.value.map(p =>
-        `<tr><td colspan="2" class="t-pay-lbl">${p.method_label || p.method || '—'}</td><td class="t-amt">${fmtBs(p.amount_bs ?? 0)}</td></tr>`
-    ).join('')
+    const metodo = successPayments.value.length
+        ? successPayments.value
+            .map(p => (p.method_label || p.method || '—') + ': ' + fmtBs(p.amount_bs ?? 0) + ' Bs.')
+            .join('\n')
+        : null
 
-    const footer = biz.ticket_footer
-        ? `<p class="t-footer">${biz.ticket_footer}</p>`
-        : ''
-
-    const originBadge = successOrigin.value === 'delivery'
-        ? `<p class="t-origin">DELIVERY</p>`
-        : successOrigin.value === 'credit'
-            ? `<p class="t-origin">CRÉDITO</p>`
-            : ''
-
-    const pw       = props.businessInfo?.paper_width ?? '80'
-    const isNarrow = pw === '58'
-
-    const html = `<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<title>Ticket ${successTicket.value}</title>
-<style>
-  @page { size: ${pw}mm auto; margin: 2mm 1mm; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Courier New', Courier, monospace; font-size: ${isNarrow ? '8' : '10'}pt; color: #000; width: ${isNarrow ? '54' : '74'}mm; line-height: 1.2; }
-  .t-biz  { text-align: center; font-weight: bold; font-size: ${isNarrow ? '9' : '11'}pt; margin-bottom: 1mm; }
-  .t-sub  { text-align: center; font-size: ${isNarrow ? '7' : '8'}pt; margin-bottom: 0.5mm; }
-  .t-meta { text-align: center; font-size: ${isNarrow ? '7' : '8.5'}pt; margin: 1mm 0; }
-  .t-sep  { border: none; border-top: 1px dashed #000; margin: 1mm 0; }
-  .t-origin { text-align: center; font-weight: bold; font-size: ${isNarrow ? '8' : '9'}pt; letter-spacing: 0.5px; margin: 1mm 0; }
-  table   { width: 100%; border-collapse: collapse; }
-  th      { font-size: ${isNarrow ? '7' : '8'}pt; text-align: left; border-bottom: 1px solid #000; padding-bottom: 0.5mm; }
-  th.t-amt, td.t-amt { text-align: right; }
-  th.t-qty, td.t-qty { text-align: center; width: ${isNarrow ? '8' : '10'}mm; }
-  td      { font-size: ${isNarrow ? '8' : '9'}pt; padding: 0.5mm 0; vertical-align: top; }
-  td.t-name { width: ${isNarrow ? '28' : '35'}mm; max-width: ${isNarrow ? '28' : '35'}mm; word-break: break-word; }
-  .t-total-row td { font-weight: bold; font-size: ${isNarrow ? '9' : '10'}pt; border-top: 1px solid #000; padding-top: 1mm; }
-  .t-pay-lbl { font-size: ${isNarrow ? '7' : '8.5'}pt; color: #333; }
-  .t-footer { text-align: center; font-size: ${isNarrow ? '7' : '8'}pt; margin-top: 1mm; }
-  .t-thanks  { text-align: center; font-size: ${isNarrow ? '8' : '9'}pt; font-weight: bold; margin-top: 1mm; }
-</style>
-</head>
-<body>
-  <p class="t-biz">${name}</p>
-  ${addr ? `<p class="t-sub">${addr}</p>` : ''}
-  ${phone ? `<p class="t-sub">Tel: ${phone}</p>` : ''}
-  <hr class="t-sep">
-  <p class="t-meta">Ticket: <strong>${successTicket.value}</strong></p>
-  ${originBadge}
-  <p class="t-meta">${successDate.value}</p>
-  ${successClient.value?.name ? `<p class="t-meta">Cliente: ${successClient.value.name}</p>` : ''}
-  <hr class="t-sep">
-  <table>
-    <thead><tr><th>Producto</th><th class="t-qty">Cant.</th><th class="t-amt">Monto</th></tr></thead>
-    <tbody>${itemRows}</tbody>
-  </table>
-  <hr class="t-sep">
-  <table>
-    <tbody>
-      <tr class="t-total-row"><td colspan="2">TOTAL Bs.</td><td class="t-amt">${fmtBs(successTotal.value)}</td></tr>
-      ${payRows}
-    </tbody>
-  </table>
-  ${footer}
-  <p class="t-thanks">¡Gracias por su compra!</p>
-</body>
-</html>`
-
-    await printWithQZ(html)
+    await printWithQZ({
+        biz:    name,
+        sub:    subParts.length ? subParts.join('\n') : null,
+        ticket: successTicket.value,
+        fecha:  successDate.value,
+        items,
+        total:  fmtBs(successTotal.value),
+        metodo,
+        gracias: biz.ticket_footer || '¡Gracias por su compra!',
+    })
 }
 
 function clearCart() { tickets.value[activeTicket.value].items = []; }
