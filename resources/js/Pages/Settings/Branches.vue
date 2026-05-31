@@ -159,7 +159,7 @@ const helpFaqs = [
                     </div>
                     <div class="modal-foot">
                         <button class="btn-ghost" @click="showNew = false">Cancelar</button>
-                        <button class="btn-brand" :disabled="!newForm.name || saving" @click="submitNew">
+                        <button class="btn btn-primary" :disabled="!newForm.name || saving" @click="submitNew">
                             {{ saving ? 'Guardando…' : 'Crear' }}
                         </button>
                     </div>
@@ -189,7 +189,7 @@ const helpFaqs = [
                     </div>
                     <div class="modal-foot">
                         <button class="btn-ghost" @click="editTarget = null">Cancelar</button>
-                        <button class="btn-brand" :disabled="!editForm.name || saving" @click="submitEdit">
+                        <button class="btn btn-primary" :disabled="!editForm.name || saving" @click="submitEdit">
                             {{ saving ? 'Guardando…' : 'Guardar' }}
                         </button>
                     </div>

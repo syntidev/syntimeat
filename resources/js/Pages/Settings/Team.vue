@@ -283,7 +283,7 @@ const helpFaqs = [
 
                         <div class="modal-foot">
                             <button type="button" class="btn-ghost" @click="closeModal">Cancelar</button>
-                            <button type="submit" class="btn-brand" :disabled="form.processing">
+                            <button type="submit" class="btn btn-primary" :disabled="form.processing">
                                 {{ editTarget ? 'Guardar cambios' : 'Crear usuario' }}
                             </button>
                         </div>

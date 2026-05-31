@@ -311,7 +311,7 @@ const helpFaqs = [
 
                         <div class="modal__footer">
                             <button type="button" class="btn-secondary" @click="closeModal">Cancelar</button>
-                            <button type="submit" class="btn-primary" :disabled="form.processing">
+                            <button type="submit" class="btn btn-primary" :disabled="form.processing">
                                 {{ editUser ? 'Guardar cambios' : 'Crear usuario' }}
                             </button>
                         </div>

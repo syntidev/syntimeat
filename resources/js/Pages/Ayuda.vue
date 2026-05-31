@@ -126,6 +126,17 @@ const flujos = [
                 nota: null,
             },
             {
+                titulo: 'Scanner y Báscula',
+                alerta: null,
+                cuerpo: [
+                    'El lector de códigos actúa solo — no necesitas tocar nada en pantalla.',
+                    'Si la báscula imprime un código EAN-13, el sistema extrae automáticamente el producto y el peso del código.',
+                    'El campo de búsqueda también acepta códigos numéricos escritos a mano si no tienes lector.',
+                ],
+                tip: 'Para que funcione con báscula: asigna el código de 5 dígitos de cada producto en <strong>Catálogo → campo "Código de barras"</strong>.',
+                nota: null,
+            },
+            {
                 titulo: 'Cobra y cierra la venta',
                 alerta: null,
                 cuerpo: [

@@ -426,6 +426,25 @@
     </div>
   </div>
 
+  <!-- ── Diagnóstico rápido ────────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      Diagnóstico
+    </div>
+
+    <div class="test-card">
+      <div class="test-card__text">
+        <h3>Herramienta de diagnóstico QZ Tray</h3>
+        <p>Prueba la conexión con la impresora sin afectar ventas</p>
+      </div>
+      <a href="/qz-test" target="_blank" class="btn-test">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        Abrir diagnóstico
+      </a>
+    </div>
+  </div>
+
   <footer>
     SYNTImeat — Documento interno · {{ now()->format('Y') }} · Solo para administradores
   </footer>

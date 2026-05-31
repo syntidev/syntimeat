@@ -232,7 +232,7 @@ const helpFaqs = [
                 <div class="card-head">
                     <span class="card-label">Métodos de pago</span>
                     <p class="card-hint">Arrastra para reordenar · se muestran en el POS al cobrar</p>
-                    <button class="btn-brand" @click="openNewMethod">+ Nuevo método</button>
+                    <button class="btn btn-primary" @click="openNewMethod">+ Nuevo método</button>
                 </div>
 
                 <div class="method-list">
@@ -268,7 +268,7 @@ const helpFaqs = [
                 <div class="card-head">
                     <span class="card-label">Dispositivos</span>
                     <p class="card-hint">Terminales POS, BioPago y otros equipos de cobro</p>
-                    <button class="btn-brand" @click="openNewTerminal">+ Nuevo dispositivo</button>
+                    <button class="btn btn-primary" @click="openNewTerminal">+ Nuevo dispositivo</button>
                 </div>
 
                 <div class="terminal-list">
@@ -331,7 +331,7 @@ const helpFaqs = [
                         </div>
                         <div class="modal-foot">
                             <button type="button" class="btn-ghost" @click="closeMethodModal">Cancelar</button>
-                            <button type="submit" class="btn-brand" :disabled="methodForm.processing">
+                            <button type="submit" class="btn btn-primary" :disabled="methodForm.processing">
                                 {{ editMethod ? 'Guardar' : 'Crear método' }}
                             </button>
                         </div>
@@ -379,7 +379,7 @@ const helpFaqs = [
                         </label>
                         <div class="modal-foot">
                             <button type="button" class="btn-ghost" @click="closeTerminalModal">Cancelar</button>
-                            <button type="submit" class="btn-brand" :disabled="terminalForm.processing">
+                            <button type="submit" class="btn btn-primary" :disabled="terminalForm.processing">
                                 {{ editTerminal ? 'Guardar' : 'Agregar dispositivo' }}
                             </button>
                         </div>

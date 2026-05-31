@@ -125,7 +125,7 @@ const categoryProductsAll = computed(() => {
 const searchResults = computed(() => {
     const q = search.value.trim().toLowerCase();
     if (!q) return categoryProductsAll.value;
-    const matched = props.products.filter(p => p.name.toLowerCase().includes(q));
+    const matched = props.products.filter(p => p.name.toLowerCase().includes(q) || p.barcode?.includes(q));
     const inStock  = matched.filter(hasStock);
     const noStock  = matched.filter(p => !hasStock(p));
     return [...inStock, ...noStock].slice(0, 20);

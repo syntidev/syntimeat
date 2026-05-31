@@ -390,7 +390,7 @@ const helpFaqs = [
                     </section>
 
                     <div class="tkt-actions">
-                        <button type="submit" class="btn btn-brand" :disabled="form.processing">
+                        <button type="submit" class="btn btn-primary" :disabled="form.processing">
                             {{ form.processing ? 'Guardando…' : 'Guardar cambios' }}
                         </button>
                     </div>

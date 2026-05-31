@@ -234,7 +234,7 @@ const helpFaqs = [
                             placeholder="Nombre exacto de la impresora"
                             maxlength="100"
                         />
-                        <button type="submit" class="hw-printer-btn" :disabled="hwForm.processing">
+                        <button type="submit" class="btn btn-primary" :disabled="hwForm.processing">
                             {{ hwForm.processing ? 'Guardando…' : 'Guardar' }}
                         </button>
                     </form>
@@ -395,13 +395,6 @@ const helpFaqs = [
     padding: .5rem .75rem; font-size: .875rem; outline: none; font-family: inherit;
 }
 .hw-printer-input:focus { border-color: var(--brand); }
-.hw-printer-btn {
-    background: var(--brand); color: #fff; border: none; border-radius: 8px;
-    padding: .5rem 1rem; font-size: .875rem; font-weight: 600; cursor: pointer;
-    font-family: inherit; min-height: 44px; min-width: 80px;
-    transition: opacity .15s;
-}
-.hw-printer-btn:disabled { opacity: .5; cursor: not-allowed; }
 .hw-printer-ok { font-size: .75rem; color: #16a34a; margin-top: .35rem; }
 
 /* QZ Tray card */

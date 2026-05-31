@@ -157,7 +157,7 @@ const helpFaqs = [
                         </div>
                         <div class="modal-foot">
                             <button type="button" class="btn-ghost" @click="closeModal">Cancelar</button>
-                            <button type="submit" class="btn-primary" :disabled="form.processing">
+                            <button type="submit" class="btn btn-primary" :disabled="form.processing">
                                 {{ editRegister ? 'Guardar cambios' : 'Crear caja' }}
                             </button>
                         </div>
