@@ -526,24 +526,31 @@ async function printWithQZ(html) {
     }
 
     try {
-        // Certificado real: el servidor devuelve el contenido de storage/app/qz/digital-certificate
-        window.qz.security.setCertificatePromise((resolve) =>
-            fetch(route('qz.certificate')).then(r => r.text()).then(resolve)
-        )
+        const isDev = ['localhost', '127.0.0.1'].includes(location.hostname)
+            || location.hostname.endsWith('.test')
 
-        // Firma SHA-512 del payload usando la clave privada del servidor
-        window.qz.security.setSignaturePromise(function(toSign) {
-            return function(resolve, reject) {
-                fetch(route('qz.sign'), {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type':  'application/json',
-                        'X-CSRF-TOKEN':  document.querySelector('meta[name="csrf-token"]').content,
-                    },
-                    body: JSON.stringify({ toSign }),
-                }).then(r => r.text()).then(resolve).catch(reject)
-            }
-        })
+        if (isDev) {
+            // HTTP local: QZ acepta conexiones anónimas sin certificado
+            window.qz.security.setCertificatePromise((resolve) => resolve(''))
+            window.qz.security.setSignaturePromise(() => (resolve) => resolve(''))
+        } else {
+            // HTTPS producción: certificado real + firma SHA-512
+            window.qz.security.setCertificatePromise((resolve) =>
+                fetch(route('qz.certificate')).then(r => r.text()).then(resolve)
+            )
+            window.qz.security.setSignaturePromise(function(toSign) {
+                return function(resolve, reject) {
+                    fetch(route('qz.sign'), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        },
+                        body: JSON.stringify({ toSign }),
+                    }).then(r => r.text()).then(resolve).catch(reject)
+                }
+            })
+        }
 
         if (!window.qz.websocket.isActive()) {
             await window.qz.websocket.connect()

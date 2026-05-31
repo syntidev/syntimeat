@@ -11,11 +11,15 @@ class QzController extends Controller
 {
     public function certificate(): \Illuminate\Http\Response
     {
-        if (! Storage::disk('local')->exists('qz/digital-certificate.txt')) {
+        $path = storage_path('app/qz/digital-certificate.txt');
+        if (! file_exists($path)) {
+            $path = storage_path('app/qz/digital-certificate');
+        }
+        if (! file_exists($path)) {
             abort(404, 'Certificado QZ no configurado. Coloca el archivo en storage/app/qz/digital-certificate.txt.');
         }
 
-        $cert = Storage::disk('local')->get('qz/digital-certificate.txt');
+        $cert = file_get_contents($path);
 
         return response($cert, 200, ['Content-Type' => 'text/plain']);
     }
