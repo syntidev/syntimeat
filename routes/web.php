@@ -65,6 +65,15 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
         return response()->download($path);
     })->name('soporte.qz');
 
+    Route::get('/soporte/guia', function () {
+        $user = auth()->user();
+        abort_unless(
+            $user->email === 'carbolivar@gmail.com' || $user->role === 'super_admin',
+            403
+        );
+        return view('soporte.guia');
+    })->name('soporte.guia');
+
     // ── Perfil (todos los roles) ──────────────────────────────────────────────
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
