@@ -14,6 +14,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PaymentMethodController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\QzController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SaleController;
 use App\Http\Controllers\FabricaController;
@@ -39,6 +40,10 @@ Route::get('/ayuda', function () {
 
 // ─── Authenticated + onboarding complete ─────────────────────────────────────
 Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->group(function () {
+
+    // ── QZ Tray — firma de tickets para impresión silenciosa ─────────────────
+    Route::get('/qz/certificate', [QzController::class, 'certificate'])->name('qz.certificate');
+    Route::post('/qz/sign',       [QzController::class, 'sign'])->name('qz.sign');
 
     // ── Perfil (todos los roles) ──────────────────────────────────────────────
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

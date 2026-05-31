@@ -520,31 +520,42 @@ function newSale() {
 async function printWithQZ(html) {
     const printerName = props.businessInfo?.printer_name ?? ''
 
-    if (printerName && typeof window.qz !== 'undefined') {
-        try {
-            // Modo sin firma — adecuado para uso interno en red local
-            window.qz.security.setCertificatePromise((resolve) => resolve(''))
-            window.qz.security.setSignaturePromise(() => (resolve) => resolve(''))
-
-            if (!window.qz.websocket.isActive()) {
-                await window.qz.websocket.connect()
-            }
-
-            const config = window.qz.configs.create(printerName)
-            await window.qz.print(config, [{ type: 'html', format: 'plain', data: html }])
-            return
-        } catch (err) {
-            console.warn('[QZ Tray] No disponible, usando impresión estándar:', err?.message ?? err)
-        }
+    if (! printerName || typeof window.qz === 'undefined') {
+        alert('Impresión silenciosa no disponible.\n\nPasos:\n1. Instala QZ Tray (https://qz.io/download)\n2. Escribe el nombre de la impresora en Configuración → Hardware.')
+        return
     }
 
-    // Fallback: ventana de impresión del navegador
-    const win = window.open('', '_blank', 'width=320,height=600')
-    win.document.write(html)
-    win.document.close()
-    win.focus()
-    win.print()
-    win.onafterprint = () => win.close()
+    try {
+        // Certificado real: el servidor devuelve el contenido de storage/app/qz/digital-certificate
+        window.qz.security.setCertificatePromise((resolve) =>
+            fetch(route('qz.certificate')).then(r => r.text()).then(resolve)
+        )
+
+        // Firma SHA-512 del payload usando la clave privada del servidor
+        window.qz.security.setSignaturePromise(function(toSign) {
+            return function(resolve, reject) {
+                fetch(route('qz.sign'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type':  'application/json',
+                        'X-CSRF-TOKEN':  document.querySelector('meta[name="csrf-token"]').content,
+                    },
+                    body: JSON.stringify({ toSign }),
+                }).then(r => r.text()).then(resolve).catch(reject)
+            }
+        })
+
+        if (!window.qz.websocket.isActive()) {
+            await window.qz.websocket.connect()
+        }
+
+        const config = window.qz.configs.create(printerName)
+        await window.qz.print(config, [{ type: 'html', format: 'plain', data: html }])
+
+    } catch (err) {
+        const msg = err?.message ?? String(err)
+        alert('QZ Tray — error al imprimir: ' + msg + '\n\nVerifica que QZ Tray esté ejecutándose en esta PC.')
+    }
 }
 
 async function printTicket() {
