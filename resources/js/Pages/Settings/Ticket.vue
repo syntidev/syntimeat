@@ -27,7 +27,19 @@ const form = useForm({
     show_metodo_pago:   props.prefs.show_metodo_pago   ?? false,
     footer_text:        props.prefs.footer_text        ?? '',
     ticket_prefix:      props.prefs.ticket_prefix      ?? 'VEN',
+    paper_width:        props.business.settings?.paper_width ?? '80',
 })
+
+const paperWidth = computed(() => form.paper_width || '80')
+
+const pageStyle = computed(() =>
+    `@media print { @page { size: ${paperWidth.value}mm auto; margin: 2mm; } }`
+)
+
+function setPaperWidth(w) {
+    form.paper_width = w
+    form.post(route('settings.ticket.update'), { preserveScroll: true })
+}
 
 function submit() {
     form.post(route('settings.ticket.update'))
@@ -114,6 +126,7 @@ const helpFaqs = [
 </script>
 
 <template>
+    <component :is="'style'" v-text="pageStyle" />
     <SettingsLayout>
         <div class="settings-panel">
 
@@ -158,6 +171,34 @@ const helpFaqs = [
                             <input v-model="form.ticket_prefix" type="text" :class="inputClass" maxlength="10" placeholder="VEN" />
                             <p v-if="form.errors.ticket_prefix" class="mt-1 text-xs text-red-400">{{ form.errors.ticket_prefix }}</p>
                             <p class="mt-1 text-xs text-[var(--text-muted)]">Solo mayúsculas, números y guión. Ej: VEN, CAR-01</p>
+                        </div>
+                    </section>
+
+                    <!-- Ancho de papel -->
+                    <section class="tkt-section">
+                        <h2 class="tkt-section-title">Ancho de papel</h2>
+                        <p class="tkt-hint">Configura el rollo de papel que tiene instalado tu impresora térmica.</p>
+                        <div class="tkt-paper-options">
+                            <button
+                                type="button"
+                                class="tkt-paper-btn"
+                                :class="{ 'tkt-paper-btn--active': form.paper_width === '58' }"
+                                :disabled="form.processing"
+                                @click="setPaperWidth('58')"
+                            >
+                                <span class="tkt-paper-mm">58 mm</span>
+                                <span class="tkt-paper-hint">Rollo pequeño</span>
+                            </button>
+                            <button
+                                type="button"
+                                class="tkt-paper-btn"
+                                :class="{ 'tkt-paper-btn--active': form.paper_width === '80' }"
+                                :disabled="form.processing"
+                                @click="setPaperWidth('80')"
+                            >
+                                <span class="tkt-paper-mm">80 mm</span>
+                                <span class="tkt-paper-hint">Rollo estándar</span>
+                            </button>
                         </div>
                     </section>
 
@@ -588,4 +629,35 @@ const helpFaqs = [
     padding-top: 0.1rem;
 }
 .tkt-prev-footer { text-align: center; color: #777; font-size: 0.67rem; margin-top: 0.5rem; }
+
+/* ── Selector de ancho de papel ───────────────────────────────────── */
+.tkt-paper-options {
+    display: flex;
+    gap: 0.75rem;
+}
+.tkt-paper-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.875rem;
+    border: 1.5px solid var(--border);
+    border-radius: 0.625rem;
+    background: var(--bg-base);
+    cursor: pointer;
+    font-family: inherit;
+    transition: border-color 0.15s, background 0.15s;
+    min-height: 44px;
+}
+.tkt-paper-btn:hover:not(:disabled) {
+    border-color: var(--brand);
+}
+.tkt-paper-btn--active {
+    border-color: var(--brand);
+    background: color-mix(in srgb, var(--brand) 10%, transparent);
+}
+.tkt-paper-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.tkt-paper-mm   { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
+.tkt-paper-hint { font-size: 0.72rem; color: var(--text-muted); }
 </style>

@@ -369,6 +369,7 @@ class SettingsController extends Controller
             'show_client'        => ['boolean'],
             'footer_text'        => ['nullable', 'string', 'max:200'],
             'ticket_prefix'      => ['required', 'string', 'max:10', 'regex:/^[A-Z0-9\-]+$/'],
+            'paper_width'        => ['nullable', 'in:58,80'],
         ]);
 
         $settings        = (array) ($business->settings ?? []);
@@ -387,6 +388,7 @@ class SettingsController extends Controller
             'show_phone'         => (bool) ($data['show_phone']         ?? false),
             'show_client'        => (bool) ($data['show_client']        ?? true),
         ];
+        $settings['paper_width'] = $data['paper_width'] ?? '80';
 
         $business->update([
             'settings'      => $settings,
