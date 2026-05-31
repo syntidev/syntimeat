@@ -526,31 +526,8 @@ async function printWithQZ(html) {
     }
 
     try {
-        const isDev = ['localhost', '127.0.0.1'].includes(location.hostname)
-            || location.hostname.endsWith('.test')
-
-        if (isDev) {
-            // HTTP local: QZ acepta conexiones anónimas sin certificado
-            window.qz.security.setCertificatePromise((resolve) => resolve(''))
-            window.qz.security.setSignaturePromise(() => (resolve) => resolve(''))
-        } else {
-            // HTTPS producción: certificado real + firma SHA-512
-            window.qz.security.setCertificatePromise((resolve) =>
-                fetch(route('qz.certificate')).then(r => r.text()).then(resolve)
-            )
-            window.qz.security.setSignaturePromise(function(toSign) {
-                return function(resolve, reject) {
-                    fetch(route('qz.sign'), {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                        },
-                        body: JSON.stringify({ toSign }),
-                    }).then(r => r.text()).then(resolve).catch(reject)
-                }
-            })
-        }
+        window.qz.security.setCertificatePromise((resolve) => resolve(''))
+        window.qz.security.setSignaturePromise((toSign, resolve) => resolve(''))
 
         if (!window.qz.websocket.isActive()) {
             await window.qz.websocket.connect()
@@ -596,30 +573,33 @@ async function printTicket() {
             ? `<p class="t-origin">CRÉDITO</p>`
             : ''
 
+    const pw       = props.businessInfo?.paper_width ?? '80'
+    const isNarrow = pw === '58'
+
     const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <title>Ticket ${successTicket.value}</title>
 <style>
-  @page { size: ${props.businessInfo?.paper_width ?? '80'}mm auto; margin: 4mm 3mm; }
+  @page { size: ${pw}mm auto; margin: 2mm 1mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Courier New', Courier, monospace; font-size: 10pt; color: #000; width: 74mm; }
-  .t-biz  { text-align: center; font-weight: bold; font-size: 12pt; margin-bottom: 1mm; }
-  .t-sub  { text-align: center; font-size: 8.5pt; margin-bottom: 0.5mm; }
-  .t-meta { text-align: center; font-size: 8.5pt; margin: 2mm 0; }
-  .t-sep  { border: none; border-top: 1px dashed #000; margin: 2mm 0; }
+  body { font-family: 'Courier New', Courier, monospace; font-size: ${isNarrow ? '8' : '10'}pt; color: #000; width: ${isNarrow ? '54' : '74'}mm; line-height: 1.2; }
+  .t-biz  { text-align: center; font-weight: bold; font-size: ${isNarrow ? '9' : '11'}pt; margin-bottom: 1mm; }
+  .t-sub  { text-align: center; font-size: ${isNarrow ? '7' : '8'}pt; margin-bottom: 0.5mm; }
+  .t-meta { text-align: center; font-size: ${isNarrow ? '7' : '8.5'}pt; margin: 1mm 0; }
+  .t-sep  { border: none; border-top: 1px dashed #000; margin: 1mm 0; }
+  .t-origin { text-align: center; font-weight: bold; font-size: ${isNarrow ? '8' : '9'}pt; letter-spacing: 0.5px; margin: 1mm 0; }
   table   { width: 100%; border-collapse: collapse; }
-  th      { font-size: 8pt; text-align: left; border-bottom: 1px solid #000; padding-bottom: 1mm; }
+  th      { font-size: ${isNarrow ? '7' : '8'}pt; text-align: left; border-bottom: 1px solid #000; padding-bottom: 0.5mm; }
   th.t-amt, td.t-amt { text-align: right; }
-  th.t-qty, td.t-qty { text-align: center; width: 16mm; }
-  td      { font-size: 9pt; padding: 1mm 0; vertical-align: top; }
-  td.t-name { max-width: 35mm; word-break: break-word; }
-  .t-total-row td { font-weight: bold; font-size: 11pt; border-top: 1px solid #000; padding-top: 2mm; }
-  .t-pay-lbl { font-size: 8.5pt; color: #333; }
-  .t-footer { text-align: center; font-size: 8pt; margin-top: 3mm; }
-  .t-thanks  { text-align: center; font-size: 9pt; font-weight: bold; margin-top: 3mm; }
-  .t-origin  { text-align: center; font-weight: bold; font-size: 9pt; letter-spacing: 0.5px; margin: 1mm 0; }
+  th.t-qty, td.t-qty { text-align: center; width: ${isNarrow ? '8' : '10'}mm; }
+  td      { font-size: ${isNarrow ? '8' : '9'}pt; padding: 0.5mm 0; vertical-align: top; }
+  td.t-name { width: ${isNarrow ? '28' : '35'}mm; max-width: ${isNarrow ? '28' : '35'}mm; word-break: break-word; }
+  .t-total-row td { font-weight: bold; font-size: ${isNarrow ? '9' : '10'}pt; border-top: 1px solid #000; padding-top: 1mm; }
+  .t-pay-lbl { font-size: ${isNarrow ? '7' : '8.5'}pt; color: #333; }
+  .t-footer { text-align: center; font-size: ${isNarrow ? '7' : '8'}pt; margin-top: 1mm; }
+  .t-thanks  { text-align: center; font-size: ${isNarrow ? '8' : '9'}pt; font-weight: bold; margin-top: 1mm; }
 </style>
 </head>
 <body>
