@@ -314,6 +314,28 @@ class SettingsController extends Controller
         abort_unless($register->business_id === Auth::user()->business_id, 403);
     }
 
+    // ─── Hardware ────────────────────────────────────────────────────────────
+
+    public function hardware(): Response
+    {
+        $business = Auth::user()->business;
+        return Inertia::render('Settings/Hardware', ['business' => $business]);
+    }
+
+    public function updateHardware(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'printer_name' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $business           = Auth::user()->business;
+        $settings           = (array) ($business->settings ?? []);
+        $settings['printer_name'] = trim($data['printer_name'] ?? '');
+        $business->update(['settings' => $settings]);
+
+        return back()->with('success', 'Configuración de hardware guardada.');
+    }
+
     // ─── Ticket Preferences ──────────────────────────────────────────────────
 
     public function ticket(): Response

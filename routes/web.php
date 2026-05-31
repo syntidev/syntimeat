@@ -197,7 +197,8 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
             Route::delete('/terminales/{terminal}',[SettingsController::class, 'destroyTerminal'])->name('terminals.destroy');
             Route::get('/ticket',   [SettingsController::class, 'ticket'])->name('ticket');
             Route::post('/ticket',  [SettingsController::class, 'updateTicket'])->name('ticket.update');
-            Route::get('/hardware', fn () => inertia('Settings/Hardware'))->name('hardware');
+            Route::get('/hardware',  [SettingsController::class, 'hardware'])->name('hardware');
+            Route::post('/hardware', [SettingsController::class, 'updateHardware'])->name('hardware.update');
             Route::get('/sucursales',             [SettingsController::class, 'branches'])->name('branches');
             // Crear/editar sucursales — excluye analyst (no puede crear ni editar sucursales)
             Route::middleware('role:super_admin,admin,owner,branch_admin,supervisor')->group(function () {

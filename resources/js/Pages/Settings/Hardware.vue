@@ -2,6 +2,19 @@
 import SettingsLayout from '@/Layouts/SettingsLayout.vue'
 import HelpModal      from '@/Components/HelpModal.vue'
 import { ref }        from 'vue'
+import { useForm }    from '@inertiajs/vue3'
+
+const props = defineProps({
+    business: { type: Object, default: () => ({}) },
+})
+
+const hwForm = useForm({
+    printer_name: props.business?.settings?.printer_name ?? '',
+})
+
+function submitHardware() {
+    hwForm.post(route('settings.hardware.update'), { preserveScroll: true })
+}
 
 // ─── Scanner test ────────────────────────────────────────────────────────────
 const testCode      = ref('')
@@ -205,6 +218,47 @@ const helpFaqs = [
                     </div>
                 </div>
 
+                <!-- Campo: nombre de impresora para QZ Tray -->
+                <div class="hw-printer-form">
+                    <p class="info-steps__title">Nombre de impresora (impresión silenciosa)</p>
+                    <p class="hw-printer-hint">
+                        Escribe el nombre exacto como aparece en
+                        <em>Windows → Impresoras y escáneres</em>.
+                        Ejemplo: <code>POS-58-ROCCIA</code>
+                    </p>
+                    <form @submit.prevent="submitHardware" class="hw-printer-row">
+                        <input
+                            v-model="hwForm.printer_name"
+                            type="text"
+                            class="hw-printer-input"
+                            placeholder="Nombre exacto de la impresora"
+                            maxlength="100"
+                        />
+                        <button type="submit" class="hw-printer-btn" :disabled="hwForm.processing">
+                            {{ hwForm.processing ? 'Guardando…' : 'Guardar' }}
+                        </button>
+                    </form>
+                    <p v-if="hwForm.wasSuccessful" class="hw-printer-ok">Guardado correctamente.</p>
+                </div>
+
+                <!-- Instrucciones QZ Tray -->
+                <div class="info-card hw-qz-card">
+                    <p class="info-card__label">Impresión silenciosa con QZ Tray</p>
+                    <p class="hw-printer-hint" style="margin-bottom:0.5rem">
+                        QZ Tray envía el ticket directo a la impresora sin abrir el diálogo de Chrome.
+                        Solo se instala una vez en la PC de la caja.
+                    </p>
+                    <ol class="info-steps__list" style="margin-left:1.25rem">
+                        <li>Descarga e instala QZ Tray desde <strong>https://qz.io/download</strong></li>
+                        <li>Abre QZ Tray — queda en la bandeja del sistema.</li>
+                        <li>Escribe el nombre de la impresora en el campo de arriba y guarda.</li>
+                        <li>Al imprimir desde el POS, el ticket saldrá directamente a la impresora.</li>
+                    </ol>
+                    <p class="info-card__example">
+                        Si QZ Tray no está instalado o activo, el sistema usa el diálogo de Chrome como respaldo.
+                    </p>
+                </div>
+
                 <div class="info-steps">
                     <p class="info-steps__title">Cómo configurar tu impresora térmica</p>
                     <ol class="info-steps__list">
@@ -328,6 +382,30 @@ const helpFaqs = [
 
 .test-result-enter-active, .test-result-leave-active { transition: opacity .2s, transform .2s; }
 .test-result-enter-from,   .test-result-leave-to     { opacity: 0; transform: translateY(-4px); }
+
+/* Formulario printer_name */
+.hw-printer-form { padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); }
+.hw-printer-hint { font-size: .78rem; color: var(--text-muted); margin-bottom: .5rem; line-height: 1.5; }
+.hw-printer-hint code { font-family: 'Courier New', monospace; color: var(--brand); font-size: .8rem; }
+.hw-printer-hint em  { font-style: normal; color: var(--text-primary); }
+.hw-printer-row  { display: flex; gap: .5rem; margin-top: .5rem; }
+.hw-printer-input {
+    flex: 1; background: var(--hover); border: 1px solid var(--border);
+    color: var(--text-primary); border-radius: 8px;
+    padding: .5rem .75rem; font-size: .875rem; outline: none; font-family: inherit;
+}
+.hw-printer-input:focus { border-color: var(--brand); }
+.hw-printer-btn {
+    background: var(--brand); color: #fff; border: none; border-radius: 8px;
+    padding: .5rem 1rem; font-size: .875rem; font-weight: 600; cursor: pointer;
+    font-family: inherit; min-height: 44px; min-width: 80px;
+    transition: opacity .15s;
+}
+.hw-printer-btn:disabled { opacity: .5; cursor: not-allowed; }
+.hw-printer-ok { font-size: .75rem; color: #16a34a; margin-top: .35rem; }
+
+/* QZ Tray card */
+.hw-qz-card { margin: 1rem 1.25rem; border-bottom: 1px solid var(--border); }
 
 /* Info steps */
 .info-steps { padding: 0 1.25rem 1.25rem; }

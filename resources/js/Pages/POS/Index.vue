@@ -517,7 +517,37 @@ function newSale() {
     successPayments.value = [];
 }
 
-function printTicket() {
+async function printWithQZ(html) {
+    const printerName = props.businessInfo?.printer_name ?? ''
+
+    if (printerName && typeof window.qz !== 'undefined') {
+        try {
+            // Modo sin firma — adecuado para uso interno en red local
+            window.qz.security.setCertificatePromise((resolve) => resolve(''))
+            window.qz.security.setSignaturePromise(() => (resolve) => resolve(''))
+
+            if (!window.qz.websocket.isActive()) {
+                await window.qz.websocket.connect()
+            }
+
+            const config = window.qz.configs.create(printerName)
+            await window.qz.print(config, [{ type: 'html', format: 'plain', data: html }])
+            return
+        } catch (err) {
+            console.warn('[QZ Tray] No disponible, usando impresión estándar:', err?.message ?? err)
+        }
+    }
+
+    // Fallback: ventana de impresión del navegador
+    const win = window.open('', '_blank', 'width=320,height=600')
+    win.document.write(html)
+    win.document.close()
+    win.focus()
+    win.print()
+    win.onafterprint = () => win.close()
+}
+
+async function printTicket() {
     const biz   = props.businessInfo
     const name  = (biz.name  || 'Mi Negocio').toUpperCase()
     const addr  = [biz.address, biz.city, biz.state].filter(Boolean).join(', ')
@@ -554,7 +584,7 @@ function printTicket() {
 <meta charset="UTF-8">
 <title>Ticket ${successTicket.value}</title>
 <style>
-  @page { size: 80mm auto; margin: 4mm 3mm; }
+  @page { size: ${props.businessInfo?.paper_width ?? '80'}mm auto; margin: 4mm 3mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Courier New', Courier, monospace; font-size: 10pt; color: #000; width: 74mm; }
   .t-biz  { text-align: center; font-weight: bold; font-size: 12pt; margin-bottom: 1mm; }
@@ -600,12 +630,7 @@ function printTicket() {
 </body>
 </html>`
 
-    const win = window.open('', '_blank', 'width=320,height=600')
-    win.document.write(html)
-    win.document.close()
-    win.focus()
-    win.print()
-    win.onafterprint = () => win.close()
+    await printWithQZ(html)
 }
 
 function clearCart() { tickets.value[activeTicket.value].items = []; }

@@ -107,6 +107,8 @@ class SaleController extends Controller
                 'state'         => $business->state,
                 'phone'         => $business->phone,
                 'ticket_footer' => $business->ticket_footer,
+                'printer_name'  => $business->settings['printer_name'] ?? '',
+                'paper_width'   => $business->settings['paper_width']  ?? '80',
             ],
             'ticketPrefs'    => [
                 'show_address' => (bool) ($business->settings['ticket']['show_address'] ?? true),
