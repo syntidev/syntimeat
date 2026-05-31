@@ -196,7 +196,8 @@ const nav = [
     {
         section: 'ADMINISTRACIÓN',
         items: [
-            { label: 'Configuración', route: 'settings.index', icon: 'cog', perm: 'settings' },
+            { label: 'Configuración',    route: 'settings.index', icon: 'cog',       perm: 'settings' },
+            { label: 'Guía Instalación', route: 'soporte.guia',   icon: 'book-open', perm: 'settings', roles: ['super_admin'] },
         ],
     },
 ]
