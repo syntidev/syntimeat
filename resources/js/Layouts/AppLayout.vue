@@ -208,23 +208,38 @@ const navOwner = [
         items: [
             { label: 'Panel Empresarial', route: 'reports.consolidated', icon: 'chart',    perm: 'dashboard', roles: ['super_admin', 'owner'] },
             { label: 'Resumen',           route: 'dashboard',            icon: 'chart',    perm: 'dashboard' },
-            { label: 'Ventas del Día',    route: 'sales.index',          icon: 'receipt',  perm: 'sales' },
-            { label: 'Cierre del Día',    route: 'cash.day-close',       icon: 'calendar', perm: 'dayclose' },
         ],
     },
     {
-        section: 'OPERACIÓN',
+        section: 'OPERACIÓN DIARIA',
         items: [
             { label: 'Bóveda',        route: 'boveda.index',      icon: 'warehouse', perm: 'boveda' },
             { label: 'Punto de Venta',route: 'pos.index',         icon: 'cart',      perm: 'pos' },
             { label: 'Inventario',    route: 'inventory.index',   icon: 'box',       perm: 'inventory' },
             { label: 'Fábrica',       route: 'fabrica.index',     icon: 'beaker',    perm: 'fabrica' },
             { label: 'Pedidos',       route: 'orders.index',      icon: 'clipboard', perm: 'orders' },
-            { label: 'Caja',          route: 'cash.index',        icon: 'landmark',  perm: 'cash' },
-            { label: 'Catálogo',      route: 'catalog.index',     icon: 'tag',       perm: 'catalog' },
-            { label: 'Clientes',      route: 'clients.index',     icon: 'person',    perm: 'clients' },
-            { label: 'Contingencia',  route: 'contingency.index', icon: 'lightning', perm: 'contingency' },
-            { label: 'Configuración', route: 'settings.index',    icon: 'cog',       perm: 'settings' },
+        ],
+    },
+    {
+        section: 'CAJA',
+        items: [
+            { label: 'Caja',           route: 'cash.index',     icon: 'landmark',  perm: 'cash' },
+            { label: 'Ventas del Día', route: 'sales.index',    icon: 'receipt',   perm: 'sales' },
+            { label: 'Cierre del Día', route: 'cash.day-close', icon: 'calendar',  perm: 'dayclose' },
+        ],
+    },
+    {
+        section: 'GESTIÓN',
+        items: [
+            { label: 'Catálogo',     route: 'catalog.index',    icon: 'tag',       perm: 'catalog' },
+            { label: 'Clientes',     route: 'clients.index',    icon: 'person',    perm: 'clients' },
+            { label: 'Contingencia', route: 'contingency.index',icon: 'lightning', perm: 'contingency' },
+        ],
+    },
+    {
+        section: 'ADMINISTRACIÓN',
+        items: [
+            { label: 'Configuración', route: 'settings.index', icon: 'cog', perm: 'settings' },
         ],
     },
 ]
