@@ -344,6 +344,7 @@ class SettingsController extends Controller
         ]);
         $prefs['footer_text']   = $business->ticket_footer ?? '';
         $prefs['ticket_prefix'] = $business->ticket_prefix ?? 'VEN';
+        $prefs['paper_width']   = $business->settings['paper_width'] ?? '80';
 
         return Inertia::render('Settings/Ticket', [
             'business' => $business,

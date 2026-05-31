@@ -27,7 +27,7 @@ const form = useForm({
     show_metodo_pago:   props.prefs.show_metodo_pago   ?? false,
     footer_text:        props.prefs.footer_text        ?? '',
     ticket_prefix:      props.prefs.ticket_prefix      ?? 'VEN',
-    paper_width:        props.business.settings?.paper_width ?? '80',
+    paper_width:        props.prefs.paper_width ?? '80',
 })
 
 const paperWidth = computed(() => form.paper_width || '80')
@@ -38,7 +38,10 @@ const pageStyle = computed(() =>
 
 function setPaperWidth(w) {
     form.paper_width = w
-    form.post(route('settings.ticket.update'), { preserveScroll: true })
+    form.post(route('settings.ticket.update'), {
+        preserveScroll: true,
+        onSuccess: () => { form.paper_width = w },
+    })
 }
 
 function submit() {
