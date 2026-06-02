@@ -8,6 +8,7 @@ import HelpModal from '@/Components/HelpModal.vue'
 const props = defineProps({
     categories:  { type: Array,   default: () => [] },
     products:    { type: Array,   default: () => [] },
+    stockMap:    { type: Object,  default: () => ({}) },
 })
 
 const page       = usePage()
@@ -221,7 +222,7 @@ function toggleFavorite(product) {
 // ─── Stock utils ──────────────────────────────────────────────────────────────
 function stockStatus(product) {
     if (product.sale_mode !== 'weight') return 'unit'
-    const stock = Number(product.current_stock ?? 0)
+    const stock = Number(props.stockMap[product.id] ?? 0)
     const min   = Number(product.min_stock ?? 0)
     if (stock <= 0)   return 'empty'
     if (stock <= min) return 'low'
@@ -231,7 +232,7 @@ function stockStatus(product) {
 function stockLabel(product) {
     const st = stockStatus(product)
     if (st === 'unit') return '—'
-    const stock = Number(product.current_stock ?? 0)
+    const stock = Number(props.stockMap[product.id] ?? 0)
     return `${stock.toFixed(2)} kg`
 }
 

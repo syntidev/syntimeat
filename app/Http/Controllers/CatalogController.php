@@ -61,15 +61,17 @@ class CatalogController extends Controller
         ->groupBy('sale_items.product_id')
         ->pluck('total_sold', 'product_id');
 
-    $products->each(function (Product $product) use ($stockIn, $stockOut): void {
-        $net                    = (float) ($stockIn[$product->id]  ?? 0);
-        $sold                   = (float) ($stockOut[$product->id] ?? 0);
-        $product->current_stock = round($net - $sold, 3);
-    });
+    $stockMap = [];
+    foreach ($products as $product) {
+        $net              = (float) ($stockIn[$product->id]  ?? 0);
+        $sold             = (float) ($stockOut[$product->id] ?? 0);
+        $stockMap[$product->id] = round($net - $sold, 3);
+    }
 
     return Inertia::render('Catalog/Index', [
         'categories' => $categories,
         'products'   => $products,
+        'stockMap'   => $stockMap,
     ]);
 }
 
@@ -151,6 +153,8 @@ class CatalogController extends Controller
 
     public function update(Request $request, Product $product): RedirectResponse
     {
+        abort_unless($product->business_id === Auth::user()->business_id, 403);
+
         $validated = $request->validate([
             'name'               => ['required', 'string', 'max:120'],
             'barcode'            => ['nullable', 'string', 'max:50'],
