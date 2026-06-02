@@ -1,7 +1,7 @@
 ﻿<script setup>
 import AppLayout from '@/Layouts/AppLayout.vue'
 import { ref, computed, markRaw } from 'vue'
-import { useForm, router } from '@inertiajs/vue3'
+import { useForm, router, usePage } from '@inertiajs/vue3'
 import { Scale, Package, Pencil, Star, ToggleLeft, ToggleRight, Trash2 } from '@lucide/vue'
 import HelpModal from '@/Components/HelpModal.vue'
 
@@ -9,6 +9,9 @@ const props = defineProps({
     categories:  { type: Array,   default: () => [] },
     products:    { type: Array,   default: () => [] },
 })
+
+const page       = usePage()
+const dollarRate = computed(() => page.props.tasa?.rate ?? 1)
 
 // ─── Tabs + búsqueda ──────────────────────────────────────────────────────────
 const activeTab   = ref(props.categories[0]?.id ?? null)
@@ -63,6 +66,14 @@ const form = useForm({
 const selectedImagePreview = ref(null)
 const fileInputRef         = ref(null)
 
+const bsKgPrice   = ref('')
+const bsUnitPrice = ref('')
+
+function syncBsKg()    { bsKgPrice.value   = (parseFloat(form.price_per_kg_usd)   * dollarRate.value).toFixed(2) }
+function syncUsdKg()   { form.price_per_kg_usd   = (parseFloat(bsKgPrice.value)   / dollarRate.value).toFixed(4) }
+function syncBsUnit()  { bsUnitPrice.value  = (parseFloat(form.price_per_unit_usd) * dollarRate.value).toFixed(2) }
+function syncUsdUnit() { form.price_per_unit_usd = (parseFloat(bsUnitPrice.value)  / dollarRate.value).toFixed(4) }
+
 const activeCategory = computed(() =>
     props.categories.find(c => c.id === Number(form.category_id))
 )
@@ -88,6 +99,8 @@ function openNew() {
     form.reset()
     form.category_id   = props.categories[0]?.id ?? ''
     form.sale_mode     = 'weight'
+    bsKgPrice.value    = ''
+    bsUnitPrice.value  = ''
     formTouched.value  = false
     showModal.value    = true
 }
@@ -110,6 +123,8 @@ function openEdit(product) {
     form.is_favorite        = product.is_favorite ?? false
     form.image              = null
     form.remove_image       = false
+    bsKgPrice.value   = form.price_per_kg_usd   ? (parseFloat(form.price_per_kg_usd)   * dollarRate.value).toFixed(2) : ''
+    bsUnitPrice.value = form.price_per_unit_usd ? (parseFloat(form.price_per_unit_usd) * dollarRate.value).toFixed(2) : ''
     formTouched.value       = false
     showModal.value         = true
 }
@@ -118,6 +133,8 @@ function closeModal() {
     showModal.value            = false
     editProduct.value          = null
     selectedImagePreview.value = null
+    bsKgPrice.value            = ''
+    bsUnitPrice.value          = ''
     formTouched.value          = false
     if (fileInputRef.value) fileInputRef.value.value = ''
     form.reset()
@@ -783,7 +800,19 @@ const helpFaqs = [
                                             min="0"
                                             placeholder="0.00"
                                             required
+                                            @input="syncBsKg"
                                         />
+                                        <div class="price-pivot">
+                                            <input
+                                                v-model="bsKgPrice"
+                                                type="number"
+                                                step="0.01"
+                                                class="field-input field-input--bs"
+                                                placeholder="Equivalente automático"
+                                                @input="syncUsdKg"
+                                            />
+                                            <span class="rate-hint">Bs. (referencia) — Tasa: {{ dollarRate.toFixed(2) }}</span>
+                                        </div>
                                         <p v-if="form.errors.price_per_kg_usd" class="field-error">{{ form.errors.price_per_kg_usd }}</p>
                                     </template>
 
@@ -798,7 +827,19 @@ const helpFaqs = [
                                             min="0"
                                             placeholder="0.00"
                                             required
+                                            @input="syncBsUnit"
                                         />
+                                        <div class="price-pivot">
+                                            <input
+                                                v-model="bsUnitPrice"
+                                                type="number"
+                                                step="0.01"
+                                                class="field-input field-input--bs"
+                                                placeholder="Equivalente automático"
+                                                @input="syncUsdUnit"
+                                            />
+                                            <span class="rate-hint">Bs. (referencia) — Tasa: {{ dollarRate.toFixed(2) }}</span>
+                                        </div>
                                         <p v-if="form.errors.price_per_unit_usd" class="field-error">{{ form.errors.price_per_unit_usd }}</p>
                                     </template>
 
@@ -1769,4 +1810,22 @@ const helpFaqs = [
 .imp-warnings li { font-size: .75rem; color: #fbbf24; background: #78350f22; border: 1px solid #f59e0b33; border-radius: 6px; padding: .3rem .625rem; }
 
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+
+/* ─── Pivot USD ↔ Bs ─────────────────────────────────────────────────────── */
+.price-pivot {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-top: 0.25rem;
+}
+.field-input--bs {
+    border-color: color-mix(in srgb, var(--brand) 35%, var(--border));
+    background: color-mix(in srgb, var(--brand) 5%, var(--bg-base));
+}
+.field-input--bs:focus { border-color: var(--brand); }
+.rate-hint {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
 </style>

@@ -2,7 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue'
 import HelpModal  from '@/Components/HelpModal.vue'
 import { ref, computed, watch } from 'vue'
-import { useForm } from '@inertiajs/vue3'
+import { useForm, usePage } from '@inertiajs/vue3'
 import { Scale } from '@lucide/vue'
 
 const props = defineProps({
@@ -110,6 +110,13 @@ const form = useForm({
     entered_at:      new Date().toISOString().slice(0, 16),
 })
 
+const page        = usePage()
+const dollarRate  = computed(() => page.props.tasa?.rate ?? 1)
+const bsCostPrice = ref('')
+
+function syncBsCost()  { bsCostPrice.value    = (parseFloat(form.cost_per_kg_usd) * dollarRate.value).toFixed(2) }
+function syncUsdCost() { form.cost_per_kg_usd = (parseFloat(bsCostPrice.value)    / dollarRate.value).toFixed(4) }
+
 const selectedCategory = ref('')
 
 const filteredProducts = computed(() => {
@@ -139,8 +146,9 @@ const netKg = computed(() => {
 
 function openModal(product = null) {
     form.reset()
-    form.waste_kg   = 0
-    form.entered_at = new Date().toISOString().slice(0, 16)
+    form.waste_kg     = 0
+    form.entered_at   = new Date().toISOString().slice(0, 16)
+    bsCostPrice.value = ''
     selectedCategory.value = ''
     if (product) {
         form.product_id    = product.id
@@ -629,7 +637,18 @@ watch(drawerProduct, (val) => { if (! val) closeAdjust() })
                             <div class="field-group">
                                 <label class="field-label">{{ isUnitMode ? 'Costo por unidad ($)' : 'Costo por kg ($)' }}</label>
                                 <input v-model="form.cost_per_kg_usd" type="number" step="0.01" min="0"
-                                    class="field-input" placeholder="0.00 (opcional)" />
+                                    class="field-input" placeholder="0.00 (opcional)" @input="syncBsCost" />
+                                <div class="price-pivot">
+                                    <input
+                                        v-model="bsCostPrice"
+                                        type="number"
+                                        step="0.01"
+                                        class="field-input field-input--bs"
+                                        placeholder="Equivalente automático"
+                                        @input="syncUsdCost"
+                                    />
+                                    <span class="rate-hint">Bs. (referencia) — Tasa: {{ dollarRate.toFixed(2) }}</span>
+                                </div>
                             </div>
                             <div class="field-group field-grow">
                                 <label class="field-label">Proveedor</label>
@@ -1169,5 +1188,23 @@ watch(drawerProduct, (val) => { if (! val) closeAdjust() })
     gap: 0.5rem;
     justify-content: flex-end;
     margin-top: 0.25rem;
+}
+
+/* ─── Pivot USD ↔ Bs ─────────────────────────────────────────────────────── */
+.price-pivot {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-top: 0.25rem;
+}
+.field-input--bs {
+    border-color: color-mix(in srgb, var(--brand) 35%, var(--border));
+    background: color-mix(in srgb, var(--brand) 5%, var(--bg-base));
+}
+.field-input--bs:focus { border-color: var(--brand); }
+.rate-hint {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
 }
 </style>
