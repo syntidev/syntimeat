@@ -733,7 +733,7 @@ function onKeyDown(e) {
     // Ceder si el numpad modal está abierto
     if (qtyModal.value) return
 
-    if (e.key === 'Enter' && scanBuffer.length > 3) {
+    if (e.key === 'Enter' && scanBuffer.length >= 6) {
         handleScan(scanBuffer)
         scanBuffer = ''
         return
