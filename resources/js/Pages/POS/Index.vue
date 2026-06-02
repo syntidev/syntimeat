@@ -61,15 +61,16 @@ onMounted(() => {
     tick();
     clockTimer = setInterval(tick, 1000);
     window.addEventListener('keydown', onPhysKeyDown);
-    window.addEventListener('keydown', onKeyDown);
     window.addEventListener('resize', updateTabArrows);
-    nextTick(updateTabArrows);
+    nextTick(() => {
+        updateTabArrows();
+        searchInputRef.value?.focus();
+    });
 });
 onUnmounted(() => {
     clearInterval(clockTimer);
     clearTimeout(scanTimer);
     window.removeEventListener('keydown', onPhysKeyDown);
-    window.removeEventListener('keydown', onKeyDown);
     window.removeEventListener('resize', updateTabArrows);
 });
 
@@ -98,9 +99,10 @@ function removeTicket(idx) {
 }
 
 // ─── Filtro de categorías + búsqueda ─────────────────────────────────────────
-const selectedCat = ref(null);
-const search      = ref('');
-const catPage     = ref(1);
+const selectedCat    = ref(null);
+const search         = ref('');
+const searchInputRef = ref(null);
+const catPage        = ref(1);
 const PAGE_SIZE   = 20;
 
 // Helper: producto tiene stock disponible (null = sin seguimiento = OK)
@@ -1039,6 +1041,7 @@ const helpFaqs = [
                             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
                         </svg>
                         <input
+                            ref="searchInputRef"
                             v-model="search"
                             type="search"
                             class="search-input"
