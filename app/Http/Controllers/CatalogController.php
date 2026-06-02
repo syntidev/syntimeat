@@ -107,7 +107,7 @@ class CatalogController extends Controller
         }
 
         if ($validated['sale_mode'] === 'unit') {
-            $validated['min_stock'] = (int) round($validated['min_stock'] ?? 0);
+            $validated['min_stock'] = (int) round((float) ($validated['min_stock'] ?? 0));
         }
 
         $product = Product::create([
@@ -172,7 +172,7 @@ class CatalogController extends Controller
         ]);
 
         if ($validated['sale_mode'] === 'unit') {
-            $validated['min_stock'] = (int) round($validated['min_stock'] ?? 0);
+            $validated['min_stock'] = (int) round((float) ($validated['min_stock'] ?? 0));
         }
 
         $updates = [
