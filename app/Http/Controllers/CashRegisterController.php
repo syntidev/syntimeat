@@ -236,6 +236,7 @@ class CashRegisterController extends Controller
         $cashRegister = CashRegister::with(['movements.creator', 'opener'])
             ->where('business_id', $businessId)
             ->when(! $isAdmin, fn ($q) => $q->where('opened_by', Auth::id()))
+            ->whereNotNull('opened_at')
             ->whereNull('closed_at')
             ->orderBy('opened_at')
             ->first();
