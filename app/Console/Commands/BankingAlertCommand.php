@@ -19,7 +19,7 @@ class BankingAlertCommand extends Command
         $message = match ($minutes) {
             20 => 'Faltan 20 minutos para el corte bancario (7:00 PM). Prepárese.',
             10 => '¡10 minutos para el corte bancario! Finalice las ventas pendientes.',
-            0  => '¡CORTE BANCARIO AHORA! Las ventas a partir de este momento se registran en el día de mañana.',
+            0  => '¡CORTE BANCARIO! Procesa los pagos pendientes en los terminales correspondientes (ej: Banco de Venezuela).',
             default => null,
         };
 
