@@ -665,7 +665,7 @@ function productImageUrl(product) {
 const scannerBuffer    = ref('')
 const scannerLastTime  = ref(0)
 const scannerFired     = ref(false)
-const SCANNER_BURST_MS = 50
+const SCANNER_BURST_MS = 300
 
 function onSearchKeydown(e) {
     if (qtyModal.value) return   // el numpad físico ya lo maneja onPhysKeyDown
