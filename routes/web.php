@@ -125,6 +125,10 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
         Route::post('/caja/abrir', [CashRegisterController::class, 'open'])->name('cash.open');
         Route::post('/caja/{register}/cerrar', [CashRegisterController::class, 'close'])->name('cash.close');
         Route::post('/caja/{register}/movimiento', [CashRegisterController::class, 'movement'])->name('cash.movement');
+        // Cierre del Día — confirmar: incluye cashier (cierra su propia caja), excluye analyst (solo lectura)
+        Route::post('/caja/cierre/{register}', [CashRegisterController::class, 'confirmClose'])
+            ->middleware('role:super_admin,admin,owner,branch_admin,supervisor,cashier')
+            ->name('cash.confirm-close');
 
         // Clientes
         Route::get('/clientes/buscar', [ClientController::class, 'search'])->name('clients.search');
@@ -181,13 +185,10 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
     // ── Operativo + configuración — incluye analyst (módulos) ─────────────────
     Route::middleware('role:super_admin,admin,owner,branch_admin,supervisor,analyst')->group(function () {
 
-        // Acciones de caja/venta sensibles — excluye analyst (anular, confirmar cierre, tasa)
+        // Acciones de caja/venta sensibles — solo admin/super_admin (anular, tasa)
         Route::middleware('role:super_admin,admin,owner,branch_admin,supervisor')->group(function () {
             // Tasa manual
             Route::post('/tasa/manual', [SettingsController::class, 'setManualRate'])->name('rate.manual');
-
-            // Cierre del Día — confirmar solo admin/super_admin
-            Route::post('/caja/cierre/{register}', [CashRegisterController::class, 'confirmClose'])->name('cash.confirm-close');
 
             // Anular venta
             Route::patch('/ventas/{sale}/anular', [SaleController::class, 'void'])->name('sales.void');
