@@ -125,9 +125,9 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
         Route::post('/caja/abrir', [CashRegisterController::class, 'open'])->name('cash.open');
         Route::post('/caja/{register}/cerrar', [CashRegisterController::class, 'close'])->name('cash.close');
         Route::post('/caja/{register}/movimiento', [CashRegisterController::class, 'movement'])->name('cash.movement');
-        // Cierre del Día — confirmar: incluye cashier (cierra su propia caja), excluye analyst (solo lectura)
+        // Cierre del Día — confirmar: todos los roles operativos
         Route::post('/caja/cierre/{register}', [CashRegisterController::class, 'confirmClose'])
-            ->middleware('role:super_admin,admin,owner,branch_admin,supervisor,cashier')
+            ->middleware('role:super_admin,admin,owner,branch_admin,supervisor,analyst,cashier')
             ->name('cash.confirm-close');
 
         // Clientes
