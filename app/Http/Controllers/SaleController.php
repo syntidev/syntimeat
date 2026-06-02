@@ -233,6 +233,14 @@ class SaleController extends Controller
         $origin  = $data['origin']  ?? 'onsite';
         $channel = $data['channel'] ?? 'physical';
 
+        // Caja abierta para el branch actual (delivery puede no tener caja — continúa sin bloquear)
+        $cashRegister = CashRegister::where('business_id', $businessId)
+            ->where('branch_id', $branchId)
+            ->whereNotNull('opened_at')
+            ->whereNull('closed_at')
+            ->latest('opened_at')
+            ->first();
+
         // Crédito: despacho inmediato, cobro pendiente
         if ($origin === 'credit') {
             $cashRegister = CashRegister::where('business_id', $businessId)
@@ -305,19 +313,20 @@ class SaleController extends Controller
 
         $status  = $origin === 'delivery' ? 'pending' : 'open';
 
-        $sale = DB::transaction(function () use ($businessId, $branchId, $user, $ticketNumber, $totalUsd, $totalBs, $itemsToCreate, $origin, $channel, $status, $data) {
+        $sale = DB::transaction(function () use ($businessId, $branchId, $user, $ticketNumber, $totalUsd, $totalBs, $itemsToCreate, $origin, $channel, $status, $data, $cashRegister) {
             $sale = Sale::create([
-                'business_id'   => $businessId,
-                'branch_id'     => $branchId,
-                'ticket_number' => $ticketNumber,
-                'status'        => $status,
-                'total_usd'     => round($totalUsd, 2),
-                'total_bs'      => round($totalBs, 2),
-                'cashier_id'    => $user->id,
-                'origin'        => $origin,
-                'channel'       => $channel,
-                'client_name'   => $data['client_name']  ?? null,
-                'client_phone'  => $data['client_phone'] ?? null,
+                'business_id'     => $businessId,
+                'branch_id'       => $branchId,
+                'ticket_number'   => $ticketNumber,
+                'status'          => $status,
+                'total_usd'       => round($totalUsd, 2),
+                'total_bs'        => round($totalBs, 2),
+                'cashier_id'      => $user->id,
+                'origin'          => $origin,
+                'channel'         => $channel,
+                'client_name'     => $data['client_name']  ?? null,
+                'client_phone'    => $data['client_phone'] ?? null,
+                'cash_register_id'=> $cashRegister?->id,
             ]);
 
             foreach ($itemsToCreate as $item) {

@@ -99,8 +99,15 @@ class HandleInertiaRequests extends Middleware
                         static function () use ($bid): int {
                             return (int) DB::table('sales')
                                 ->where('business_id', $bid)
-                                ->where('status', 'paid')
-                                ->where('payment_status', 'pendiente_cobro')
+                                ->where(function ($q): void {
+                                    $q->where(function ($q2): void {
+                                        $q2->where('status', 'paid')
+                                           ->where('payment_status', 'pendiente_cobro');
+                                    })->orWhere(function ($q2): void {
+                                        $q2->where('origin', 'delivery')
+                                           ->where('status', 'pending');
+                                    });
+                                })
                                 ->count();
                         }
                     );

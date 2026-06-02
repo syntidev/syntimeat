@@ -200,6 +200,11 @@ class CashRegisterController extends Controller
                 'created_by' => $user->id,
             ]);
 
+            $register->update([
+                'closed_at' => now(),
+                'closed_by' => $user->id,
+            ]);
+
             ActivityLog::create([
                 'business_id' => $businessId,
                 'user_id'     => $user->id,
