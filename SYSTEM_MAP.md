@@ -1,7 +1,7 @@
-# SYSTEM MAP — SYNTImeat
-Actualizado: 2026-05-29
-Versión anterior: 2026-05-24
-▲ Cambios de la sesión 29/05/2026 marcados con ▲
+# SYSTEM MAP — SYNTImeat v3.3
+Actualizado: 2026-06-02
+Versión anterior: 2026-05-29
+▲ Cambios de la sesión 31/05–02/06/2026 marcados con ▲
 
 ---
 
@@ -13,10 +13,10 @@ Versión anterior: 2026-05-24
 | VPS          | 187.124.241.213 (Ubuntu 24.04 — Hostinger KVM1) |
 | DB           | syntimeat_db / syntimeat / SyntiMeat2026! |
 | Branch git   | main |
-| ▲ Commit     | 2d42bf2 |
-| ▲ Versión    | v2.9 |
-| ▲ Tag        | v2.9-scanner-barcode |
-| ▲ Fecha      | 2026-05-29 |
+| ▲ Commit     | 6751b4c |
+| ▲ Versión    | v3.3 |
+| ▲ Tag        | v3.3-pivot-usd-bs |
+| ▲ Fecha      | 2026-06-02 |
 | ▲ Sucursales | branch_id=1 Chaguaramas · branch_id=3 El Buen Corte |
 
 ### ▲ Usuarios en producción
@@ -162,6 +162,15 @@ Premium, Primera y Segunda descuentan stock de 'Carne del Canal'.
 
 ▲ **Request validated fields (store/update producto):**
 - name, `barcode` (nullable, string, max:50), category_id, subcategory_id, sale_mode, price_per_kg_usd, price_per_unit_usd, min_stock, fabricable, is_favorite, image (file)
+
+▲ **min_stock cast seguro (store() L107–109 · update() L170–172):**
+```php
+if ($validated['sale_mode'] === 'unit') {
+    $validated['min_stock'] = (float)($validated['min_stock'] ?? 0);
+    $validated['min_stock'] = (int) round($validated['min_stock']);
+}
+```
+Previene TypeError de PHP strict_types cuando min_stock llega como null desde el form.
 
 ▲ **branchId fallback en store():**
 ```php
@@ -451,10 +460,22 @@ Gestión de usuarios del equipo (toggle activo, matar sesión, CRUD).
 | Comando | Clase | Propósito |
 |---------|-------|-----------|
 | `dollar:fetch` | UpdateDollarRate | Consulta BCV y persiste tasa USD/EUR |
-| `cash:banking-alert` | BankingAlertCommand | Guarda alerta corte bancario en caché (--minutes=20\|10\|0) |
+| `cash:banking-alert` | BankingAlertCommand | Guarda alerta corte bancario en caché (--minutes=30\|20\|10\|0) |
 | `demo:reset` | ResetDemoData | Resetea datos demo (desarrollo) |
 
-**Alerta bancaria:** Escribe en cache `banking_alert` → HandleInertiaRequests lo inyecta → AppLayout lo muestra como banner global en POS.
+**▲ Alerta bancaria — schedule actualizado (console.php):**
+```php
+Schedule::command('cash:banking-alert --minutes=30')->dailyAt('19:00')->timezone('America/Caracas');
+Schedule::command('cash:banking-alert --minutes=20')->dailyAt('19:10')->timezone('America/Caracas');
+Schedule::command('cash:banking-alert --minutes=10')->dailyAt('19:20')->timezone('America/Caracas');
+Schedule::command('cash:banking-alert --minutes=0')->dailyAt('19:30')->timezone('America/Caracas');
+```
+Ventana corrida de 18:40–19:00 → 19:00–19:30. Corte real a las 7:30 PM Venezuela.
+
+**▲ Mensaje --minutes=0 actualizado:**
+`"¡CORTE BANCARIO! Procesa los pagos pendientes en los terminales correspondientes (ej: Banco de Venezuela)."`
+
+**Alerta bancaria:** Escribe en cache `banking_alert` (TTL 2h) → HandleInertiaRequests lo inyecta → AppLayout lo muestra como banner global en POS.
 
 ---
 
@@ -510,10 +531,18 @@ Gestión de usuarios del equipo (toggle activo, matar sesión, CRUD).
 |-----|------|--------|
 | /reportes/canal-rendimiento | GET | reports.canal |
 
-#### ▲ Selector sucursal — `super_admin, owner, branch_admin`
+#### ▲ Selector sucursal — `super_admin, owner` (branch_admin eliminado en sesión 02/06)
 | URI | Verb | Nombre |
 |-----|------|--------|
 | /set-branch | POST | branch.set |
+
+#### ▲ QZ Tray — sin middleware auth, sin CSRF
+| URI | Verb | Controller@método |
+|-----|------|-------------------|
+| /qz/certificate | GET | QzController@certificate |
+| /qz/sign | POST | QzController@sign |
+
+`bootstrap/app.php`: `/qz/sign` exento de verificación CSRF via `$middleware->validateCsrfTokens(except: ['qz/sign'])`.
 
 #### `super_admin,admin,owner,branch_admin,supervisor,analyst`
 | URI | Verb | Nombre |
@@ -683,9 +712,9 @@ resources/js/Pages/
 ├── Fabrica/
 │   └── Index.vue              helpSteps: 4 cortes Res (Carne del Canal, Costilla, Hueso Redondo, Hueso Rojo)
 ├── Inventory/
-│   └── Index.vue
+│   └── Index.vue              ▲ Campo pivote costo USD↔Bs reactivo (bsCostPrice ↔ form.cost_per_kg_usd · tasa: page.props.tasa.rate)
 ├── Catalog/
-│   └── Index.vue              Botón importar CSV/Excel → POST /catalogo/importar
+│   └── Index.vue              ▲ Campo pivote precio USD↔Bs reactivo (bsKgPrice/bsUnitPrice · tasa: page.props.tasa.rate) · Botón importar CSV/Excel → POST /catalogo/importar
 ├── Cash/
 │   ├── Index.vue
 │   └── DayClose.vue
@@ -764,6 +793,8 @@ const rolePermissions = {
 }
 ```
 
+**▲ Branch picker (AppLayout.vue L348/L380):** visible solo para `['super_admin','owner']`. `branch_admin` eliminado en sesión 02/06/2026 — ve su sucursal fija.
+
 **navOwner:** Navegación alternativa para owner y branch_admin — Panel Empresarial arriba.
 
 ---
@@ -801,7 +832,8 @@ const rolePermissions = {
 | v2.5-dashboard-reportes-fix | Dashboard categorias_hoy + reportes fix |
 | v2.7-responsive-ecosistema-completo | Responsive en 33+ vistas Vue |
 | v2.8-mobile-cards-global | .mobile-cards global en app.css |
-| ▲ v2.9-scanner-barcode | Scanner EAN-13/Code128 en POS · branch_id en 6 tablas nuevas |
+| v2.9-scanner-barcode | Scanner EAN-13/Code128 en POS · branch_id en 6 tablas nuevas |
+| ▲ v3.3-pivot-usd-bs | Pivote USD↔Bs en Catálogo e Inventario · branch picker owner-only · schedule bancario 19:00-19:30 |
 
 ---
 
@@ -860,5 +892,7 @@ const rolePermissions = {
 
 **Commit v2.9:** `2d42bf2` — `feat(pos): scanner de báscula multi-estándar EAN-13/Code128`
 
+**▲ Commit v3.3:** `6751b4c` — `feat(catalog+inventory): campo pivote USD↔Bs con tasa BCV en tiempo real`
+
 ---
-*Generado: 2026-05-29 | Próximo punto de restauración recomendado: antes de migración multi-negocio*
+*Generado: 2026-06-02 | Próximo punto de restauración recomendado: antes de migración multi-negocio*
