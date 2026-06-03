@@ -55,14 +55,14 @@ class BovedaController extends Controller
                 'vitrina_product_id' => $p->vitrina_product_id,
             ]);
 
+        $canonicalBranch = \App\Models\Branch::where('business_id', $businessId)->orderBy('id')->value('id');
         $productosVitrina = Product::where('business_id', $businessId)
             ->where('active', true)
             ->where('location', 'vitrina')
             ->where('sale_mode', 'weight')
+            ->where('branch_id', $canonicalBranch)
             ->orderBy('name')
-            ->get(['id', 'name'])
-            ->unique('name')
-            ->values();
+            ->get(['id', 'name']);
 
         $kgDisponibleTotal = BovedaEntry::active()->where('business_id', $businessId)
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
