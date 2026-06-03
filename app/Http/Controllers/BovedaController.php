@@ -612,7 +612,8 @@ class BovedaController extends Controller
             'Pollo Entero Congelado'   => 'Pollo',
         ];
         $catName  = $catMap[$entry->product_type] ?? null;
-        $resOrder = ['Carne Total', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
+        $resOrder   = ['Carne Total', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
+        $polloOrder = ['Pollo Picado', 'Muslo', 'Pechuga', 'Alas de Pollo', 'Molleja', 'Pedrero'];
 
         $productos = Product::with('category')
             ->where('business_id', $businessId)
@@ -621,12 +622,14 @@ class BovedaController extends Controller
             ->where('fabricable', false)
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->when($catName, fn ($q) => $q->whereHas('category', fn ($q2) => $q2->where('name', $catName)))
-            ->when($catName === 'Res', fn ($q) => $q->whereIn('name', $resOrder))
+            ->when($catName === 'Res',   fn ($q) => $q->whereIn('name', $resOrder))
+            ->when($catName === 'Pollo', fn ($q) => $q->whereIn('name', $polloOrder))
             ->get()
-            ->sortBy(fn ($p) => $catName === 'Res'
-                ? (($pos = array_search($p->name, $resOrder)) !== false ? $pos : 999)
-                : $p->name
-            )
+            ->sortBy(fn ($p) => match($catName) {
+                'Res'   => (($pos = array_search($p->name, $resOrder))   !== false ? $pos : 999),
+                'Pollo' => (($pos = array_search($p->name, $polloOrder)) !== false ? $pos : 999),
+                default => $p->name,
+            })
             ->values();
 
         // Kg registrados por producto si el despiece ya fue completado
