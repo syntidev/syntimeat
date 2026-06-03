@@ -44,12 +44,14 @@ class InventoryController extends Controller
         // ─── Entradas de hoy ──────────────────────────────────────────────────
         $todayEntries = InventoryEntry::with(['product.category', 'creator'])
             ->where('business_id', $businessId)
+            ->where('branch_id', $branchId)
             ->whereDate('entered_at', today())
             ->orderByDesc('entered_at')
             ->get();
 
         // ─── Stock disponible: SUM(net_kg) - SUM(vendido en paid) ────────────
         $stockIn = InventoryEntry::where('business_id', $businessId)
+            ->where('branch_id', $branchId)
             ->selectRaw('product_id, SUM(net_kg) as total_net')
             ->groupBy('product_id')
             ->pluck('total_net', 'product_id');
@@ -71,6 +73,7 @@ class InventoryController extends Controller
 
         // ─── Último ingreso por producto ──────────────────────────────────────
         $lastEntryMap = InventoryEntry::where('business_id', $businessId)
+            ->where('branch_id', $branchId)
             ->selectRaw('product_id, MAX(entered_at) as last_at')
             ->groupBy('product_id')
             ->pluck('last_at', 'product_id');
