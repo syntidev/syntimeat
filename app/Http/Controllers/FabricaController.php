@@ -25,9 +25,9 @@ class FabricaController extends Controller
     {
         $user       = Auth::user();
         $businessId = $user->business_id;
-        $branchId   = in_array($user->role, ['branch_admin', 'cashier'])
+        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
             ? $user->branch_id
-            : (session('current_branch_id') ?? $user->branch_id);
+            : (session('current_branch_id') ?? null);
 
         // Productos habilitados para fabricar (chorizo, cesta, combo…)
         $fabricables = Product::with('category')
@@ -62,6 +62,7 @@ class FabricaController extends Controller
 
         // Stock disponible de cada ingrediente (mismo cálculo que POS)
         $stockIn = InventoryEntry::where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->selectRaw('product_id, SUM(net_kg) as total_net')
             ->groupBy('product_id')
             ->pluck('total_net', 'product_id');
@@ -69,6 +70,7 @@ class FabricaController extends Controller
         $stockOut = DB::table('sale_items')
             ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
             ->where('sales.business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('sales.branch_id', $branchId))
             ->where('sales.status', 'paid')
             ->selectRaw('sale_items.product_id, SUM(sale_items.quantity_value) as total_sold')
             ->groupBy('sale_items.product_id')
@@ -84,6 +86,7 @@ class FabricaController extends Controller
         // Historial de batches
         $historial = FabricaBatch::with(['outputProduct', 'creator', 'inputs'])
             ->where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->orderByDesc('produced_at')
             ->limit(50)
             ->get()
@@ -102,6 +105,7 @@ class FabricaController extends Controller
 
         // Piezas surtidas desde bóveda que requieren despiece y aún no se procesaron
         $despiecePendiente = BovedaEntry::where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->where('kg_surtido_vitrina', '>', 0)
             ->whereNull('despiece_completado_at')
             ->whereHas('bovedaProduct', fn ($q) => $q->where('requires_despiece', true)->where('business_id', $businessId))
@@ -158,6 +162,7 @@ class FabricaController extends Controller
             ->values();
 
         $despieceHistorial = BovedaEntry::where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->whereNotNull('despiece_completado_at')
             ->orderByDesc('despiece_completado_at')
             ->limit(50)
@@ -206,6 +211,7 @@ class FabricaController extends Controller
         // Verificar que el producto output pertenece al negocio y es fabricable
         $outputProduct = Product::where('id', $data['output_product_id'])
             ->where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->where('fabricable', true)
             ->firstOrFail();
 
@@ -227,6 +233,7 @@ class FabricaController extends Controller
         $inputIds = array_column($data['inputs'], 'product_id');
         $validIds = Product::whereIn('id', $inputIds)
             ->where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->pluck('id')
             ->all();
 
@@ -236,6 +243,7 @@ class FabricaController extends Controller
 
         // Verificar stock suficiente para cada ingrediente
         $stockIn = InventoryEntry::where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->whereIn('product_id', $inputIds)
             ->selectRaw('product_id, SUM(net_kg) as total_net')
             ->groupBy('product_id')
@@ -244,6 +252,7 @@ class FabricaController extends Controller
         $stockOut = DB::table('sale_items')
             ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
             ->where('sales.business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('sales.branch_id', $branchId))
             ->where('sales.status', 'paid')
             ->whereIn('sale_items.product_id', $inputIds)
             ->selectRaw('sale_items.product_id, SUM(sale_items.quantity_value) as total_sold')

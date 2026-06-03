@@ -94,6 +94,7 @@ class DashboardController extends Controller
         // ── Stock crítico ─────────────────────────────────────────────────────
         // Necesitamos stock actual = entradas netas de inventario
         $stockMap = InventoryEntry::where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->selectRaw('product_id, SUM(quantity_kg - waste_kg) as stock')
             ->groupBy('product_id')
             ->pluck('stock', 'product_id')
@@ -104,6 +105,7 @@ class DashboardController extends Controller
             ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
             ->where('sales.business_id', $businessId)
             ->where('sales.status', 'paid')
+            ->when($branchId, fn ($q) => $q->where('sales.branch_id', $branchId))
             ->selectRaw('sale_items.product_id, SUM(sale_items.quantity_value) as qty')
             ->groupBy('sale_items.product_id')
             ->pluck('qty', 'product_id')
@@ -113,6 +115,7 @@ class DashboardController extends Controller
             ->where('business_id', $businessId)
             ->where('active', true)
             ->whereNotNull('min_stock')
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->get()
             ->filter(function (Product $p) use ($stockMap, $soldMap) {
                 $net = ($stockMap[$p->id] ?? 0.0) - ($soldMap[$p->id] ?? 0.0);
@@ -155,12 +158,14 @@ class DashboardController extends Controller
 
         // ── Caja activa ───────────────────────────────────────────────────────
         $cajaActiva = CashRegister::where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->whereNull('closed_at')
             ->select('id', 'name', 'opened_at')
             ->first();
 
         // ── Pedidos pendientes ────────────────────────────────────────────────
         $pedidosPendientes = Order::where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->where('status', 'pending')
             ->count();
 

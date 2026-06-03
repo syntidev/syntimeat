@@ -36,6 +36,7 @@ class BovedaController extends Controller
 
         $historial = BovedaEntry::where('business_id', $businessId)
             ->whereNotNull('closed_at')
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->orderByDesc('closed_at')
             ->limit(30)
             ->get()
@@ -62,10 +63,12 @@ class BovedaController extends Controller
             ->get(['id', 'name']);
 
         $kgDisponibleTotal = BovedaEntry::active()->where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->whereRaw('kg_entrada - kg_surtido_vitrina - waste_kg > 0')
             ->sum(DB::raw('kg_entrada - kg_surtido_vitrina - waste_kg'));
 
         $costoActivoTotal = BovedaEntry::active()->where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->sum('costo_usd');
 
         $surtidoHoy = ActivityLog::where('business_id', $businessId)
@@ -314,6 +317,9 @@ class BovedaController extends Controller
 
         $businessId = Auth::user()->business_id;
         $userId     = Auth::id();
+        $branchId   = in_array(Auth::user()->role, ['branch_admin', 'cashier'])
+            ? Auth::user()->branch_id
+            : (session('current_branch_id') ?? null);
 
         $bovedaProductType = BovedaProduct::where('business_id', $businessId)
             ->where('name', $entry->product_type)
@@ -325,6 +331,7 @@ class BovedaController extends Controller
         if (! $requiresDespiece) {
             if ($entry->product_type === 'POLLO - Entero Congelado') {
                 $vitrinaProduct = Product::where('business_id', $businessId)
+                    ->where('branch_id', $branchId)
                     ->where('location', 'vitrina')
                     ->where('name', $request->input('pollo_tipo'))
                     ->first();
@@ -335,12 +342,15 @@ class BovedaController extends Controller
             } else {
                 // 1) Preferir vitrina_product_id configurado en el producto bóveda
                 if ($bovedaProductType?->vitrina_product_id !== null) {
-                    $vitrinaProduct = Product::find($bovedaProductType->vitrina_product_id);
+                    $vitrinaProduct = Product::where('id', $bovedaProductType->vitrina_product_id)
+                        ->where('branch_id', $branchId)
+                        ->first();
                 }
 
                 // 2) Fallback: match EXACTO por nombre (evita confundir "Chuleta Ahumada" con "Chuleta de Cerdo")
                 if ($vitrinaProduct === null) {
                     $vitrinaProduct = Product::where('business_id', $businessId)
+                        ->where('branch_id', $branchId)
                         ->where('location', 'vitrina')
                         ->where('name', $entry->product_type)
                         ->first();
@@ -354,7 +364,7 @@ class BovedaController extends Controller
             }
         }
 
-        DB::transaction(function () use ($entry, $kg, $businessId, $userId, $requiresDespiece, $vitrinaProduct): void {
+        DB::transaction(function () use ($entry, $kg, $businessId, $userId, $branchId, $requiresDespiece, $vitrinaProduct): void {
             $entry->increment('kg_surtido_vitrina', $kg);
 
             if (! $requiresDespiece) {
@@ -375,6 +385,7 @@ class BovedaController extends Controller
                 $bovedaProduct = Product::where('business_id', $businessId)
                     ->where('location', 'boveda')
                     ->where('name', $entry->product_type)
+                    ->where('branch_id', $branchId)
                     ->first();
 
                 if ($bovedaProduct !== null) {
@@ -580,6 +591,9 @@ class BovedaController extends Controller
 
         $businessId = $entry->business_id;
         $business   = Business::find($businessId);
+        $branchId   = in_array(Auth::user()->role, ['branch_admin', 'cashier'], true)
+            ? Auth::user()->branch_id
+            : (session('current_branch_id') ?? null);
 
         // Productos vitrina activos agrupados por categoría (excluye utensilios/despensa)
         $despieceCats = ['Res', 'Cerdo', 'Pollo'];
@@ -601,6 +615,7 @@ class BovedaController extends Controller
             ->where('location', 'vitrina')
             ->where('active', true)
             ->where('fabricable', false)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->when($catName, fn ($q) => $q->whereHas('category', fn ($q2) => $q2->where('name', $catName)))
             ->when($catName === 'Res', fn ($q) => $q->whereIn('name', $resOrder))
             ->get()

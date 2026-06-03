@@ -29,9 +29,9 @@ class CatalogController extends Controller
 {
     $user       = Auth::user();
     $businessId = $user->business_id;
-    $branchId   = in_array($user->role, ['branch_admin', 'cashier'])
+    $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
         ? $user->branch_id
-        : (session('current_branch_id') ?? $user->branch_id);
+        : (session('current_branch_id') ?? null);
 
     $categories = Category::with(['subcategories' => fn ($q) => $q->orderBy('sort_order')])
         ->where('business_id', $businessId)
@@ -49,6 +49,7 @@ class CatalogController extends Controller
         ->get();
 
     $stockIn = InventoryEntry::where('business_id', $businessId)
+        ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
         ->selectRaw('product_id, SUM(net_kg) as total_net')
         ->groupBy('product_id')
         ->pluck('total_net', 'product_id');
@@ -57,6 +58,7 @@ class CatalogController extends Controller
         ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
         ->where('sales.business_id', $businessId)
         ->where('sales.status', 'paid')
+        ->when($branchId, fn ($q) => $q->where('sales.branch_id', $branchId))
         ->selectRaw('sale_items.product_id, SUM(sale_items.quantity_value) as total_sold')
         ->groupBy('sale_items.product_id')
         ->pluck('total_sold', 'product_id');
@@ -269,6 +271,9 @@ class CatalogController extends Controller
         /** @var \App\Models\User $user */
         $user       = Auth::user();
         $businessId = $user->business_id;
+        $branchId   = $user->branch_id
+            ?? session('current_branch_id')
+            ?? \App\Models\Branch::where('business_id', $businessId)->orderBy('id')->value('id');
 
         // Leer Excel — mismo helper que ContingencyController
         $rows = Excel::toCollection(new EmptyImport(), $request->file('file'))
@@ -354,8 +359,9 @@ class CatalogController extends Controller
                     ]);
                 }
 
-                // Buscar producto existente (case-insensitive, mismo negocio)
+                // Buscar producto existente (case-insensitive, mismo negocio y sucursal)
                 $product = Product::where('business_id', $businessId)
+                    ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
                     ->whereRaw('LOWER(name) = ?', [mb_strtolower($nombre)])
                     ->first();
 
@@ -380,6 +386,7 @@ class CatalogController extends Controller
                     // CREAR
                     $createData = [
                         'business_id'    => $businessId,
+                        'branch_id'      => $branchId,
                         'category_id'    => $category->id,
                         'name'           => $nombre,
                         'sale_mode'      => $unidad,
@@ -404,6 +411,7 @@ class CatalogController extends Controller
                     if ($stockKg !== null && $stockKg > 0 && $unidad === 'weight') {
                         InventoryEntry::create([
                             'business_id'     => $businessId,
+                            'branch_id'       => $branchId,
                             'product_id'      => $product->id,
                             'quantity_kg'     => $stockKg,
                             'waste_kg'        => 0,

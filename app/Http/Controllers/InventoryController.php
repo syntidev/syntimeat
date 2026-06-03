@@ -181,12 +181,19 @@ class InventoryController extends Controller
             ?? session('current_branch_id')
             ?? \App\Models\Branch::where('business_id', $businessId)->orderBy('id')->value('id');
 
-        Product::where('id', $data['product_id'])
+        $product = Product::where('id', $data['product_id'])
             ->where('business_id', $businessId)
             ->firstOrFail();
 
+        abort_unless(
+            $branchId === null || $product->branch_id === $branchId,
+            403,
+            'Producto no pertenece a esta sucursal.'
+        );
+
         $stockActual = (float) InventoryEntry::where('business_id', $businessId)
             ->where('product_id', $data['product_id'])
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->sum('net_kg');
 
         $diferencia = round((float) $data['stock_real'] - $stockActual, 3);

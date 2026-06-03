@@ -55,6 +55,7 @@ class OrderController extends Controller
 
         $products = Product::with('category')
             ->where('business_id', $businessId)
+            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
             ->where('active', true)
             ->orderBy('sort_order')
             ->get();
@@ -78,12 +79,14 @@ class OrderController extends Controller
         // Cobros pendientes: crédito (payment_status) + delivery (status=pending)
         $creditPending   = Sale::with(['items', 'cashier'])
             ->where('business_id', $businessId)
+            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
             ->where('payment_status', 'pendiente_cobro')
             ->orderByDesc('created_at')
             ->get();
 
         $deliveryPending = Sale::with(['items', 'cashier'])
             ->where('business_id', $businessId)
+            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
             ->where('origin', 'delivery')
             ->where('status', 'pending')
             ->orderByDesc('created_at')
@@ -549,9 +552,13 @@ class OrderController extends Controller
         $user       = Auth::user();
         $businessId = $user->business->id;
         $rate       = $this->rates->getTodayRate();
+        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? null);
 
         $pending = Sale::with(['items', 'cashier'])
             ->where('business_id', $businessId)
+            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
             ->where('origin', 'delivery')
             ->where('status', 'pending')
             ->orderByDesc('created_at')
@@ -577,12 +584,16 @@ class OrderController extends Controller
     {
         $user       = Auth::user();
         $businessId = $user->business->id;
+        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? null);
 
         abort_unless($sale->business_id === $businessId, 403);
         abort_unless($sale->origin === 'delivery', 422, 'Venta no es delivery.');
         abort_unless($sale->status === 'pending', 422, 'Venta no está pendiente de cobro.');
 
         $cashRegister = CashRegister::where('business_id', $businessId)
+            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
             ->whereNull('closed_at')
             ->first();
 

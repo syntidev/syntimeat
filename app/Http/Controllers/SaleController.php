@@ -33,7 +33,9 @@ class SaleController extends Controller
         $business   = $user->business;
         $businessId = $business->id;
 
-        $branchId = $user->branch_id;
+        $branchId = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? null);
 
         $products = Product::with(['category', 'subcategory'])
             ->where('business_id', $businessId)
@@ -63,6 +65,7 @@ class SaleController extends Controller
 
         // ─── Stock map para badges de inventario ──────────────────────────────
         $stockIn = InventoryEntry::where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->selectRaw('product_id, SUM(net_kg) as total_net')
             ->groupBy('product_id')
             ->pluck('total_net', 'product_id');
@@ -70,6 +73,7 @@ class SaleController extends Controller
         $stockOut = DB::table('sale_items')
             ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
             ->where('sales.business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('sales.branch_id', $branchId))
             ->where('sales.status', 'paid')
             ->selectRaw('sale_items.product_id, SUM(sale_items.quantity_value) as total_sold')
             ->groupBy('sale_items.product_id')
@@ -561,6 +565,10 @@ class SaleController extends Controller
         $user       = Auth::user();
         $businessId = $user->business_id;
 
+        $branchId = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? null);
+
         $date    = $request->input('date', now()->toDateString());
         $cashier = $request->input('cashier');
         $method  = $request->input('method');
@@ -610,6 +618,7 @@ class SaleController extends Controller
         ];
 
         $cashiers = User::where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->select('id', 'name')
             ->orderBy('name')
             ->get();
@@ -623,6 +632,7 @@ class SaleController extends Controller
 
         $cobrosPendientes = Sale::with(['items', 'cashier'])
             ->where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->where(function ($q) {
                 $q->where('payment_status', 'pendiente_cobro')
                   ->orWhere(fn ($q2) => $q2->where('origin', 'delivery')->where('status', 'pending'));
