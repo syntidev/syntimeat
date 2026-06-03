@@ -227,11 +227,10 @@ class SaleController extends Controller
 
             $disponible = (float) $stockDisponible - (float) $vendido;
 
-            if ((float) $item['quantity_value'] > $disponible) {
-                return response()->json([
-                    'error' => 'Stock insuficiente para ese producto.',
-                ], 422);
-            }
+            // Stock negativo permitido — carnicería vende bajo pedido
+            // if ((float) $item['quantity_value'] > $disponible) {
+            //     return response()->json(['error' => 'Stock insuficiente para ese producto.'], 422);
+            // }
         }
 
         $origin  = $data['origin']  ?? 'onsite';
