@@ -391,6 +391,7 @@ class BovedaController extends Controller
                 if ($bovedaProduct !== null) {
                     InventoryEntry::create([
                         'business_id'     => $businessId,
+                        'branch_id'       => $branchId,
                         'product_id'      => $bovedaProduct->id,
                         'boveda_entry_id' => $entry->id,
                         'quantity_kg'     => -$kg,
@@ -404,6 +405,7 @@ class BovedaController extends Controller
             } else {
                 InventoryEntry::create([
                     'business_id'     => $businessId,
+                    'branch_id'       => $branchId,
                     'product_id'      => $vitrinaProduct->id,
                     'boveda_entry_id' => $entry->id,
                     'quantity_kg'     => $kg,
