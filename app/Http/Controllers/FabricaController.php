@@ -114,31 +114,31 @@ class FabricaController extends Controller
             ->map(function ($e) use ($businessId, $branchId) {
                 // Categoría → productos vitrina que reciben los cortes
                 $catMap = [
-                    'RES - Medio Canal'        => 'Res',
-                    'CERDO - Canal'            => 'Cerdo',
-                    'POLLO - Entero Congelado' => 'Pollo',
+                    'RES - Medio Canal' => 'Res',
+                    'CERDO - Canal'     => 'Cerdo',
                 ];
-                $catName  = $catMap[$e->product_type] ?? null;
-                $resOrder = ['Carne Total', 'Carne del Canal', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
+                $catName = $catMap[$e->product_type]
+                    ?? (str_contains(strtolower($e->product_type), 'pollo') ? 'Pollo' : null);
+
+                $resOrder   = ['Carne Total', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
+                $polloOrder = ['Pollo Picado', 'Muslo', 'Pechuga', 'Alas de Pollo', 'Molleja', 'Pedrero'];
 
                 $productos = $catName
                     ? Product::with('category')
                         ->where('business_id', $businessId)
                         ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
                         ->where('location', 'vitrina')
-                        ->when(
-                            $catName === 'Res',
-                            fn ($q) => $q->where(fn ($q2) => $q2->where('active', true)->orWhereIn('name', $resOrder)),
-                            fn ($q) => $q->where('active', true)
-                        )
+                        ->where('active', true)
                         ->where('fabricable', false)
                         ->whereHas('category', fn ($q) => $q->where('name', $catName))
-                        ->when($catName === 'Res', fn ($q) => $q->whereIn('name', $resOrder))
+                        ->when($catName === 'Res',   fn ($q) => $q->whereIn('name', $resOrder))
+                        ->when($catName === 'Pollo', fn ($q) => $q->whereIn('name', $polloOrder))
                         ->get(['id', 'name'])
-                        ->sortBy(fn ($p) => $catName === 'Res'
-                            ? (array_search($p->name, $resOrder) !== false ? array_search($p->name, $resOrder) : 999)
-                            : $p->name
-                        )
+                        ->sortBy(fn ($p) => match($catName) {
+                            'Res'   => (($pos = array_search($p->name, $resOrder))   !== false ? $pos : 999),
+                            'Pollo' => (($pos = array_search($p->name, $polloOrder)) !== false ? $pos : 999),
+                            default => $p->name,
+                        })
                         ->values()
                         ->map(fn ($p) => ['id' => $p->id, 'name' => $p->name])
                     : collect();
