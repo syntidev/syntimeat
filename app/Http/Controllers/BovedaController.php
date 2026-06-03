@@ -59,9 +59,10 @@ class BovedaController extends Controller
             ->where('active', true)
             ->where('location', 'vitrina')
             ->where('sale_mode', 'weight')
-            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name'])
+            ->unique('name')
+            ->values();
 
         $kgDisponibleTotal = BovedaEntry::active()->where('business_id', $businessId)
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
