@@ -153,7 +153,7 @@ const surtirForm        = ref({ peso_real: '', pollo_tipo: '' });
 const surtirErrors      = ref({});
 const savingSurtir      = ref(false);
 const DESPIECE_KEY      = 'boveda_despiece_pendiente';
-const isPollo           = computed(() => surtirEntry.value?.product_type === 'POLLO - Entero Congelado');
+const isPollo           = computed(() => surtirEntry.value?.requires_despiece === true);
 const despiecePendiente = ref(null);
 
 // ─── Modal Crear Producto Vitrina (fallback cuando surte() no encuentra producto) ──
@@ -1037,11 +1037,11 @@ async function deactivateProduct(product) {
                         </div>
 
                         <div v-if="isPollo" class="form-field full" style="margin-top: 0.5rem;">
-                            <label>Tipo de pollo</label>
+                            <label>¿A dónde van estos kg?</label>
                             <select v-model="surtirForm.pollo_tipo" class="form-select" required>
-                                <option value="">-- Selecciona el tipo --</option>
-                                <option value="Pollo Entero Tipo A">Pollo Entero Tipo A</option>
-                                <option value="Pollo Entero Tipo B">Pollo Entero Tipo B</option>
+                                <option value="">-- Selecciona destino --</option>
+                                <option value="fabrica">Fábrica (se despieza en cortes)</option>
+                                <option value="vitrina">Vitrina directo (va entero a venta)</option>
                             </select>
                         </div>
 

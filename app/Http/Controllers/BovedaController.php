@@ -293,9 +293,12 @@ class BovedaController extends Controller
             'peso_real' => ['required', 'numeric', 'min:0'],
         ]);
 
-        if ($entry->product_type === 'POLLO - Entero Congelado') {
+        // Si requires_despiece=true, validar destino (fabrica o vitrina)
+        $bovedaProdCheck = \App\Models\BovedaProduct::where('business_id', Auth::user()->business_id)
+            ->where('name', $entry->product_type)->first();
+        if ($bovedaProdCheck?->requires_despiece) {
             $request->validate([
-                'pollo_tipo' => ['required', 'string', 'in:Pollo Entero Tipo A,Pollo Entero Tipo B'],
+                'pollo_tipo' => ['required', 'string', 'in:fabrica,vitrina'],
             ]);
         }
 
@@ -328,6 +331,11 @@ class BovedaController extends Controller
             ->first();
 
         $requiresDespiece = (bool) ($bovedaProductType?->requires_despiece ?? false);
+
+        // Si requires_despiece=true y usuario eligió vitrina → tratar como directo
+        if ($requiresDespiece && $request->input('pollo_tipo') === 'vitrina') {
+            $requiresDespiece = false;
+        }
 
         $vitrinaProduct = null;
         if (! $requiresDespiece) {
