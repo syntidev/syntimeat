@@ -59,6 +59,7 @@ class BovedaController extends Controller
             ->where('active', true)
             ->where('location', 'vitrina')
             ->where('sale_mode', 'weight')
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->orderBy('name')
             ->get(['id', 'name']);
 

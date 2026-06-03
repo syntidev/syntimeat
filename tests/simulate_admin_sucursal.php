@@ -124,6 +124,15 @@ $bovedaHistorial = BovedaEntry::where('business_id', $businessId)
 $check('GET /boveda (activas)',   $expectedBranch, $bovedaActivas);
 $check('GET /boveda (historial)', $expectedBranch, $bovedaHistorial);
 
+$bovedaProductosVitrina = Product::where('business_id', $businessId)
+    ->where('active', true)
+    ->where('location', 'vitrina')
+    ->where('sale_mode', 'weight')
+    ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+    ->get(['id', 'branch_id']);
+
+$check('GET /boveda (productosVitrina)', $expectedBranch, $bovedaProductosVitrina);
+
 // ─── 4. GET /inventario ───────────────────────────────────────────────────────
 
 $invProductos = Product::where('business_id', $businessId)
