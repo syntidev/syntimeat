@@ -1152,6 +1152,8 @@ const helpFaqs = [
                             <div class="ci-dual">
                                 <span class="ci-qty">{{ fmtQty(item.quantity_value, item.sale_mode) }}</span>
                                 <span class="ci-dot">·</span>
+                                <span class="ci-sub">{{ item.amount_bs ? fmtBs(item.amount_bs) : fmtBs(item.subtotal_usd * todayRate) }} Bs.</span>
+                                <span class="ci-dot">·</span>
                                 <span class="ci-sub">{{ fmtUsd(item.subtotal_usd) }}</span>
                             </div>
                         </div>
