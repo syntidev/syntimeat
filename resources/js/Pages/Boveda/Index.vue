@@ -814,7 +814,7 @@ async function deactivateProduct(product) {
                         <div class="form-grid">
                             <div class="form-field full">
                                 <label>Tipo de producto bóveda</label>
-                                <template v-if="bovedaProductosActivos.length > 10">
+                                <template v-if="bovedaProductosActivos.length > 20">
                                     <input
                                         v-model="entradaForm.product_type"
                                         list="boveda-productos-list"
