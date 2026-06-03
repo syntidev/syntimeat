@@ -212,6 +212,15 @@ class CatalogController extends Controller
             }
         }
 
+        // Guard: no permitir desactivar un producto pivote (stock_product_id)
+        if (isset($updates['active']) && $updates['active'] === false) {
+            $esPivote = Product::where('stock_product_id', $product->id)->exists();
+            if ($esPivote) {
+                return redirect()->route('catalog.index')
+                    ->with('error', 'No se puede desactivar "' . $product->name . '" porque es el producto pivote de stock de Premium, Primera y/o Segunda. Reasigna el pivote antes de desactivarlo.');
+            }
+        }
+
         $product->update($updates);
 
         return redirect()->route('catalog.index')->with('success', 'Producto actualizado.');
