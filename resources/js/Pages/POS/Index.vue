@@ -679,9 +679,9 @@ function processBarcode(code) {
     }
 
     // PLU: dígitos 2-6 (índices 1-5), precio: dígitos 7-11 (índices 6-10)
-    const skuRaw  = code.slice(1, 6)    // '00123' → PLU 123
-    const priceRaw = code.slice(6, 11)  // '01250' → 12.50 Bs
-    const priceBs  = parseInt(priceRaw, 10) / 100
+    const skuRaw  = code.slice(2, 7)    // pos 2-6 = PLU (Roccia prefijo 29)
+    const priceRaw = code.slice(7, 12)  // pos 7-11 = precio Bs
+    const priceBs  = parseInt(priceRaw, 10) / 10  // Roccia usa ÷10
     const skuInt   = parseInt(skuRaw, 10)
 
     // Buscar por campo sku si existe, si no por id

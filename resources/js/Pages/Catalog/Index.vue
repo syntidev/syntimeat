@@ -25,7 +25,9 @@ const tabProducts = computed(() => {
         return props.products.filter(p =>
             p.name.toLowerCase().includes(q) ||
             (p.category?.name ?? '').toLowerCase().includes(q) ||
-            (p.subcategory?.name ?? '').toLowerCase().includes(q)
+            (p.subcategory?.name ?? '').toLowerCase().includes(q) ||
+            (p.sku ?? '').toLowerCase().includes(q) ||
+            (p.barcode ?? '').toLowerCase().includes(q)
         )
     }
     return props.products.filter(p => p.category_id === activeTab.value)
