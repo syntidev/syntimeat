@@ -619,7 +619,10 @@ class BovedaController extends Controller
             'Canal Cerdo'              => 'Cerdo',
             'Pollo Entero Congelado'   => 'Pollo',
         ];
-        $catName  = $catMap[$entry->product_type] ?? null;
+        $catName = $catMap[$entry->product_type]
+            ?? (str_contains(strtolower($entry->product_type), 'pollo') ? 'Pollo' : null)
+            ?? (str_contains(strtolower($entry->product_type), 'res') ? 'Res' : null)
+            ?? (str_contains(strtolower($entry->product_type), 'cerdo') ? 'Cerdo' : null);
         $resOrder   = ['Carne Total', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
         $polloOrder = ['Pollo Picado', 'Muslo', 'Pechuga', 'Alas de Pollo', 'Molleja', 'Pedrero'];
 

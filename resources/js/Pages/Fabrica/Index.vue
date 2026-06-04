@@ -364,7 +364,7 @@ async function submitDespiece(entry) {
                                     :disabled="despieceSaving[entry.id] || cortesExceden(entry)"
                                     @click="submitDespiece(entry)"
                                 >
-                                    {{ despieceSaving[entry.id] ? 'Registrando…' : 'Registrar cortes' }}
+                                    {{ despieceSaving[entry.id] ? 'Registrando…' : 'Registrar despiece' }}
                                 </button>
                             </div>
                         </div>
