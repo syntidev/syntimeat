@@ -941,7 +941,7 @@ DB::table('inventory_entries')->insert([
 ]);
 
 $carneCanal = Product::where('business_id', $businessId)
-    ->where('name', 'Carne del Canal')
+    ->where('name', 'Carne Total')
     ->where('location', 'vitrina')
     ->first();
 
@@ -3006,7 +3006,7 @@ if ($f17ResEntry) {
 
             // Verificar nombres exactos (order-insensitive)
             $nombresActuales  = collect($resRow['productos_vitrina'])->pluck('name')->sort()->values()->all();
-            $nombresEsperados = ['Carne del Canal', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
+            $nombresEsperados = ['Carne Total', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
             sort($nombresEsperados);
 
             if ($nombresActuales === $nombresEsperados) {
