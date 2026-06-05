@@ -57,7 +57,9 @@ const form = useForm({
     subcategory_id:     '',
     sale_mode:          'weight',
     price_per_kg_usd:   '',
+    price_per_kg_bs:    '',
     price_per_unit_usd: '',
+    price_per_unit_bs:  '',
     min_stock:          0,
     active:             true,
     fabricable:         false,
@@ -69,13 +71,10 @@ const form = useForm({
 const selectedImagePreview = ref(null)
 const fileInputRef         = ref(null)
 
-const bsKgPrice   = ref('')
-const bsUnitPrice = ref('')
-
-function syncBsKg()    { bsKgPrice.value   = (parseFloat(form.price_per_kg_usd)   * dollarRate.value).toFixed(2) }
-function syncUsdKg()   { form.price_per_kg_usd   = (parseFloat(bsKgPrice.value)   / dollarRate.value).toFixed(4) }
-function syncBsUnit()  { bsUnitPrice.value  = (parseFloat(form.price_per_unit_usd) * dollarRate.value).toFixed(2) }
-function syncUsdUnit() { form.price_per_unit_usd = (parseFloat(bsUnitPrice.value)  / dollarRate.value).toFixed(4) }
+function syncBsKg()    { form.price_per_kg_bs   = (parseFloat(form.price_per_kg_usd)   * dollarRate.value).toFixed(0) }
+function syncUsdKg()   { form.price_per_kg_usd   = (parseFloat(form.price_per_kg_bs)   / dollarRate.value).toFixed(4) }
+function syncBsUnit()  { form.price_per_unit_bs  = (parseFloat(form.price_per_unit_usd) * dollarRate.value).toFixed(0) }
+function syncUsdUnit() { form.price_per_unit_usd = (parseFloat(form.price_per_unit_bs)  / dollarRate.value).toFixed(4) }
 
 const activeCategory = computed(() =>
     props.categories.find(c => c.id === Number(form.category_id))
@@ -102,8 +101,6 @@ function openNew() {
     form.reset()
     form.category_id   = props.categories[0]?.id ?? ''
     form.sale_mode     = 'weight'
-    bsKgPrice.value    = ''
-    bsUnitPrice.value  = ''
     formTouched.value  = false
     showModal.value    = true
 }
@@ -126,8 +123,8 @@ function openEdit(product) {
     form.is_favorite        = product.is_favorite ?? false
     form.image              = null
     form.remove_image       = false
-    bsKgPrice.value   = form.price_per_kg_usd   ? (parseFloat(form.price_per_kg_usd)   * dollarRate.value).toFixed(2) : ''
-    bsUnitPrice.value = form.price_per_unit_usd ? (parseFloat(form.price_per_unit_usd) * dollarRate.value).toFixed(2) : ''
+    form.price_per_kg_bs   = product.price_per_kg_bs   ?? (form.price_per_kg_usd   ? (parseFloat(form.price_per_kg_usd)   * dollarRate.value).toFixed(0) : '')
+    form.price_per_unit_bs = product.price_per_unit_bs ?? (form.price_per_unit_usd ? (parseFloat(form.price_per_unit_usd) * dollarRate.value).toFixed(0) : '')
     formTouched.value       = false
     showModal.value         = true
 }
@@ -136,8 +133,6 @@ function closeModal() {
     showModal.value            = false
     editProduct.value          = null
     selectedImagePreview.value = null
-    bsKgPrice.value            = ''
-    bsUnitPrice.value          = ''
     formTouched.value          = false
     if (fileInputRef.value) fileInputRef.value.value = ''
     form.reset()
@@ -177,8 +172,10 @@ function submitForm() {
         category_id:        form.category_id,
         subcategory_id:     form.subcategory_id || null,
         sale_mode:          form.sale_mode,
-        price_per_kg_usd:   form.price_per_kg_usd || null,
+        price_per_kg_usd:   form.price_per_kg_usd  || null,
+        price_per_kg_bs:    form.price_per_kg_bs   || null,
         price_per_unit_usd: form.price_per_unit_usd || null,
+        price_per_unit_bs:  form.price_per_unit_bs  || null,
         min_stock:          form.min_stock ?? 0,
         active:             form.active,
         fabricable:         form.fabricable ? 1 : 0,
@@ -799,22 +796,22 @@ const helpFaqs = [
                                             v-model="form.price_per_kg_usd"
                                             class="field-input"
                                             type="number"
-                                            step="0.01"
+                                            step="0.0001"
                                             min="0"
-                                            placeholder="0.00"
+                                            placeholder="0.0000"
                                             required
                                             @input="syncBsKg"
                                         />
                                         <div class="price-pivot">
                                             <input
-                                                v-model="bsKgPrice"
+                                                v-model="form.price_per_kg_bs"
                                                 type="number"
                                                 step="0.01"
                                                 class="field-input field-input--bs"
-                                                placeholder="Equivalente automático"
+                                                placeholder="Precio Bs/kg (báscula)"
                                                 @input="syncUsdKg"
                                             />
-                                            <span class="rate-hint">Bs. (referencia) — Tasa: {{ dollarRate.toFixed(2) }}</span>
+                                            <span class="rate-hint">Bs/kg (báscula) — Tasa ref: {{ dollarRate.toFixed(2) }}</span>
                                         </div>
                                         <p v-if="form.errors.price_per_kg_usd" class="field-error">{{ form.errors.price_per_kg_usd }}</p>
                                     </template>
@@ -826,22 +823,22 @@ const helpFaqs = [
                                             v-model="form.price_per_unit_usd"
                                             class="field-input"
                                             type="number"
-                                            step="0.01"
+                                            step="0.0001"
                                             min="0"
-                                            placeholder="0.00"
+                                            placeholder="0.0000"
                                             required
                                             @input="syncBsUnit"
                                         />
                                         <div class="price-pivot">
                                             <input
-                                                v-model="bsUnitPrice"
+                                                v-model="form.price_per_unit_bs"
                                                 type="number"
                                                 step="0.01"
                                                 class="field-input field-input--bs"
-                                                placeholder="Equivalente automático"
+                                                placeholder="Precio Bs/und (báscula)"
                                                 @input="syncUsdUnit"
                                             />
-                                            <span class="rate-hint">Bs. (referencia) — Tasa: {{ dollarRate.toFixed(2) }}</span>
+                                            <span class="rate-hint">Bs/und (báscula) — Tasa ref: {{ dollarRate.toFixed(2) }}</span>
                                         </div>
                                         <p v-if="form.errors.price_per_unit_usd" class="field-error">{{ form.errors.price_per_unit_usd }}</p>
                                     </template>

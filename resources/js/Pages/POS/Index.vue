@@ -749,6 +749,18 @@ function parseBarcodeScale(code) {
 }
 
 function handleScan(code) {
+    // Roccia ROP-30: EAN-13 prefijo '2', PLU en pos 2-6, precio Bs÷10 en pos 7-11
+    if (code.length === 13 && code[0] === '2') {
+        const plu     = code.slice(2, 7)
+        const priceBs = parseInt(code.slice(7, 12), 10) / 10
+        const product = props.products.find(p => p.barcode && parseInt(p.barcode, 10) === parseInt(plu, 10))
+        if (product) {
+            addToCartFromScanner(product, priceBs)
+            showScanFeedback(product.name, 1)
+        }
+        return
+    }
+
     const parsed = parseBarcodeScale(code)
 
     if (parsed.type === 'scale_ean13') {
@@ -793,12 +805,9 @@ function addToCartFromScanner(product, amountBs) {
         ? Math.round((amountBs / priceBsKg) * 1000) / 1000
         : 1
 
-    const subtotalUsd = parseFloat(
-        ((isWeight
-            ? parseFloat(product.price_per_kg_usd  || 0)
-            : parseFloat(product.price_per_unit_usd || 0)) * quantityValue
-        ).toFixed(2)
-    )
+    const subtotalUsd = isWeight
+    ? parseFloat((amountBs / props.todayRate).toFixed(2))
+    : parseFloat((parseFloat(product.price_per_unit_usd || 0) * quantityValue).toFixed(2))
 
     const existing = cart.value.find(i => i.product_id === product.id)
     if (existing) {
