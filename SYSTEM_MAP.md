@@ -1,7 +1,8 @@
-# SYSTEM MAP — SYNTImeat v3.3
-Actualizado: 2026-06-02
-Versión anterior: 2026-05-29
-▲ Cambios de la sesión 31/05–02/06/2026 marcados con ▲
+# SYSTEM MAP — SYNTImeat v3.4
+Actualizado: 2026-06-05
+Versión anterior: 2026-06-02 (v3.3)
+▲ Cambios de la sesión 03–05/06/2026 marcados con ▲
+(cambios sesión 31/05–02/06 marcados con ▲▲)
 
 ---
 
@@ -13,10 +14,10 @@ Versión anterior: 2026-05-29
 | VPS          | 187.124.241.213 (Ubuntu 24.04 — Hostinger KVM1) |
 | DB           | syntimeat_db / syntimeat / SyntiMeat2026! |
 | Branch git   | main |
-| ▲ Commit     | 6751b4c |
-| ▲ Versión    | v3.3 |
-| ▲ Tag        | v3.3-pivot-usd-bs |
-| ▲ Fecha      | 2026-06-02 |
+| ▲ Commit     | 4d2f599 |
+| ▲ Versión    | v3.4 |
+| ▲ Tag        | v3.4-roccia-certificado |
+| ▲ Fecha      | 2026-06-05 |
 | ▲ Sucursales | branch_id=1 Chaguaramas · branch_id=3 El Buen Corte |
 
 ### ▲ Usuarios en producción
@@ -64,7 +65,9 @@ $catMap = [
     'CERDO - Canal'            => 'Cerdo',
     'POLLO - Entero Congelado' => 'Pollo',
 ];
-$resOrder = ['Carne del Canal', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
+$resOrder   = ['Carne del Canal', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
+// ▲ polloOrder presente en plantillaDespiece() — commit c6b2dd5
+// ▲ Detección catMap por nombre (str_contains) como fallback — commit 38eaae8
 ```
 
 **Inertia props `index()`:** activas, historial, bovedaProducts, productosVitrina, kpis{entradasActivas, kgDisponible, costoActivo, surtidoHoy}
@@ -91,6 +94,8 @@ $resOrder = ['Carne del Canal', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
 // ->when($catName === 'Res', fn($q) => $q->whereIn('name', $resOrder))
 ```
 
+▲ **catMap Pollo + polloOrder (commits f656a1a · c6b2dd5):** Fábrica y Bóveda detectan POLLO por nombre (`str_contains($bovedaProduct->name, 'Pollo')` como fallback) además del prefijo. `$polloOrder` ahora también presente en `plantillaDespiece()` de BovedaController para planilla Bóveda.
+
 **Inertia props `index()`:** fabricables, ingredientes, stockMap, historial, despiecePendiente, despieceHistorial
 
 ---
@@ -105,7 +110,9 @@ $resOrder = ['Carne del Canal', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
 | 548 | `historial()` | GET | /ventas |
 | 654 | `void()` | PATCH | /ventas/{sale}/anular |
 
-▲ **$branchId capturado en closures de DB::transaction** en `pay()` y `cancel()` — se declara antes de la transacción y se pasa vía `use ($branchId, ...)` para evitar undefined variable en closures.
+▲▲ **$branchId capturado en closures de DB::transaction** en `pay()` y `cancel()` — se declara antes de la transacción y se pasa vía `use ($branchId, ...)` para evitar undefined variable en closures.
+
+▲ **Guard stock negativo (commit 8e97b06):** `store()` valida que `net_kg >= items[].quantity_value` antes de crear la venta. Ventas que superan stock ahora retornan error 422 con mensaje descriptivo — ya no se permiten stocks negativos silenciosos.
 
 **Patrón pool stock_product_id:**
 ```php
@@ -392,10 +399,19 @@ Gestión de usuarios del equipo (toggle activo, matar sesión, CRUD).
 
 ---
 
-### Product (referencia — sin cambios en sesión 29)
-**fillable:** business_id, branch_id, category_id, subcategory_id, name, sku, `barcode`, sale_mode, base_unit_label, fraction_allowed, price_per_kg_usd, price_per_unit_usd, min_stock, location, image_path, sort_order, active, fabricable, is_favorite, stock_product_id
+### Product ▲
+**fillable:** business_id, branch_id, category_id, subcategory_id, name, sku, `barcode`, sale_mode, base_unit_label, fraction_allowed, price_per_kg_usd, price_per_unit_usd, `price_per_kg_bs`, `price_per_unit_bs`, min_stock, location, image_path, sort_order, active, fabricable, is_favorite, stock_product_id
+
+**▲ price_per_kg_bs / price_per_unit_bs:** `decimal(12,2) nullable` — precio de vitrina en Bs calculado al momento de actualización (price_usd × tasa). Almacenado como referencia rápida en ticket / catálogo.
 
 **stock_product_id:** nullable FK. Descuento de inventario y cálculo de costo se hacen contra este product_id. Premium/Primera/Segunda → 'Carne del Canal'.
+
+**▲ SKUs báscula (branch=3 y branch=1):**
+| SKU | Producto | Barcode Roccia |
+|-----|----------|----------------|
+| 00001 | Primera | EAN-13 con PLU 00001 |
+| 00002 | Segunda | EAN-13 con PLU 00002 |
+| 00003 | Premium | EAN-13 con PLU 00003 |
 
 ---
 
@@ -410,12 +426,12 @@ Gestión de usuarios del equipo (toggle activo, matar sesión, CRUD).
 | CashRegister | opened_at/opening_amount_usd/opened_by ahora nullable |
 | InventoryEntry | net_kg = quantity_kg - waste_kg (GENERATED VIRTUAL DB) |
 | BovedaEntry | pair_id (Canal 1/2) · kg_disponible GENERATED VIRTUAL |
-| BovedaProduct | Catálogo Chaguaramas: RES, POLLO, CERDO, Jamón Pierna |
+| BovedaProduct | Catálogo Chaguaramas: RES, POLLO, CERDO, Jamón Pierna · ▲ Pollo el Corral + Pollo Entero Q Pollo → requires_despiece=1 |
 | FabricaInput | FK: fabrica_batch_id, product_id, despiece_item_id, inventory_entry_id |
 | Category | macro_category: BOVEDA,RES,POLLO,CERDO,CHARCUTERIA,TRASTES,DESPENSA |
 | Branch | business_id, name, address, city, phone, is_active, access_start, access_end |
 | DollarRate | Conexión readonly `synticorex` DB · UPDATED_AT=null |
-| PaymentMethod | branch_id desde 2026-05-28 |
+| PaymentMethod | branch_id desde 2026-05-28 · ▲ branch=3 datos: POS BDV, POS Provincial, POS Activo agregados |
 | ActivityLog | old_values/new_values:array |
 
 ---
@@ -675,10 +691,11 @@ Ventana corrida de 18:40–19:00 → 19:00–19:30. Corte real a las 7:30 PM Ven
 | 2026_05_25_000001 | users | ADD permissions |
 | 2026_05_28_173645 | boveda_entries | ADD branch_id |
 | 2026_05_28_180001 | payment_methods | ADD branch_id |
-| ▲ 2026_05_29_000001 | orders, despiece_logs, fabrica_batches, clients, payment_terminals | ADD branch_id (5 tablas) |
-| ▲ 2026_05_29_000002 | cash_movements | ADD branch_id |
+| ▲▲ 2026_05_29_000001 | orders, despiece_logs, fabrica_batches, clients, payment_terminals | ADD branch_id (5 tablas) |
+| ▲▲ 2026_05_29_000002 | cash_movements | ADD branch_id |
+| ▲ 2026_06_03_000001 | products | ADD price_per_kg_bs decimal(12,2) nullable, price_per_unit_bs decimal(12,2) nullable |
 
-**Total: 74 migraciones corridas.**
+**Total: 75 migraciones corridas.**
 
 ---
 
@@ -738,7 +755,7 @@ resources/js/Pages/
     ├── PaymentMethods.vue
     ├── Terminals.vue
     ├── Ticket.vue
-    ├── Hardware.vue            ▲ Guía de hardware: scanner EAN-13, balanza, impresora térmica
+    ├── Hardware.vue            ▲▲ Guía de hardware: scanner EAN-13, balanza, impresora térmica · ▲ Campo de prueba Roccia ROP-30 operativo (decodifica EAN-13 en tiempo real) · Pendiente: simulador completo (producto + kg + Bs al escanear)
     └── Branches.vue
 ```
 
@@ -747,16 +764,27 @@ resources/js/Pages/
 - **app.css:** clase global `.mobile-cards` para colapsar tablas en mobile
 - Regla: `640px` = límite mobile/tablet · `1023px` = límite tablet/desktop
 
-### ▲ POS/Index.vue — Scanner de báscula multi-estándar
+### ▲ POS/Index.vue — Scanner de báscula multi-estándar (Roccia ROP-30)
 ```javascript
-// EAN-13 (13 dígitos) — pos 2-6 = PLU/SKU, pos 7-11 = precio Bs (÷100)
-// Code128 o cualquier otro — buscar directo por barcode en productos
-function parseBarcodeScale(code) { ... }  // retorna { product, weightKg, priceOverride }
+// Báscula Roccia ROP-30 — formato EAN-13 (13 dígitos):
+// pos[0]   = prefijo '0'     (siempre 0)
+// pos[1]   = fijo '9'        (identificador báscula)
+// pos[2..6] = PLU / SKU      (5 dígitos, ej: '00001' = Primera)
+// pos[7..11] = precio Bs     (5 dígitos)
+// pos[12]  = check digit EAN-13
+// Divisor precio: endsWith('00') ? ÷100 : ÷10
+// Code128 o cualquier otro — buscar directo por barcode/sku en productos
+
+function parseBarcodeScale(code) { ... }   // retorna { product, weightKg, priceOverride }
+function processBarcode(code) { ... }      // path 1: entrada principal desde scanner
 function onKeyDown(e) { ... }              // listener global, buffer con timeout 300ms
-function handleScan(code) { ... }          // agrega al ticket activo
+function handleScan(code) { ... }          // path 3: agrega al ticket activo
 function showScanFeedback(name, qty) { ... } // feedback visual 2s
 ```
+Tres paths unificados: `processBarcode()` → `parseBarcodeScale()` → `handleScan()`.
 Listener registrado en `onMounted` / removido en `onUnmounted`.
+▲ **Carrito (commit 00b1c38):** muestra kg · Bs · USD por ítem — columna triple visible en ticket.
+▲ **Certificado (commit 4d2f599):** Scanner Roccia ROP-30 certificado en DESA. Pendiente prueba en producción.
 
 ---
 
@@ -833,7 +861,8 @@ const rolePermissions = {
 | v2.7-responsive-ecosistema-completo | Responsive en 33+ vistas Vue |
 | v2.8-mobile-cards-global | .mobile-cards global en app.css |
 | v2.9-scanner-barcode | Scanner EAN-13/Code128 en POS · branch_id en 6 tablas nuevas |
-| ▲ v3.3-pivot-usd-bs | Pivote USD↔Bs en Catálogo e Inventario · branch picker owner-only · schedule bancario 19:00-19:30 |
+| ▲▲ v3.3-pivot-usd-bs | Pivote USD↔Bs en Catálogo e Inventario · branch picker owner-only · schedule bancario 19:00-19:30 |
+| ▲ v3.4-roccia-certificado | Báscula Roccia ROP-30 certificada · guard stock negativo · carrito kg/Bs/USD · catMap Pollo · price_per_kg_bs · Pedrero creado · Hígado restaurado |
 
 ---
 
@@ -883,16 +912,75 @@ const rolePermissions = {
 
 | Área | Estado |
 |------|--------|
-| Tests unitarios | 45/45 PASS |
+| Stress test | ▲ 145/145 PASS |
+| Branch ISO | ▲ 11/11 — Bóveda→Fábrica→Vitrina certificado (ver detalle §14.1) |
 | Flujo POS→pago→stock | 15/16 (1 edge case delivery pendiente) |
-| Audit branch_id | 13/13 tablas certificadas ▲ |
-| Responsive | 33 vistas normalizadas — 640px/1023px ▲ |
-| Scanner báscula | EAN-13 + Code128 operativo ▲ |
-| Roles producción | owner/analyst/cashier/branch_admin activos ▲ |
+| Audit branch_id | 13/13 tablas certificadas |
+| Responsive | 33 vistas normalizadas — 640px/1023px |
+| Scanner Roccia ROP-30 | ▲ Certificado en DESA · pendiente prueba producción |
+| Guard stock negativo | ▲ Activo en SaleController |
+| Roles producción | owner/analyst/cashier/branch_admin activos |
+
+### 14.1 — Branch ISO 11/11 — Detalle flujo completo
+
+**Condición inicial:** 20 productos vitrina (Res/Pollo/Cerdo) con inventory_entries eliminadas.
+
+**Bóveda (3 entradas surtidas a Fábrica):**
+| Entry | ID | kg_entrada | Status |
+|-------|----|------------|--------|
+| RES - Medio Canal | 917 | 50 kg | 200 OK |
+| POLLO - Entero Congelado | 918 | 20 kg | 200 OK |
+| CERDO - Canal | 919 | 30 kg | 200 OK |
+
+> Nota: BovedaProduct POLLO tenía `requires_despiece=false` → corregido a `true` para habilitar despiece.
+
+**Despiece (FabricaController::storeDespiece):**
+| Animal | Cortes | Total doc. | Merma |
+|--------|--------|-----------|-------|
+| RES | Carne Total 20 · Costilla 10 · H.Redondo 10 · H.Rojo 8 | 48 kg | 2 kg |
+| POLLO | Picado 5 · Muslo 5 · Pechuga 5 · Alas 3 · Molleja 2 | 20 kg | 0 kg |
+| CERDO | Chuleta 15 · Costilla 14 | 29 kg | 1 kg |
+
+**Stock vitrina resultante (11 productos):**
+| Producto | Stock |
+|----------|-------|
+| Carne Total | 20.000 kg |
+| Costilla (Res) | 10.000 kg |
+| Hueso Redondo | 10.000 kg |
+| Hueso Rojo | 8.000 kg |
+| Ala | 3.000 kg |
+| Molleja | 2.000 kg |
+| Muslo | 5.000 kg |
+| Pechuga | 5.000 kg |
+| Pollo Picado | 5.000 kg |
+| Chuleta de Cerdo | 15.000 kg |
+| Costilla de Cerdo | 14.000 kg |
 
 **Commit v2.9:** `2d42bf2` — `feat(pos): scanner de báscula multi-estándar EAN-13/Code128`
+**▲▲ Commit v3.3:** `6751b4c` — `feat(catalog+inventory): campo pivote USD↔Bs con tasa BCV en tiempo real`
+**▲ Commit v3.4:** `4d2f599` — `feat(pos): scanner Roccia ROP-30 certificado + carrito Bs grande`
 
-**▲ Commit v3.3:** `6751b4c` — `feat(catalog+inventory): campo pivote USD↔Bs con tasa BCV en tiempo real`
+### ▲ Bugs cerrados sesión 03–05/06/2026
+| Commit | Fix |
+|--------|-----|
+| e5226a3 | Selector bóveda >20 productos |
+| 0d84445 | productosVitrina global + unique |
+| bc7b285 | Guard pivote Carne Total |
+| 8e97b06 | Ventas stock negativo bloqueadas |
+| 00b1c38 | Carrito muestra kg · Bs · USD |
+| f656a1a | catMap Pollo + polloOrder Fábrica |
+| c6b2dd5 | polloOrder planilla Bóveda |
+| 3534561 | Surtir destino Fábrica/Vitrina |
+| f77c864 | Test despiece 34/34 certificado |
+| 38eaae8 | Planilla catMap detección por nombre |
+| 4d2f599 | Scanner Roccia ROP-30 certificado |
+
+### ▲ Pendientes tras sesión 05/06/2026
+- Simulador POS en Hardware.vue (mostrar producto + kg + Bs al escanear código EAN-13 manual)
+- Pull en VPS — stash pendiente de resolver
+- Catálogo busca por sku y barcode
+- 4 decimales en price_per_kg_usd input catálogo
+- Prueba báscula Roccia ROP-30 en producción
 
 ---
-*Generado: 2026-06-02 | Próximo punto de restauración recomendado: antes de migración multi-negocio*
+*Generado: 2026-06-05 | VPS HEAD: 4d2f599 | Próximo punto de restauración recomendado: antes de simulador báscula Hardware.vue*
