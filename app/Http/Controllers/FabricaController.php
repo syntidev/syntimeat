@@ -361,6 +361,10 @@ class FabricaController extends Controller
 
         abort_if($entry->despiece_completado_at !== null, 422, 'Este despiece ya fue procesado.');
 
+        $costoPorKg = ((float) $entry->kg_entrada > 0)
+            ? round((float) $entry->costo_usd / (float) $entry->kg_entrada, 4)
+            : null;
+
         $cortesConKg = collect($data['cortes'])->filter(fn ($c) => (float) $c['kg'] > 0);
 
         if ($cortesConKg->isEmpty()) {
@@ -377,7 +381,7 @@ class FabricaController extends Controller
             ], 422);
         }
 
-        DB::transaction(function () use ($entry, $cortesConKg, $merma, $kgSurtido, $businessId, $branchId, $user, $data): void {
+        DB::transaction(function () use ($entry, $cortesConKg, $merma, $kgSurtido, $businessId, $branchId, $user, $data, $costoPorKg): void {
             foreach ($cortesConKg as $corte) {
                 InventoryEntry::create([
                     'business_id'     => $businessId,
@@ -386,6 +390,7 @@ class FabricaController extends Controller
                     'boveda_entry_id' => $entry->id,
                     'quantity_kg'     => (float) $corte['kg'],
                     'waste_kg'        => 0,
+                    'cost_per_kg_usd' => $costoPorKg,
                     'location'        => 'vitrina',
                     'notes'           => 'Despiece ' . $entry->product_type . ' #' . $entry->id,
                     'entered_at'      => now(),
