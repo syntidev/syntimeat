@@ -681,7 +681,7 @@ function processBarcode(code) {
     // PLU: dígitos 2-6 (índices 1-5), precio: dígitos 7-11 (índices 6-10)
     const skuRaw  = code.slice(2, 7)    // pos 2-6 = PLU (Roccia prefijo 29)
     const priceRaw = code.slice(7, 12)  // pos 7-11 = precio Bs
-    const priceBs  = parseInt(priceRaw, 10) / 10  // Roccia usa ÷10
+    const priceBs  = priceRaw.endsWith('00') ? parseInt(priceRaw, 10) / 100 : parseInt(priceRaw, 10) / 10
     const skuInt   = parseInt(skuRaw, 10)
 
     // Buscar por campo sku si existe, si no por id
@@ -734,7 +734,7 @@ function parseBarcodeScale(code) {
             const productCode = raw.substring(2, 7)  // 5 dígitos producto
             const valueRaw    = raw.substring(7, 12) // 5 dígitos valor
 
-            const asPriceBs  = parseInt(valueRaw) / 100   // Bs con 2 decimales
+            const asPriceBs  = valueRaw.endsWith('00') ? parseInt(valueRaw) / 100 : parseInt(valueRaw) / 10
             const asWeightKg = parseInt(valueRaw) / 1000  // kg con 3 decimales
 
             return { type: 'scale_ean13', productCode, priceBs: asPriceBs, weightKg: asWeightKg, raw }
@@ -751,8 +751,9 @@ function parseBarcodeScale(code) {
 function handleScan(code) {
     // Roccia ROP-30: EAN-13 prefijo '2', PLU en pos 2-6, precio Bs÷10 en pos 7-11
     if (code.length === 13 && code[0] === '2') {
-        const plu     = code.slice(2, 7)
-        const priceBs = parseInt(code.slice(7, 12), 10) / 10
+        const plu      = code.slice(2, 7)
+        const priceRaw = code.slice(7, 12)
+        const priceBs  = priceRaw.endsWith('00') ? parseInt(priceRaw, 10) / 100 : parseInt(priceRaw, 10) / 10
         const product = props.products.find(p => p.barcode && parseInt(p.barcode, 10) === parseInt(plu, 10))
         if (product) {
             addToCartFromScanner(product, priceBs)
@@ -1163,7 +1164,7 @@ const helpFaqs = [
                                 <span class="ci-dot">·</span>
                                 <span class="ci-sub">{{ item.amount_bs ? fmtBs(item.amount_bs) : fmtBs(item.subtotal_usd * todayRate) }} Bs.</span>
                                 <span class="ci-dot">·</span>
-                                <span class="ci-sub">{{ fmtUsd(item.subtotal_usd) }}</span>
+                                <span class="ci-sub ci-sub-usd">{{ fmtUsd(item.subtotal_usd) }}</span>
                             </div>
                         </div>
                         <button class="ci-rm" @click.stop="removeFromCart(idx)">×</button>
@@ -1174,11 +1175,11 @@ const helpFaqs = [
                     <div class="total-area">
                         <div class="total-meta">
                             <span class="total-lbl">Total</span>
-                            <span class="total-usd">{{ fmtBs(cartTotalBs) }} Bs.</span>
+                            <span class="total-usd">{{ fmtUsd(cartTotalUsd) }} USD</span>
                         </div>
                         <div class="total-main">
-                            <span class="total-bs">{{ fmtUsd(cartTotalUsd) }}</span>
-                            <span class="total-curr">USD</span>
+                            <span class="total-bs">{{ fmtBs(cartTotalBs) }}</span>
+                            <span class="total-curr">Bs.</span>
                         </div>
                     </div>
                     <button class="btn-cobrar" :disabled="!cart.length" @click="openPayModal">
@@ -2135,6 +2136,7 @@ const helpFaqs = [
 .ci-qty  { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .ci-dot  { font-size: 10px; color: var(--border); }
 .ci-sub  { font-size: 12px; font-weight: 700; color: var(--amber); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ci-sub-usd { font-size: 10px; font-weight: 500; color: var(--text-muted); }
 .ci-rm   { width: 22px; height: 22px; border-radius: 4px; background: transparent; border: 1px solid transparent; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 15px; flex-shrink: 0; line-height: 1; cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s; font-family: inherit; }
 .ci-rm:hover { background: var(--red-a); border-color: rgba(239,68,68,0.25); color: var(--red); }
 
