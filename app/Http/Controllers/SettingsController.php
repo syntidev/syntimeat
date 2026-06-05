@@ -319,7 +319,14 @@ class SettingsController extends Controller
     public function hardware(): Response
     {
         $business = Auth::user()->business;
-        return Inertia::render('Settings/Hardware', ['business' => $business]);
+        return Inertia::render('Settings/Hardware', [
+            'business'  => $business,
+            'products'  => \App\Models\Product::where('business_id', auth()->user()->business_id)
+                ->where('active', true)
+                ->where('location', '!=', 'boveda')
+                ->get(['id', 'name', 'barcode', 'sku', 'price_per_kg_usd', 'price_per_unit_usd', 'sale_mode']),
+            'todayRate' => app(\App\Services\DollarRateService::class)->getTodayRate(),
+        ]);
     }
 
     public function updateHardware(Request $request): RedirectResponse

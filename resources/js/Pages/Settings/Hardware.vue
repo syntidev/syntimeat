@@ -5,7 +5,9 @@ import { ref }        from 'vue'
 import { useForm }    from '@inertiajs/vue3'
 
 const props = defineProps({
-    business: { type: Object, default: () => ({}) },
+    business:  { type: Object, default: () => ({}) },
+    products:  { type: Array,  default: () => [] },
+    todayRate: { type: Number, default: 1 },
 })
 
 const hwForm = useForm({
@@ -49,16 +51,34 @@ function onTestKeydown(e) {
 function analyzeCode(code) {
     testCode.value = code
     if (code[0] === '2') {
-        const plu   = parseInt(code.slice(1, 6), 10)
-        const price = parseInt(code.slice(6, 11), 10) / 100
+        const pluRaw  = code.slice(2, 7)
+        const priceRaw = code.slice(7, 12)
+        const plu      = parseInt(pluRaw, 10)
+        const priceBs  = priceRaw.endsWith('00') ? parseInt(priceRaw, 10) / 100 : parseInt(priceRaw, 10) / 10
+
+        const product = props.products.find(p =>
+            (p.barcode && parseInt(p.barcode, 10) === plu) ||
+            (p.sku     && parseInt(p.sku,     10) === plu)
+        ) ?? null
+
+        const priceBsKg = product?.sale_mode === 'weight'
+            ? parseFloat(product.price_per_kg_usd || 0) * props.todayRate
+            : 0
+        const kg = priceBsKg > 0
+            ? Math.round((priceBs / priceBsKg) * 1000) / 1000
+            : null
+
         testResult.value = {
-            type:    'EAN-13 Precio (balanza)',
-            plu:     plu,
-            priceBs: price,
-            check:   code[12],
+            type:        'EAN-13 Precio (balanza)',
+            plu,
+            priceBs,
+            check:       code[12],
+            productName: product?.name ?? null,
+            kg,
+            priceBsKg:   priceBsKg || null,
         }
     } else {
-        testResult.value = { type: 'EAN-13 Estándar (no precio)', plu: null, priceBs: null, check: code[12] }
+        testResult.value = { type: 'EAN-13 Estándar (no precio)', plu: null, priceBs: null, check: code[12], productName: null, kg: null }
     }
 }
 
@@ -194,6 +214,24 @@ const helpFaqs = [
                                     <span class="tr-lbl">Precio extraído</span>
                                     <span class="tr-val tr-val--accent">Bs. {{ testResult.priceBs?.toFixed(2) }}</span>
                                 </div>
+                                <div class="tr-row">
+                                    <span class="tr-lbl">Producto</span>
+                                    <span class="tr-val" :class="testResult.productName ? 'tr-val--accent' : 'tr-val--warn'">
+                                        {{ testResult.productName ?? 'No encontrado' }}
+                                    </span>
+                                </div>
+                                <template v-if="testResult.productName && testResult.kg !== null">
+                                    <div class="tr-row">
+                                        <span class="tr-lbl">Kg calculado</span>
+                                        <span class="tr-val tr-val--accent">{{ testResult.kg }} kg</span>
+                                    </div>
+                                    <div class="tr-row">
+                                        <span class="tr-lbl">Verificación Bs</span>
+                                        <span class="tr-val tr-val--accent">
+                                            Bs. {{ testResult.priceBs?.toFixed(2) }} ÷ {{ testResult.priceBsKg?.toFixed(2) }} Bs/kg
+                                        </span>
+                                    </div>
+                                </template>
                             </template>
                             <div class="tr-row">
                                 <span class="tr-lbl">Dígito verificador</span>
@@ -379,6 +417,7 @@ const helpFaqs = [
 .tr-lbl   { font-size: .75rem; color: var(--text-muted); }
 .tr-val   { font-size: .78rem; font-weight: 600; color: var(--text-secondary); }
 .tr-val--accent { color: #16a34a; }
+.tr-val--warn   { color: var(--red, #ef4444); }
 
 .test-result-enter-active, .test-result-leave-active { transition: opacity .2s, transform .2s; }
 .test-result-enter-from,   .test-result-leave-to     { opacity: 0; transform: translateY(-4px); }
