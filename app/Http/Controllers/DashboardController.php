@@ -92,23 +92,13 @@ class DashboardController extends Controller
             ->toArray();
 
         // ── Stock crítico ─────────────────────────────────────────────────────
-        // Necesitamos stock actual = entradas netas de inventario
+        // Stock actual = SUM(net_kg) de inventory_entries (ventas YA están como entradas negativas)
+        // No restar sale_items — sería doble descuento
         $stockMap = InventoryEntry::where('business_id', $businessId)
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->selectRaw('product_id, SUM(quantity_kg - waste_kg) as stock')
             ->groupBy('product_id')
             ->pluck('stock', 'product_id')
-            ->map(fn ($v) => (float) $v);
-
-        // Restar lo vendido (paid)
-        $soldMap = SaleItem::query()
-            ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
-            ->where('sales.business_id', $businessId)
-            ->where('sales.status', 'paid')
-            ->when($branchId, fn ($q) => $q->where('sales.branch_id', $branchId))
-            ->selectRaw('sale_items.product_id, SUM(sale_items.quantity_value) as qty')
-            ->groupBy('sale_items.product_id')
-            ->pluck('qty', 'product_id')
             ->map(fn ($v) => (float) $v);
 
         $stockCritico = Product::with('category')
@@ -117,12 +107,12 @@ class DashboardController extends Controller
             ->whereNotNull('min_stock')
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->get()
-            ->filter(function (Product $p) use ($stockMap, $soldMap) {
-                $net = ($stockMap[$p->id] ?? 0.0) - ($soldMap[$p->id] ?? 0.0);
+            ->filter(function (Product $p) use ($stockMap) {
+                $net = ($stockMap[$p->id] ?? 0.0);
                 return $net <= (float) $p->min_stock;
             })
-            ->map(function (Product $p) use ($stockMap, $soldMap) {
-                $net = ($stockMap[$p->id] ?? 0.0) - ($soldMap[$p->id] ?? 0.0);
+            ->map(function (Product $p) use ($stockMap) {
+                $net = ($stockMap[$p->id] ?? 0.0);
                 return [
                     'id'        => $p->id,
                     'name'      => $p->name,

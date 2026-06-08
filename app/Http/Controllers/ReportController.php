@@ -435,8 +435,9 @@ class ReportController extends Controller
                           ->orWhere('stock_product_id', $prod->id);
                     })->pluck('id');
 
-                $ingresosHoy = (float) \App\Models\SaleItem::whereHas('sale', function ($q) use ($businessId, $fecha) {
+                $ingresosHoy = (float) \App\Models\SaleItem::whereHas('sale', function ($q) use ($businessId, $branchId, $fecha) {
                     $q->where('business_id', $businessId)
+                      ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
                       ->where('status', 'paid')
                       ->whereDate('accounting_date', $fecha);
                 })->whereIn('product_id', $productIds)->sum('subtotal_usd');
