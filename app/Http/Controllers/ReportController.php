@@ -378,56 +378,40 @@ class ReportController extends Controller
             ->get();
 
         $resultado = $canales->map(function ($canal) use ($fecha, $businessId, $branchId) {
-            // Productos del despiece de esta canal
-            $prodBoveda = \App\Models\Product::where('business_id', $businessId)
-                ->where('location', 'boveda')
-                ->where('name', $canal->product_type)
-                ->first();
+            // Productos despiezados de esta canal: inventory_entries con boveda_entry_id = canal.id,
+            // quantity_kg > 0, location = 'vitrina' (las entradas positivas de cortes)
+            $despiezadosRaw = \App\Models\InventoryEntry::where('business_id', $businessId)
+                ->where('boveda_entry_id', $canal->id)
+                ->where('quantity_kg', '>', 0)
+                ->where('location', 'vitrina')
+                ->select('product_id', \DB::raw('SUM(quantity_kg) as kg_despiece'))
+                ->groupBy('product_id')
+                ->get();
 
-            $log = $prodBoveda
-                ? \App\Models\DespieceLog::where('business_id', $businessId)
-                    ->where('product_id', $prodBoveda->id)
-                    ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
-                    ->whereDate('processed_at', $fecha)
-                    ->latest()
-                    ->first()
-                : null;
-            $despieceItems = $log
-                ? \App\Models\DespieceItem::where('despiece_log_id', $log->id)->with('product')->get()
-                : collect();
-
-            // Stock actual de cada producto del despiece
-            $productos = $despieceItems->map(function ($item) use ($fecha, $businessId) {
-                $prod = $item->product;
-                if (! $prod) {
+            // Mapear a productos con sus datos
+            $productos = $despiezadosRaw->map(function ($entry) use ($fecha, $businessId, $branchId) {
+                $prod = \App\Models\Product::find($entry->product_id);
+                if (!$prod) {
                     return null;
                 }
 
                 // Pool: si tiene stock_product_id usar ese para calcular stock
                 $stockId = $prod->stock_product_id ?? $prod->id;
 
-                // Entradas acumuladas hasta hoy
-                $entradas = (float) \App\Models\InventoryEntry::where('business_id', $businessId)
+                // Stock remanente (SUM net_kg de inventory_entries del stockId, SIN doble resta)
+                $kgRemanente = (float) \App\Models\InventoryEntry::where('business_id', $businessId)
                     ->where('product_id', $stockId)
                     ->whereDate('entered_at', '<=', $fecha)
-                    ->where('quantity_kg', '>', 0)
-                    ->sum('quantity_kg');
+                    ->sum('net_kg');
 
-                // Salidas acumuladas hasta hoy
-                $salidas = abs((float) \App\Models\InventoryEntry::where('business_id', $businessId)
-                    ->where('product_id', $stockId)
-                    ->whereDate('entered_at', '<=', $fecha)
-                    ->where('quantity_kg', '<', 0)
-                    ->sum('quantity_kg'));
-
-                // Vendido HOY
+                // Vendido HOY (entradas negativas de venta del día)
                 $vendidoHoy = (float) \App\Models\InventoryEntry::where('business_id', $businessId)
                     ->where('product_id', $stockId)
                     ->whereDate('entered_at', $fecha)
                     ->where('quantity_kg', '<', 0)
                     ->sum('quantity_kg');
 
-                // Ingresos de venta hoy
+                // Ingresos de venta HOY
                 // Buscar productos que usan este como pool (stock_product_id) + el producto mismo
                 $productIds = \App\Models\Product::where('business_id', $businessId)
                     ->where(function ($q) use ($prod) {
@@ -445,9 +429,9 @@ class ReportController extends Controller
                 return [
                     'product_id'     => $prod->id,
                     'nombre'         => $prod->name,
-                    'kg_despiece'    => round((float) $item->quantity_kg, 3),
+                    'kg_despiece'    => round((float) $entry->kg_despiece, 3),
                     'kg_vendido_hoy' => round(abs((float) $vendidoHoy), 3),
-                    'kg_remanente'   => round(max(0, $entradas - $salidas), 3),
+                    'kg_remanente'   => round(max(0, $kgRemanente), 3),
                     'ingresos_usd'   => round((float) $ingresosHoy, 2),
                     'precio_kg'      => round((float) $prod->price_per_kg_usd, 2),
                 ];
