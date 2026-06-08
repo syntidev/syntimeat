@@ -377,7 +377,7 @@ class ReportController extends Controller
             ->orderByDesc('entered_at')
             ->get();
 
-        $resultado = $canales->map(function ($canal) use ($fecha, $businessId) {
+        $resultado = $canales->map(function ($canal) use ($fecha, $businessId, $branchId) {
             // Productos del despiece de esta canal
             $prodBoveda = \App\Models\Product::where('business_id', $businessId)
                 ->where('location', 'boveda')

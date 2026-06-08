@@ -49,8 +49,12 @@ class CashRegister extends Model
      * Fallback: si hay exactamente UNA caja abierta en el branch, usar esa
      * (mantiene intacto el flujo de una sola caja). 0 o >1 sin selección → null.
      */
-    public static function resolveActive(int $businessId, ?int $branchId, ?int $sessionId): ?self
+    public static function resolveActive($businessId, $branchId, $sessionId = null): ?self
     {
+        $businessId = (int) $businessId;
+        $branchId   = $branchId !== null ? (int) $branchId : null;
+        $sessionId  = $sessionId !== null ? (int) $sessionId : null;
+
         $base = static::where('business_id', $businessId)
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->whereNull('closed_at');
