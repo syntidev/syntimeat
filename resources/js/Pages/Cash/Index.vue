@@ -101,34 +101,36 @@ const showHelp = ref(false);
 
 const helpSteps = [
     {
-        title: 'Abrir la caja',
-        body:  'Cada día el cajero abre su caja registrando el efectivo inicial disponible. Este monto es el punto de partida para el cuadre del día.',
-        tip:   'Abre la caja antes de ir al Punto de Venta — sin caja abierta no puedes registrar ventas.',
+        title: 'Abrir una caja',
+        body: 'Elige cuál caja física vas a abrir e ingresa el monto inicial en efectivo. Esa caja queda activa para registrar ventas.',
     },
     {
-        title: 'Movimientos y cortes',
-        body:  'Durante el día puedes registrar entradas o salidas de efectivo (cambio, retiros, ingresos). El corte de turno te permite contar el efectivo a mitad del día sin cerrar la caja.',
-        tip:   'Usa el corte de turno cuando cambia el cajero a mitad del día — la caja sigue abierta para el turno siguiente.',
+        title: 'Varias cajas abiertas',
+        body: 'Si tu sucursal tiene más de una caja abierta, al vender el sistema te pedirá seleccionar en cuál estás cobrando.',
+        tip: 'Cualquier persona autorizada de la sucursal puede usar la caja abierta, sin importar quién la abrió.',
+    },
+    {
+        title: 'Corte de turno',
+        body: 'Permite contar el efectivo a mitad del día sin cerrar la caja. La caja sigue operativa después del corte.',
     },
     {
         title: 'Cierre del día',
-        body:  'Al final del día cuenta el efectivo físico, ingrésalo en el sistema y confirma el cierre. El sistema calcula la diferencia entre lo esperado y lo contado.',
-        tip:   'El cierre es irreversible. Asegúrate de que todas las ventas del día estén registradas antes de cerrar.',
+        body: 'Cuenta el efectivo final, el sistema lo compara con lo esperado y registra la diferencia. Cierra la jornada de esa caja.',
     },
 ];
 
 const helpFaqs = [
     {
-        q: '¿Puedo abrir varias cajas el mismo día?',
-        a: 'Sí. Si hay varios cajeros, cada uno abre su propia caja. Cada caja lleva su propio registro independiente.',
+        q: '¿Tengo que ser yo quien abrió la caja para cerrarla?',
+        a: 'No. Cualquier usuario autorizado de la sucursal puede cerrar la caja, aunque la haya abierto otra persona.',
     },
     {
-        q: '¿Qué pasa si hay diferencia en el cierre?',
-        a: 'El sistema la registra como diferencia positiva o negativa. El administrador puede verla en el historial de cierres.',
+        q: '¿Puedo abrir una caja de otra sucursal?',
+        a: 'No. Solo puedes operar las cajas de tu propia sucursal.',
     },
     {
-        q: '¿Puedo reabrir una caja cerrada?',
-        a: 'No. Una vez cerrada la caja no se puede reabrir. Si necesitas registrar algo, abre una nueva caja.',
+        q: '¿Qué pasa con las ventas anuladas en el cierre?',
+        a: 'Las ventas anuladas no cuentan en el total esperado. El cierre solo suma las ventas pagadas.',
     },
 ];
 

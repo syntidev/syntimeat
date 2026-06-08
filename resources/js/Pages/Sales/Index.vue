@@ -84,45 +84,35 @@ const showHelp = ref(false)
 const helpSteps = [
     {
         title: 'Ver ventas del día',
-        body: 'Aquí aparecen todas las ventas cobradas en el turno actual. Cada fila es un ticket con su monto, método de pago y cajero.',
-        tip: 'Las ventas canceladas aparecen tachadas en rojo.',
+        body: 'Lista todas las ventas de la jornada con su ticket, hora, cajero, método de pago y estado.',
     },
     {
-        title: 'Filtrar por método de pago',
-        body: 'Usa el filtro para ver solo las ventas en efectivo, Pago Móvil o punto. Útil para cuadrar cada método por separado.',
-        tip: 'El total al pie se actualiza según el filtro activo.',
-    },
-    {
-        title: 'Ver detalle de un ticket',
-        body: 'Toca cualquier venta para ver el desglose completo: productos, cantidades, montos y datos del cliente si aplica.',
+        title: 'Filtrar',
+        body: 'Usa los filtros de fecha, cajero, método y estado para encontrar ventas específicas.',
     },
     {
         title: 'Anular una venta',
-        body: 'Solo el administrador puede anular. Se requiere motivo. La anulación queda registrada en el historial.',
-        tip: 'Anular devuelve el stock al inventario automáticamente.',
+        body: 'Pulsa Anular en la venta pagada, indica el motivo (mínimo 5 caracteres) y confirma. La venta queda marcada como anulada.',
+        tip: 'Al anular, el inventario se devuelve automáticamente — la carne vuelve al stock disponible.',
     },
 ]
 
 const helpFaqs = [
     {
-        q: '¿Por qué no veo una venta que acabo de hacer?',
-        a: 'Recarga la página. Si no aparece, puede estar en estado "abierto" todavía.',
+        q: '¿Quién puede anular una venta?',
+        a: 'Solo usuarios con permiso: dueño, administrador de sucursal y supervisor. El cajero no puede anular.',
     },
     {
-        q: '¿Puedo anular yo mismo una venta?',
-        a: 'No, solo el administrador puede anular con motivo obligatorio.',
+        q: '¿Qué pasa con el inventario al anular?',
+        a: 'El sistema devuelve automáticamente los kilos vendidos al stock. Si vendiste un corte que descuenta de un pool de carne, vuelve a ese pool.',
     },
     {
-        q: '¿Las ventas de otros cajeros aparecen aquí?',
-        a: 'Sí, ves todas las ventas del día de tu sucursal.',
+        q: '¿Puedo anular una venta dos veces?',
+        a: 'No. Una vez anulada, la venta no se puede volver a anular.',
     },
     {
-        q: '¿El filtro cambia el total?',
-        a: 'Sí, el total al pie refleja solo las ventas filtradas.',
-    },
-    {
-        q: '¿Dónde están las ventas de días anteriores?',
-        a: 'En el módulo Reportes, con filtro por fecha.',
+        q: '¿La venta anulada afecta el cierre de caja?',
+        a: 'No suma en el total esperado. El cuadre solo considera las ventas pagadas.',
     },
 ]
 

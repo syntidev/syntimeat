@@ -57,34 +57,32 @@ const showHelp = ref(false)
 
 const helpSteps = [
     {
-        title: 'Qué es una caja registradora',
-        body:  'Cada caja representa un punto de cobro físico en una sucursal. Un cajero debe abrir su caja al inicio del día para poder registrar ventas en el POS.',
-        tip:   'Puedes tener varias cajas en la misma sucursal, una por cajero.',
+        title: 'Crear una caja física',
+        body: 'Cada sucursal puede tener varias cajas (Caja 1, Caja 2...). Se crean una sola vez aquí y quedan disponibles para abrir cada día.',
+        tip: 'Las cajas son independientes por sucursal — no se mezclan entre sedes.',
     },
     {
-        title: 'Crear y asignar cajas',
-        body:  'Agrega una caja con un nombre descriptivo (ej: "Caja 1", "Caja Principal") y asígnala a su sucursal. La asignación de sucursal determina qué cajeros pueden usarla.',
-        tip:   'Si tienes una sola sede, puedes dejar la sucursal sin asignar.',
+        title: 'Activar o desactivar',
+        body: 'Una caja inactiva no se puede abrir. Úsalo para retirar temporalmente un punto de cobro sin borrarlo.',
     },
     {
-        title: 'Estado de la caja',
-        body:  'Una caja física puede estar "Abierta" (tiene una sesión en curso), "Disponible" (activa y lista para abrir) o "Inactiva" (oculta, no se puede abrir). Puedes tener varias cajas abiertas a la vez en la misma sucursal.',
-        tip:   'No elimines una caja con historial de sesiones — desactívala con el interruptor "Caja activa".',
+        title: 'Una caja por punto de cobro',
+        body: 'Crea tantas cajas como puntos de cobro físicos tengas. Si atienden 3 personas a la vez, crea 3 cajas.',
     },
 ]
 
 const helpFaqs = [
     {
-        q: '¿Cuántas cajas puedo crear?',
-        a: 'No hay un límite fijo. Lo recomendable es una caja por cajero activo por turno en cada sucursal.',
+        q: '¿Puedo tener varias cajas abiertas al mismo tiempo?',
+        a: 'Sí. Cada caja física puede abrirse de forma independiente. Si hay varias abiertas en tu sucursal, al entrar al punto de venta el sistema te pedirá elegir en cuál vas a cobrar.',
     },
     {
-        q: '¿Puedo eliminar una caja con historial?',
-        a: 'Técnicamente sí, pero no es recomendable. Si la caja ya tuvo ventas o cierres, perderías la trazabilidad. Mejor créa una nueva y deja la antigua como referencia.',
+        q: '¿Las cajas de una sucursal se ven en otra?',
+        a: 'No. Cada sucursal maneja sus propias cajas de forma aislada. Lo que ocurre en una sede no afecta a la otra.',
     },
     {
-        q: '¿La caja afecta los reportes?',
-        a: 'Sí. Los cierres de caja y los KPIs de cuadre se asocian a la caja específica. Cada cajero cierra su propia caja al final del turno.',
+        q: '¿Puedo eliminar una caja?',
+        a: 'Solo si no tiene historial de sesiones. Si ya se usó, puedes desactivarla en lugar de eliminarla.',
     },
 ]
 </script>
