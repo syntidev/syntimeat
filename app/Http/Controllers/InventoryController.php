@@ -49,31 +49,21 @@ class InventoryController extends Controller
             ->orderByDesc('entered_at')
             ->get();
 
-        // ─── Stock disponible: SUM(net_kg) - SUM(vendido en paid) ────────────
+        // ─── Stock disponible: SUM(net_kg) de inventory_entries ────────────────
+        // Las ventas ya están reflejadas como InventoryEntry negativas en pay()
+        // No restar stockOut — sería doble descuento
         $stockIn = InventoryEntry::where('business_id', $businessId)
             ->where('branch_id', $branchId)
             ->selectRaw('product_id, SUM(net_kg) as total_net')
             ->groupBy('product_id')
             ->pluck('total_net', 'product_id');
 
-        $stockOut = DB::table('sale_items')
-            ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
-            ->where('sales.business_id', $businessId)
-            ->where('sales.status', 'paid')
-            ->selectRaw('sale_items.product_id, SUM(sale_items.quantity_value) as total_sold')
-            ->groupBy('sale_items.product_id')
-            ->pluck('total_sold', 'product_id');
-
         $stockMap = [];
         foreach ($products as $product) {
             if ($product->stock_product_id) {
-                $poolNet  = (float) ($stockIn[$product->stock_product_id]  ?? 0);
-                $poolSold = (float) ($stockOut[$product->stock_product_id] ?? 0);
-                $stockMap[$product->id] = round($poolNet - $poolSold, 3);
+                $stockMap[$product->id] = round((float) ($stockIn[$product->stock_product_id] ?? 0), 3);
             } else {
-                $net  = (float) ($stockIn[$product->id]  ?? 0);
-                $sold = (float) ($stockOut[$product->id] ?? 0);
-                $stockMap[$product->id] = round($net - $sold, 3);
+                $stockMap[$product->id] = round((float) ($stockIn[$product->id] ?? 0), 3);
             }
         }
 
