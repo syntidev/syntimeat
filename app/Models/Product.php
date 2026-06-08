@@ -71,6 +71,11 @@ class Product extends Model
         return $this->belongsTo(Subcategory::class);
     }
 
+    public function stockPool(): BelongsTo
+    {
+        return $this->belongsTo(Product::class, 'stock_product_id');
+    }
+
     public function inventoryEntries(): HasMany
     {
         return $this->hasMany(InventoryEntry::class);
