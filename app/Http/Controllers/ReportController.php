@@ -426,6 +426,13 @@ class ReportController extends Controller
                       ->whereDate('accounting_date', $fecha);
                 })->whereIn('product_id', $productIds)->sum('subtotal_usd');
 
+                $ingresosHoyBs = (float) \App\Models\SaleItem::whereHas('sale', function ($q) use ($businessId, $branchId, $fecha) {
+                    $q->where('business_id', $businessId)
+                      ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+                      ->where('status', 'paid')
+                      ->whereDate('accounting_date', $fecha);
+                })->whereIn('product_id', $productIds)->sum('subtotal_bs');
+
                 return [
                     'product_id'     => $prod->id,
                     'nombre'         => $prod->name,
@@ -433,12 +440,14 @@ class ReportController extends Controller
                     'kg_vendido_hoy' => round(abs((float) $vendidoHoy), 3),
                     'kg_remanente'   => round(max(0, $kgRemanente), 3),
                     'ingresos_usd'   => round((float) $ingresosHoy, 2),
+                    'ingresos_bs'    => round((float) $ingresosHoyBs, 2),
                     'precio_kg'      => round((float) $prod->price_per_kg_usd, 2),
                 ];
             })->filter()->values();
 
             $costoCanal     = (float) $canal->costo_usd;
             $ingresosTotal  = $productos->sum('ingresos_usd');
+            $ingresosTotalBs = $productos->sum('ingresos_bs');
             $kgRemanente    = $productos->sum('kg_remanente');
             $precioPromedio = $productos->avg('precio_kg') ?? 0;
             $valorRemanente = round($kgRemanente * $precioPromedio, 2);
@@ -454,6 +463,7 @@ class ReportController extends Controller
                 'costo_usd'       => $costoCanal,
                 'costo_kg'        => $canal->kg_entrada > 0 ? round($costoCanal / $canal->kg_entrada, 4) : 0,
                 'ingresos_usd'    => round($ingresosTotal, 2),
+                'ingresos_bs'     => round($ingresosTotalBs, 2),
                 'utilidad_real'   => $utilidadReal,
                 'kg_remanente'    => round($kgRemanente, 3),
                 'valor_remanente' => $valorRemanente,
@@ -620,7 +630,7 @@ class ReportController extends Controller
             ->whereDate('sales.accounting_date', '>=', $desde)
             ->whereDate('sales.accounting_date', '<=', $hasta)
             ->groupBy('categories.id', 'categories.name')
-            ->selectRaw('categories.name as categoria, SUM(sale_items.subtotal_usd * sales.rate_used) as vendido_bs')
+            ->selectRaw('categories.name as categoria, SUM(sale_items.subtotal_bs) as vendido_bs')
             ->orderByDesc('vendido_bs')
             ->get()
             ->map(fn ($r) => [
@@ -717,10 +727,11 @@ class ReportController extends Controller
                 }
 
                 $subtotalUsd = (float) $item->subtotal_usd;
+                $subtotalBs  = (float) $item->subtotal_bs;
                 $qty         = (float) $item->quantity_value;
 
                 $byCat[$catId]['vendido_usd'] += $subtotalUsd;
-                $byCat[$catId]['vendido_bs']  += $subtotalUsd * $rate;
+                $byCat[$catId]['vendido_bs']  += $subtotalBs;
                 $byCat[$catId]['costo_usd']   += $costoPorKgGlobal * $qty;
                 $byCat[$catId]['costo_bs']    += $costoPorKgGlobal * $qty * $rate;
 
@@ -737,7 +748,7 @@ class ReportController extends Controller
                 }
                 $byProd[$catId][$prodId]['kg']          += $qty;
                 $byProd[$catId][$prodId]['vendido_usd'] += $subtotalUsd;
-                $byProd[$catId][$prodId]['vendido_bs']  += $subtotalUsd * $rate;
+                $byProd[$catId][$prodId]['vendido_bs']  += $subtotalBs;
                 $byProd[$catId][$prodId]['costo_usd']   += $costoPorKgGlobal * $qty;
             }
         }

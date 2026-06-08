@@ -78,7 +78,7 @@ class DashboardController extends Controller
             ->where('sales.status', 'paid')
             ->whereDate('sales.accounting_date', $today)
             ->when($branchId, fn ($q) => $q->where('sales.branch_id', $branchId))
-            ->selectRaw('sale_items.product_id, sale_items.product_name, SUM(sale_items.quantity_value) as cantidad, SUM(sale_items.subtotal_usd * sales.rate_used) as monto_bs')
+            ->selectRaw('sale_items.product_id, sale_items.product_name, SUM(sale_items.quantity_value) as cantidad, SUM(sale_items.subtotal_bs) as monto_bs')
             ->groupBy('sale_items.product_id', 'sale_items.product_name')
             ->orderByDesc('monto_bs')
             ->limit(5)
@@ -172,7 +172,7 @@ class DashboardController extends Controller
             ->select(
                 'categories.id as category_id',
                 'categories.name as category_name',
-                DB::raw('SUM(sale_items.subtotal_usd * sales.rate_used) as total_bs'),
+                DB::raw('SUM(sale_items.subtotal_bs) as total_bs'),
                 DB::raw('SUM(sale_items.subtotal_usd) as total_usd'),
                 DB::raw("SUM(CASE WHEN sale_items.input_type = 'weight' THEN sale_items.quantity_value ELSE 0 END) as kg_vendidos"),
             )
