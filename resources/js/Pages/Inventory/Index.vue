@@ -189,6 +189,10 @@ function stockLabel(product) {
     return 'OK'
 }
 
+function sharedPoolLabel(product) {
+    return product.shared_pool_name ? `(compartido: ${product.shared_pool_name})` : ''
+}
+
 function fmtKg(val) {
     return Number(val).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 3 })
 }
@@ -386,10 +390,13 @@ watch(drawerProduct, (val) => { if (! val) closeAdjust() })
                                 </td>
                                 <td class="txt-muted">{{ p.branch?.name ?? '—' }}</td>
                                 <td class="txt-right mono">
-                                    {{ p.sale_mode === 'unit'
-                                        ? parseInt(stockValue(p.id))
-                                        : fmtKg(stockValue(p.id)) }}
-                                    <small>{{ p.sale_mode === 'weight' ? 'kg' : 'und' }}</small>
+                                    <div>
+                                        {{ p.sale_mode === 'unit'
+                                            ? parseInt(stockValue(p.id))
+                                            : fmtKg(stockValue(p.id)) }}
+                                        <small>{{ p.sale_mode === 'weight' ? 'kg' : 'und' }}</small>
+                                    </div>
+                                    <small v-if="p.shared_pool_name" class="txt-muted" style="font-size: 0.7rem; font-weight: 400;">{{ sharedPoolLabel(p) }}</small>
                                 </td>
                                 <td>
                                     <span class="status-badge" :class="'status-' + stockStatus(p)">
@@ -421,10 +428,13 @@ watch(drawerProduct, (val) => { if (! val) closeAdjust() })
                         </div>
                         <div class="mc-right">
                             <div class="mc-stock">
-                                {{ p.sale_mode === 'unit'
-                                    ? parseInt(stockValue(p.id))
-                                    : fmtKg(stockValue(p.id)) }}
-                                <small>{{ p.sale_mode === 'weight' ? 'kg' : 'und' }}</small>
+                                <div>
+                                    {{ p.sale_mode === 'unit'
+                                        ? parseInt(stockValue(p.id))
+                                        : fmtKg(stockValue(p.id)) }}
+                                    <small>{{ p.sale_mode === 'weight' ? 'kg' : 'und' }}</small>
+                                </div>
+                                <small v-if="p.shared_pool_name" class="txt-muted" style="font-size: 0.7rem; font-weight: 400; display: block; margin-top: 0.2rem;">{{ sharedPoolLabel(p) }}</small>
                             </div>
                             <span class="status-badge" :class="'status-' + stockStatus(p)">{{ stockLabel(p) }}</span>
                         </div>
@@ -473,10 +483,13 @@ watch(drawerProduct, (val) => { if (! val) closeAdjust() })
                             <div class="dstat">
                                 <span class="dstat-label">Stock actual</span>
                                 <span class="dstat-value" :class="'dstat-' + stockStatus(drawerProduct)">
-                                    {{ drawerProduct.sale_mode === 'unit'
-                                        ? parseInt(stockValue(drawerProduct.id))
-                                        : fmtKg(stockValue(drawerProduct.id)) }}
-                                    <small>{{ drawerProduct.sale_mode === 'weight' ? 'kg' : 'und' }}</small>
+                                    <div>
+                                        {{ drawerProduct.sale_mode === 'unit'
+                                            ? parseInt(stockValue(drawerProduct.id))
+                                            : fmtKg(stockValue(drawerProduct.id)) }}
+                                        <small>{{ drawerProduct.sale_mode === 'weight' ? 'kg' : 'und' }}</small>
+                                    </div>
+                                    <small v-if="drawerProduct.shared_pool_name" class="txt-muted" style="font-size: 0.7rem; font-weight: 400; display: block; margin-top: 0.25rem;">{{ sharedPoolLabel(drawerProduct) }}</small>
                                 </span>
                             </div>
                             <div class="dstat">

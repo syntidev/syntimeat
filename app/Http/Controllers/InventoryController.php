@@ -28,7 +28,7 @@ class InventoryController extends Controller
             ? $user->branch_id
             : (session('current_branch_id') ?? null);
 
-        $products = Product::with(['category', 'branch'])
+        $products = Product::with(['category', 'branch', 'stockPool'])
             ->where('business_id', $businessId)
             ->where('active', true)
             ->where('location', '!=', 'boveda')
@@ -66,9 +66,15 @@ class InventoryController extends Controller
 
         $stockMap = [];
         foreach ($products as $product) {
-            $net  = (float) ($stockIn[$product->id]  ?? 0);
-            $sold = (float) ($stockOut[$product->id] ?? 0);
-            $stockMap[$product->id] = round($net - $sold, 3);
+            if ($product->stock_product_id) {
+                $poolNet  = (float) ($stockIn[$product->stock_product_id]  ?? 0);
+                $poolSold = (float) ($stockOut[$product->stock_product_id] ?? 0);
+                $stockMap[$product->id] = round($poolNet - $poolSold, 3);
+            } else {
+                $net  = (float) ($stockIn[$product->id]  ?? 0);
+                $sold = (float) ($stockOut[$product->id] ?? 0);
+                $stockMap[$product->id] = round($net - $sold, 3);
+            }
         }
 
         // ─── Último ingreso por producto ──────────────────────────────────────
@@ -89,6 +95,15 @@ class InventoryController extends Controller
             fn (Product $p) => (float) $p->min_stock > 0
                 && ($stockMap[$p->id] ?? 0) < (float) $p->min_stock
         )->count();
+
+        $products = $products->map(function (Product $p) {
+            return [
+                ...$p->toArray(),
+                'shared_pool_name' => $p->stock_product_id && $p->stockPool
+                    ? $p->stockPool->name
+                    : null,
+            ];
+        });
 
         return Inertia::render('Inventory/Index', [
             'products'     => $products,
