@@ -460,6 +460,7 @@ class SaleController extends Controller
 
                 InventoryEntry::create([
                     'business_id' => $businessId,
+                    'branch_id'   => $branchId,
                     'product_id'  => $stockProductId,
                     'quantity_kg' => -abs((float) $item->quantity_value),
                     'waste_kg'    => 0,
