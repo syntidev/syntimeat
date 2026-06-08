@@ -295,15 +295,16 @@ class CashRegisterController extends Controller
         $businessId = $user->business->id;
         $rate       = $this->rates->getTodayRate();
 
-        $isAdmin = in_array(Auth::user()->role, ['super_admin', 'admin', 'owner', 'branch_admin', 'analyst'], true);
+        $branchId = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? null);
 
-        // Admin ve todas las cajas abiertas; cajero solo la suya
         $cashRegister = CashRegister::with(['movements.creator', 'opener'])
             ->where('business_id', $businessId)
-            ->when(! $isAdmin, fn ($q) => $q->where('opened_by', Auth::id()))
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->whereNotNull('opened_at')
             ->whereNull('closed_at')
-            ->orderBy('opened_at')
+            ->orderByDesc('opened_at')
             ->first();
 
         if ($cashRegister === null) {
@@ -367,9 +368,8 @@ class CashRegisterController extends Controller
             ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
             ->join('products', 'products.id', '=', 'sale_items.product_id')
             ->join('categories', 'categories.id', '=', 'products.category_id')
-            ->where('sales.business_id', $businessId)
+            ->where('sales.cash_register_id', $cashRegister->id)
             ->where('sales.status', 'paid')
-            ->whereDate('sales.sold_at', today())
             ->groupBy('categories.name')
             ->select(
                 'categories.name as category_name',
