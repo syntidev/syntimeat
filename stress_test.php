@@ -1112,9 +1112,10 @@ if (!empty($ventasCreadas)) {
     $saleParaAnular = $ventasCreadas[0];
     $saleParaAnular->refresh();
 
-    // Medir stock del producto ANTES de la anulación
+    // Medir stock del POOL ANTES de la anulación — void() rutea el reverso al pool (stock_product_id), no al corte
+    $poolId = $productoConStock?->stock_product_id ?? $productoConStock?->id;
     $stockAntes = (float) InventoryEntry::where('business_id', $businessId)
-        ->where('product_id', $productoConStock?->id)
+        ->where('product_id', $poolId)
         ->sum(DB::raw('net_kg'));
 
     $kgVendidos = (float) SaleItem::where('sale_id', $saleParaAnular->id)->sum('quantity_value');
@@ -1125,9 +1126,9 @@ if (!empty($ventasCreadas)) {
     if (!$resVoid['ok']) {
         fail('void() venta pagada', 'Venta anulada OK', $resVoid['error']);
     } else {
-        // Medir stock DESPUÉS de la anulación
+        // Medir stock del POOL DESPUÉS de la anulación
         $stockDespues = (float) InventoryEntry::where('business_id', $businessId)
-            ->where('product_id', $productoConStock?->id)
+            ->where('product_id', $poolId)
             ->sum(DB::raw('net_kg'));
 
         $delta = round($stockDespues - $stockAntes, 3);
@@ -1982,13 +1983,13 @@ if ($userCreado10) {
 // 10.3 — Crear caja nueva vía storeCashRegister()
 $cajaCreada10 = null;
 try {
-    $cnt10cBefore = CashRegister::where('business_id', $businessId)->count();
+    $cnt10cBefore = \App\Models\CashPoint::where('business_id', $businessId)->count();
     $settingsCtrl->storeCashRegister(makeReq('/configuracion/cajas', 'POST', [
         'name'      => '[ST] Caja Config Test',
         'branch_id' => $user->branch_id,
     ]));
-    $cajaCreada10 = CashRegister::where('business_id', $businessId)->where('name', '[ST] Caja Config Test')->first();
-    $cnt10cAfter = CashRegister::where('business_id', $businessId)->count();
+    $cajaCreada10 = \App\Models\CashPoint::where('business_id', $businessId)->where('name', '[ST] Caja Config Test')->first();
+    $cnt10cAfter = \App\Models\CashPoint::where('business_id', $businessId)->count();
     if ($cajaCreada10) {
         pass(
             "Crear caja vía storeCashRegister()",
@@ -3280,7 +3281,7 @@ try {
         'name'      => '[ST] Caja FASE18',
         'branch_id' => $user->branch_id,
     ]));
-    $cajaCreada18 = CashRegister::where('business_id', $businessId)->where('name', '[ST] Caja FASE18')->first();
+    $cajaCreada18 = \App\Models\CashPoint::where('business_id', $businessId)->where('name', '[ST] Caja FASE18')->first();
     if ($cajaCreada18) {
         pass('18.2.1 Crear caja [ST]', 'CashRegister creada en DB', "ID={$cajaCreada18->id} | name={$cajaCreada18->name} ✓");
     } else {
@@ -3814,7 +3815,7 @@ if ($userCreado18) {
 }
 
 // ── Cleanup guardias FASE 18 (por si algún test falló a mitad) ─────────────────
-if ($cajaCreada18)      { CashRegister::where('id', $cajaCreada18->id)->delete(); }
+if ($cajaCreada18)      { \App\Models\CashPoint::where('id', $cajaCreada18->id)->delete(); }
 if ($terminalCreada18)  { \App\Models\PaymentTerminal::where('id', $terminalCreada18->id)->delete(); }
 if ($branchCreada18)    { \App\Models\Branch::where('id', $branchCreada18->id)->delete(); }
 if ($pmCreada18)        { PaymentMethod::where('id', $pmCreada18->id)->delete(); }
@@ -4227,6 +4228,17 @@ try {
         ->delete();
     echo "  InventoryEntries [ST] eliminadas: {$stEntries}\n";
 
+    // pay()/store()/pedidos crean entries con notas "Venta ST-…" (sin marcador [ST])
+    $stEntries2 = InventoryEntry::where('business_id', $businessId)
+        ->where(function ($q) {
+            $q->where('notes', 'like', 'Venta ST-%')
+              ->orWhere('notes', 'like', 'Crédito ST-%')
+              ->orWhere('notes', 'like', 'Reversión anulación #ST-%')
+              ->orWhere('notes', 'like', '%P-ST-%');
+        })
+        ->delete();
+    echo "  InventoryEntries venta ST- eliminadas: {$stEntries2}\n";
+
     // Eliminar boveda entries de test
     $stBoveda = BovedaEntry::where('business_id', $businessId)
         ->where('description', 'like', "%{$TS}%")
@@ -4288,6 +4300,12 @@ try {
         ->whereNull('closed_at')
         ->delete();
     echo "  Cajas [ST] eliminadas: {$stCajas}\n";
+
+    // cash_points [ST] creados por storeCashRegister() — el cleanup viejo no los borraba
+    $stCashPoints = \App\Models\CashPoint::where('business_id', $businessId)
+        ->where('name', 'like', '%[ST]%')
+        ->delete();
+    echo "  CashPoints [ST] eliminados: {$stCashPoints}\n";
 
     // Eliminar métodos de pago de test
     $stPms = \App\Models\PaymentMethod::where('business_id', $businessId)
