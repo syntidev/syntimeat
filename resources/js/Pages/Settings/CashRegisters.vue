@@ -12,11 +12,13 @@ const props = defineProps({
 const showModal    = ref(false)
 const editRegister = ref(null)
 
-const form = useForm({ name: '', branch_id: null })
+const form = useForm({ name: '', branch_id: null, is_active: true })
 
 function openNew() {
     editRegister.value = null
     form.reset()
+    // Preseleccionar la primera sucursal — una caja siempre pertenece a una.
+    form.branch_id = props.branches?.[0]?.id ?? null
     showModal.value = true
 }
 
@@ -24,6 +26,7 @@ function openEdit(reg) {
     editRegister.value = reg
     form.name      = reg.name
     form.branch_id = reg.branch_id
+    form.is_active = reg.is_active
     showModal.value = true
 }
 
@@ -65,8 +68,8 @@ const helpSteps = [
     },
     {
         title: 'Estado de la caja',
-        body:  'Una caja puede estar "Abierta" (en uso por un cajero activo hoy) o "Cerrada" (fuera de turno). El estado se gestiona desde el módulo Caja — aquí solo se configura la caja.',
-        tip:   'No elimines una caja que tenga historial de ventas — en su lugar déjala inactiva.',
+        body:  'Una caja física puede estar "Abierta" (tiene una sesión en curso), "Disponible" (activa y lista para abrir) o "Inactiva" (oculta, no se puede abrir). Puedes tener varias cajas abiertas a la vez en la misma sucursal.',
+        tip:   'No elimines una caja con historial de sesiones — desactívala con el interruptor "Caja activa".',
     },
 ]
 
@@ -93,7 +96,7 @@ const helpFaqs = [
             <div class="page-head">
                 <div>
                     <h2 class="page-title">Cajas Registradoras</h2>
-                    <p class="page-sub">Una caja por sucursal. Solo una puede estar abierta a la vez por sede.</p>
+                    <p class="page-sub">Cajas físicas por sucursal. Cada sucursal puede tener varias, y varias abiertas a la vez.</p>
                 </div>
                 <div class="page-head-actions">
                     <button class="help-btn" @click="showHelp = true" title="Ayuda">?</button>
@@ -119,9 +122,9 @@ const helpFaqs = [
                             </td>
                             <td class="muted" data-label="Sucursal">{{ branchName(reg.branch_id) }}</td>
                             <td data-label="Estado">
-                                <span :class="['pill', reg.opened_at && !reg.closed_at ? 'pill--open' : 'pill--closed']">
-                                    {{ reg.opened_at && !reg.closed_at ? 'Abierta' : 'Cerrada' }}
-                                </span>
+                                <span v-if="reg.is_open" class="pill pill--open">Abierta</span>
+                                <span v-else-if="reg.is_active" class="pill pill--closed">Disponible</span>
+                                <span v-else class="pill pill--closed">Inactiva</span>
                             </td>
                             <td class="actions" data-label="">
                                 <button class="btn-act" @click="openEdit(reg)">Editar</button>
@@ -149,11 +152,17 @@ const helpFaqs = [
                             <span v-if="form.errors.name" class="err">{{ form.errors.name }}</span>
                         </div>
                         <div class="field">
-                            <label>Sucursal</label>
-                            <select v-model="form.branch_id" class="input">
-                                <option :value="null">Sin asignar</option>
+                            <label>Sucursal *</label>
+                            <select v-model="form.branch_id" class="input" :disabled="!!editRegister" required>
                                 <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
                             </select>
+                            <span v-if="editRegister" class="hint">La sucursal de una caja no se puede cambiar.</span>
+                            <span v-if="form.errors.branch_id" class="err">{{ form.errors.branch_id }}</span>
+                        </div>
+                        <div v-if="editRegister" class="field field--row">
+                            <label>Caja activa</label>
+                            <input v-model="form.is_active" type="checkbox" class="chk" />
+                            <span class="hint">Una caja inactiva no aparece para abrir sesión.</span>
                         </div>
                         <div class="modal-foot">
                             <button type="button" class="btn-ghost" @click="closeModal">Cancelar</button>
@@ -228,6 +237,10 @@ const helpFaqs = [
 .input      { background: var(--hover); border: 1px solid var(--border); color: var(--text-primary); border-radius: 8px; padding: .5rem .75rem; font-size: .875rem; outline: none; font-family: inherit; width: 100%; }
 .input:focus { border-color: var(--brand); }
 .err        { font-size: .73rem; color: #ef4444; }
+.hint       { font-size: .73rem; color: var(--text-muted); }
+.field--row { flex-direction: row; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.field--row label { flex: none; }
+.chk        { width: 18px; height: 18px; accent-color: var(--brand); cursor: pointer; }
 .btn-primary { font-size: .875rem; font-weight: 600; color: #fff; background: var(--brand); border: none; border-radius: 8px; padding: .5rem 1.25rem; cursor: pointer; font-family: inherit; }
 .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
 .btn-ghost  { font-size: .8125rem; color: var(--text-secondary); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: .5rem 1rem; cursor: pointer; font-family: inherit; }

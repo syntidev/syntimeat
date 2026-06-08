@@ -8,6 +8,7 @@ import { useForm, router } from '@inertiajs/vue3';
 const props = defineProps({
     cashRegister:     { type: Object,  default: null },
     allOpenRegisters: { type: Array,   default: () => [] },
+    cashPoints:       { type: Array,   default: () => [] },
     history:          { type: Array,   default: () => [] },
     kpis:             { type: Object,  default: null },
     todayRate:        { type: Number,  default: 1 },
@@ -25,9 +26,29 @@ function fmtDate(d) { return d ? new Date(d).toLocaleDateString('es-VE') : '—'
 
 // ─── Modal Abrir Caja ─────────────────────────────────────────────────────────
 const openModal    = ref(false);
-const openForm     = useForm({ opening_amount_bs: '' });
+const openForm     = useForm({ cash_point_id: null, opening_amount_bs: '' });
 const staleWarning = ref(null); // { caja_id, fecha } — caja del día anterior sin cerrar
 const closingStale = ref(false);
+
+// Cajas físicas que aún no tienen sesión abierta — las únicas que se pueden abrir.
+const availableCashPoints = computed(() => props.cashPoints.filter(cp => !cp.is_open));
+
+function openCajaModal() {
+    openForm.reset();
+    openForm.clearErrors();
+    openForm.cash_point_id = availableCashPoints.value[0]?.id ?? null;
+    openModal.value = true;
+}
+
+// ─── Selección de caja activa (multi-caja) ──────────────────────────────────────
+const switchingCaja = ref(false);
+function selectActiveCaja(id) {
+    if (switchingCaja.value) return;
+    switchingCaja.value = true;
+    window.axios.post(route('cash.select'), { cash_register_id: id })
+        .then(() => router.reload())
+        .catch(() => { switchingCaja.value = false; });
+}
 
 function submitOpen() {
     openForm.post(route('cash.open'), {
@@ -162,12 +183,27 @@ function submitCorte() {
                         <path d="M6 15h.01M18 15h.01"/>
                     </svg>
                 </div>
-                <h2 class="no-cash-title">No hay caja abierta</h2>
+                <h2 class="no-cash-title">{{ allOpenRegisters.length ? 'Selecciona tu caja' : 'No hay caja abierta' }}</h2>
                 <p class="no-cash-hint">
-                    Debes abrir la caja para registrar ventas.
+                    {{ allOpenRegisters.length
+                        ? 'Hay varias cajas abiertas en tu sucursal. Elige en cuál vas a trabajar.'
+                        : 'Debes abrir la caja para registrar ventas.' }}
                 </p>
+
+                <div v-if="allOpenRegisters.length" class="no-cash-select">
+                    <button
+                        v-for="r in allOpenRegisters"
+                        :key="r.id"
+                        class="btn btn-ghost"
+                        :disabled="switchingCaja"
+                        @click="selectActiveCaja(r.id)"
+                    >{{ r.name }}</button>
+                </div>
+
                 <p class="no-cash-rate">Tasa del día: <strong>{{ fmtBs(todayRate) }} / USD</strong></p>
-                <button class="btn btn-brand" @click="openModal = true">Abrir Caja</button>
+                <button class="btn btn-brand" @click="openCajaModal()">
+                    {{ allOpenRegisters.length ? 'Abrir otra caja' : 'Abrir Caja' }}
+                </button>
             </div>
         </div>
 
@@ -328,7 +364,20 @@ function submitCorte() {
                         <button class="modal-close" @click="openModal = false">×</button>
                     </div>
                     <p class="modal-hint">Tasa del día: <strong>{{ fmtBs(todayRate) }} / USD</strong></p>
-                    <form @submit.prevent="submitOpen" class="modal-form">
+
+                    <p v-if="availableCashPoints.length === 0" class="form-error">
+                        {{ cashPoints.length
+                            ? 'Todas las cajas de tu sucursal ya están abiertas.'
+                            : 'No hay cajas configuradas. Pide al administrador que cree una en Configuración › Cajas.' }}
+                    </p>
+
+                    <form v-else @submit.prevent="submitOpen" class="modal-form">
+                        <label class="form-label">Caja física</label>
+                        <select v-model="openForm.cash_point_id" class="form-input" required>
+                            <option v-for="cp in availableCashPoints" :key="cp.id" :value="cp.id">{{ cp.name }}</option>
+                        </select>
+                        <p v-if="openForm.errors.cash_point_id" class="form-error">{{ openForm.errors.cash_point_id }}</p>
+
                         <label class="form-label">Efectivo inicial (Bs.)</label>
                         <input
                             v-model="openForm.opening_amount_bs"
@@ -338,7 +387,6 @@ function submitCorte() {
                             class="form-input"
                             placeholder="0.00"
                             required
-                            autofocus
                         />
                         <p v-if="openForm.errors.opening_amount_bs" class="form-error">{{ openForm.errors.opening_amount_bs }}</p>
                         <p v-if="openForm.errors.caja" class="form-error">{{ openForm.errors.caja }}</p>
@@ -513,6 +561,8 @@ function submitCorte() {
 .no-cash-title { font-size: 1.4rem; font-weight: 800; color: var(--text-primary); }
 .no-cash-hint  { font-size: 0.88rem; color: var(--text-muted); }
 .no-cash-rate  { font-size: 0.85rem; color: var(--text-muted); }
+.no-cash-select { display: flex; flex-direction: column; gap: 0.5rem; width: 100%; }
+.no-cash-select .btn { width: 100%; justify-content: center; }
 
 /* ─── Cash wrap ──────────────────────────────────────────────────────────────── */
 .cash-wrap {

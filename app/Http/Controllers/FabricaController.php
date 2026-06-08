@@ -297,6 +297,7 @@ class FabricaController extends Controller
 
                 InventoryEntry::create([
                     'business_id' => $businessId,
+                    'branch_id'   => $branchId,
                     'product_id'  => $input['product_id'],
                     'quantity_kg' => -(float) $input['quantity_kg'],
                     'waste_kg'    => 0,
@@ -310,6 +311,7 @@ class FabricaController extends Controller
             // Ingresar producto fabricado al inventario
             InventoryEntry::create([
                 'business_id'     => $businessId,
+                'branch_id'       => $branchId,
                 'product_id'      => $data['output_product_id'],
                 'quantity_kg'     => (float) $data['output_kg'],
                 'waste_kg'        => 0,
@@ -385,7 +387,7 @@ class FabricaController extends Controller
             foreach ($cortesConKg as $corte) {
                 InventoryEntry::create([
                     'business_id'     => $businessId,
-                    'branch_id'       => $branchId,
+                    'branch_id'       => $entry->branch_id ?? $branchId,
                     'product_id'      => $corte['product_id'],
                     'boveda_entry_id' => $entry->id,
                     'quantity_kg'     => (float) $corte['kg'],

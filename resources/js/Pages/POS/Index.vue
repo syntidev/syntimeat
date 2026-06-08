@@ -1,6 +1,6 @@
 ﻿﻿<script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
-import { usePage } from '@inertiajs/vue3';
+import { usePage, router } from '@inertiajs/vue3';
 import AppLogo from '@/Components/AppLogo.vue';
 import HelpModal from '@/Components/HelpModal.vue';
 import { Lock, AlertTriangle, FileText, Store, Bike, Clock, Check, ChevronLeft, ChevronRight, Bell, X } from '@lucide/vue';
@@ -10,6 +10,7 @@ const props = defineProps({
     products:       { type: Array,  default: () => [] },
     categories:     { type: Array,  default: () => [] },
     cashRegister:   { type: Object, default: null },
+    openRegisters:  { type: Array,  default: () => [] },
     todayRate:      { type: Number, default: 1 },
     paymentMethods: { type: Array,  default: () => [] },
     ticketPrefix:   { type: String, default: 'VEN' },
@@ -22,6 +23,16 @@ const props = defineProps({
 // ─── Auth / usuario ───────────────────────────────────────────────────────────
 const page     = usePage();
 const authUser = computed(() => page.props.auth?.user ?? null);
+
+// ─── Selección de caja (multi-caja por sucursal) ───────────────────────────────
+const selectingCaja = ref(false);
+function selectCaja(id) {
+    if (selectingCaja.value) return;
+    selectingCaja.value = true;
+    window.axios.post(route('cash.select'), { cash_register_id: id })
+        .then(() => router.reload())
+        .catch(() => { selectingCaja.value = false; });
+}
 
 // ─── Alerta de corte bancario ─────────────────────────────────────────────────
 const dismissedAlertText = ref(null);
@@ -900,8 +911,33 @@ const helpFaqs = [
 <template>
     <div class="pos-root">
 
+        <!-- ── Selector de caja: varias abiertas en la sucursal ── -->
+        <div v-if="!cashRegister && openRegisters.length > 1" class="pos-caja-lock">
+            <div class="pos-caja-lock__card">
+                <div class="pos-caja-lock__icon-wrap">
+                    <Store :size="48" stroke-width="1.5" style="color: var(--brand)" />
+                </div>
+                <div class="pos-caja-lock__text">
+                    <h2 class="pos-caja-lock__title">Elige tu caja</h2>
+                    <p class="pos-caja-lock__sub">Hay varias cajas abiertas en esta sucursal. Selecciona en cuál vas a cobrar.</p>
+                </div>
+                <div class="pos-caja-select">
+                    <button
+                        v-for="r in openRegisters"
+                        :key="r.id"
+                        class="pos-caja-select__btn"
+                        :disabled="selectingCaja"
+                        @click="selectCaja(r.id)"
+                    >{{ r.name }}</button>
+                </div>
+                <div class="pos-caja-lock__actions">
+                    <a :href="route('dashboard')" class="pos-caja-lock__btn-ghost">← Dashboard</a>
+                </div>
+            </div>
+        </div>
+
         <!-- ── Pantalla de bloqueo: sin caja abierta ── -->
-        <div v-if="!cashRegister" class="pos-caja-lock">
+        <div v-else-if="!cashRegister" class="pos-caja-lock">
             <div class="pos-caja-lock__card">
                 <div class="pos-caja-lock__icon-wrap">
                     <Lock :size="48" stroke-width="1.5" style="color: var(--brand)" />
@@ -1760,6 +1796,16 @@ const helpFaqs = [
     text-decoration: none; transition: color 0.15s, border-color 0.15s;
 }
 .pos-caja-lock__btn-ghost:hover { color: var(--text-primary); border-color: var(--text-secondary); }
+.pos-caja-select { display: flex; flex-direction: column; gap: 0.5rem; width: 100%; }
+.pos-caja-select__btn {
+    display: block; width: 100%; text-align: center; box-sizing: border-box;
+    border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.85rem 1.5rem;
+    font-size: 0.9375rem; font-weight: 600; color: var(--text-primary);
+    background: var(--bg-card); cursor: pointer; min-height: 44px;
+    transition: border-color 0.15s, background 0.15s;
+}
+.pos-caja-select__btn:hover { border-color: var(--brand); background: var(--hover); }
+.pos-caja-select__btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .no-caja-pill {
     font-size: 0.75rem; font-weight: 700; color: var(--red);

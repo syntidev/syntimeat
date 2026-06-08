@@ -85,7 +85,15 @@ $resOrder   = ['Carne del Canal', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
 - `store()`: output_product_id, output_kg, output_units, inputs[].product_id, inputs[].quantity_kg, inputs[].cost_usd, notes, produced_at
 - `storeDespiece()`: boveda_entry_id, cortes[].product_id (Rule::exists scoped a business_id), cortes[].kg, notes
 
-▲ **branch_id en storeDespiece():** `InventoryEntry::create()` incluye ahora `branch_id` calculado al inicio del método (fallback a `Branch::where('business_id',...)->orderBy('id')->value('id')`).
+▲▲ **branch_id en storeDespiece():** `InventoryEntry::create()` incluye ahora `branch_id` calculado al inicio del método (fallback a `Branch::where('business_id',...)->orderBy('id')->value('id')`).
+
+▲ **cost_per_kg_usd propagado a cortes (sesión 05/06):**
+```php
+$costoPorKg = $entry->costo_usd / $entry->kg_entrada;
+// Cada InventoryEntry de corte recibe: cost_per_kg_usd = $costoPorKg
+```
+Antes: todos los cortes tenían `cost_per_kg_usd = NULL` → reportes mostraban utilidad falsa 83.5%.
+Después: cortes heredan el costo del canal → utilidad real **30% markup / 23.1% margen bruto** certificada.
 
 **catMap y resOrder (4 cortes Res — filtro UI):**
 ```php
@@ -731,7 +739,7 @@ resources/js/Pages/
 ├── Inventory/
 │   └── Index.vue              ▲ Campo pivote costo USD↔Bs reactivo (bsCostPrice ↔ form.cost_per_kg_usd · tasa: page.props.tasa.rate)
 ├── Catalog/
-│   └── Index.vue              ▲ Campo pivote precio USD↔Bs reactivo (bsKgPrice/bsUnitPrice · tasa: page.props.tasa.rate) · Botón importar CSV/Excel → POST /catalogo/importar
+│   └── Index.vue              ▲▲ Campo pivote precio USD↔Bs reactivo (bsKgPrice/bsUnitPrice · tasa: page.props.tasa.rate) · Botón importar CSV/Excel → POST /catalogo/importar · ▲ Búsqueda filtra por nombre, sku y barcode
 ├── Cash/
 │   ├── Index.vue
 │   └── DayClose.vue
@@ -755,7 +763,7 @@ resources/js/Pages/
     ├── PaymentMethods.vue
     ├── Terminals.vue
     ├── Ticket.vue
-    ├── Hardware.vue            ▲▲ Guía de hardware: scanner EAN-13, balanza, impresora térmica · ▲ Campo de prueba Roccia ROP-30 operativo (decodifica EAN-13 en tiempo real) · Pendiente: simulador completo (producto + kg + Bs al escanear)
+    ├── Hardware.vue            ▲▲ Guía de hardware: scanner EAN-13, balanza, impresora térmica · ▲ Simulador báscula Roccia ROP-30 operativo: ingresa EAN-13 manual → muestra producto + kg calculado + Bs
     └── Branches.vue
 ```
 
@@ -913,12 +921,15 @@ const rolePermissions = {
 | Área | Estado |
 |------|--------|
 | Stress test | ▲ 145/145 PASS |
-| Branch ISO | ▲ 11/11 — Bóveda→Fábrica→Vitrina certificado (ver detalle §14.1) |
+| Branch ISO | ▲ 11/11 — Bóveda→Fábrica→Vitrina→Reporte certificado (ver §14.1) |
+| Utilidad empresarial | ▲ 30% markup / 23.1% margen bruto — certificado post fix costo despiece |
 | Flujo POS→pago→stock | 15/16 (1 edge case delivery pendiente) |
 | Audit branch_id | 13/13 tablas certificadas |
 | Responsive | 33 vistas normalizadas — 640px/1023px |
 | Scanner Roccia ROP-30 | ▲ Certificado en DESA · pendiente prueba producción |
+| Simulador báscula | ▲ Operativo en Settings→Hardware |
 | Guard stock negativo | ▲ Activo en SaleController |
+| Búsqueda catálogo | ▲ Por nombre + sku + barcode |
 | Roles producción | owner/analyst/cashier/branch_admin activos |
 
 ### 14.1 — Branch ISO 11/11 — Detalle flujo completo
@@ -960,7 +971,7 @@ const rolePermissions = {
 **▲▲ Commit v3.3:** `6751b4c` — `feat(catalog+inventory): campo pivote USD↔Bs con tasa BCV en tiempo real`
 **▲ Commit v3.4:** `4d2f599` — `feat(pos): scanner Roccia ROP-30 certificado + carrito Bs grande`
 
-### ▲ Bugs cerrados sesión 03–05/06/2026
+### ▲ Bugs / Features sesión 03–05/06/2026
 | Commit | Fix |
 |--------|-----|
 | e5226a3 | Selector bóveda >20 productos |
@@ -974,13 +985,16 @@ const rolePermissions = {
 | f77c864 | Test despiece 34/34 certificado |
 | 38eaae8 | Planilla catMap detección por nombre |
 | 4d2f599 | Scanner Roccia ROP-30 certificado |
+| — | fix(fabrica): cost_per_kg_usd propagado en storeDespiece() — utilidad real certificada |
+| — | feat(hardware): simulador báscula Settings→Hardware operativo |
+| — | fix(catalog): búsqueda por sku y barcode |
 
 ### ▲ Pendientes tras sesión 05/06/2026
-- Simulador POS en Hardware.vue (mostrar producto + kg + Bs al escanear código EAN-13 manual)
 - Pull en VPS — stash pendiente de resolver
-- Catálogo busca por sku y barcode
 - 4 decimales en price_per_kg_usd input catálogo
 - Prueba báscula Roccia ROP-30 en producción
+- Sincronizar SKUs báscula en producción (Primera=00001, Segunda=00002, Premium=00003)
+- Actualizar datos históricos: cost_per_kg_usd en despieces anteriores (NULL → valor real)
 
 ---
-*Generado: 2026-06-05 | VPS HEAD: 4d2f599 | Próximo punto de restauración recomendado: antes de simulador báscula Hardware.vue*
+*Generado: 2026-06-05 | VPS HEAD: 4d2f599 | Próximo punto de restauración: v3.4-roccia-certificado*

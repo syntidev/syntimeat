@@ -123,6 +123,7 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
         // Caja
         Route::get('/caja', [CashRegisterController::class, 'index'])->name('cash.index');
         Route::post('/caja/abrir', [CashRegisterController::class, 'open'])->name('cash.open');
+        Route::post('/caja/seleccionar', [CashRegisterController::class, 'selectRegister'])->name('cash.select');
         Route::post('/caja/{register}/cerrar', [CashRegisterController::class, 'close'])->name('cash.close');
         Route::post('/caja/{register}/movimiento', [CashRegisterController::class, 'movement'])->name('cash.movement');
         // Cierre del Día — confirmar: todos los roles operativos
@@ -242,8 +243,8 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
             Route::post('/general',   [SettingsController::class, 'updateGeneral'])->name('general.update');
             Route::get('/cajas',                   [SettingsController::class, 'cashRegisters'])->name('cash-registers');
             Route::post('/cajas',                  [SettingsController::class, 'storeCashRegister'])->name('cash-registers.store');
-            Route::put('/cajas/{cashRegister}',    [SettingsController::class, 'updateCashRegister'])->name('cash-registers.update');
-            Route::delete('/cajas/{cashRegister}', [SettingsController::class, 'destroyCashRegister'])->name('cash-registers.destroy');
+            Route::put('/cajas/{cashPoint}',    [SettingsController::class, 'updateCashRegister'])->name('cash-registers.update');
+            Route::delete('/cajas/{cashPoint}', [SettingsController::class, 'destroyCashRegister'])->name('cash-registers.destroy');
             Route::get('/terminales',              [SettingsController::class, 'terminals'])->name('terminals');
             Route::post('/terminales',             [SettingsController::class, 'storeTerminal'])->name('terminals.store');
             Route::put('/terminales/{terminal}',   [SettingsController::class, 'updateTerminal'])->name('terminals.update');

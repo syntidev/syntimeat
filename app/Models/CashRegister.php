@@ -14,6 +14,7 @@ class CashRegister extends Model
     protected $fillable = [
         'business_id',
         'branch_id',
+        'cash_point_id',
         'name',
         'opened_at',
         'closed_at',
@@ -42,6 +43,30 @@ class CashRegister extends Model
         ];
     }
 
+    /**
+     * Caja (sesión) activa para el contexto actual — fuente única de verdad.
+     * Prioriza la caja fijada en sesión (validada por branch + abierta).
+     * Fallback: si hay exactamente UNA caja abierta en el branch, usar esa
+     * (mantiene intacto el flujo de una sola caja). 0 o >1 sin selección → null.
+     */
+    public static function resolveActive(int $businessId, ?int $branchId, ?int $sessionId): ?self
+    {
+        $base = static::where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->whereNull('closed_at');
+
+        if ($sessionId) {
+            $selected = (clone $base)->where('id', $sessionId)->first();
+            if ($selected) {
+                return $selected;
+            }
+        }
+
+        $open = $base->orderBy('opened_at')->get();
+
+        return $open->count() === 1 ? $open->first() : null;
+    }
+
     public function business(): BelongsTo
     {
         return $this->belongsTo(Business::class);
@@ -50,6 +75,11 @@ class CashRegister extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function cashPoint(): BelongsTo
+    {
+        return $this->belongsTo(CashPoint::class);
     }
 
     public function opener(): BelongsTo

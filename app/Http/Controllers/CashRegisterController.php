@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\ActivityLog;
 use App\Models\BovedaEntry;
 use App\Models\CashMovement;
+use App\Models\CashPoint;
 use App\Models\CashRegister;
 use App\Services\DollarRateService;
 use Illuminate\Http\JsonResponse;
@@ -33,31 +34,42 @@ class CashRegisterController extends Controller
 
         $isAdmin = in_array($user->role, ['admin', 'super_admin', 'owner', 'supervisor'], true);
 
-        // Cajero ve su propia caja; admin/supervisor ve todas las abiertas
-        $cashRegister = CashRegister::with(['movements.creator', 'opener'])
+        // Caja activa: la fijada en sesión, o la única abierta del branch (fallback).
+        $cashRegister = CashRegister::resolveActive($businessId, $branchId, session('active_cash_register_id'));
+        if ($cashRegister) {
+            $cashRegister->load(['movements.creator', 'opener']);
+        }
+
+        // Todas las sesiones abiertas del branch (cada caja física). Admin sin branch ve el negocio.
+        $allOpenRegisters = CashRegister::with(['opener'])
             ->where('business_id', $businessId)
-            ->when(! $isAdmin, fn ($q) => $q->where('opened_by', $user->id))
-            ->when($branchId && ! $isAdmin, fn ($q) => $q->where('branch_id', $branchId))
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->whereNull('closed_at')
             ->orderBy('opened_at')
-            ->first();
+            ->get()
+            ->map(fn ($r) => [
+                'id'                => $r->id,
+                'name'              => $r->name,
+                'opened_at'         => $r->opened_at,
+                'opening_amount_bs' => $r->opening_amount_bs,
+                'opener_name'       => $r->opener?->name ?? '—',
+                'branch_id'         => $r->branch_id,
+                'cash_point_id'     => $r->cash_point_id,
+                'is_active'         => $cashRegister && $r->id === $cashRegister->id,
+            ]);
 
-        // Admin ve todas las cajas abiertas (para supervisar y cerrar turnos)
-        $allOpenRegisters = $isAdmin
-            ? CashRegister::with(['opener'])
-                ->where('business_id', $businessId)
-                ->whereNull('closed_at')
-                ->orderBy('opened_at')
-                ->get()
-                ->map(fn ($r) => [
-                    'id'                => $r->id,
-                    'name'              => $r->name,
-                    'opened_at'         => $r->opened_at,
-                    'opening_amount_bs' => $r->opening_amount_bs,
-                    'opener_name'       => $r->opener?->name ?? '—',
-                    'branch_id'         => $r->branch_id,
-                ])
-            : [];
+        // Cajas físicas del branch disponibles para abrir (con su estado abierto/cerrado).
+        $cashPoints = CashPoint::where('business_id', $businessId)
+            ->where('is_active', true)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->withExists(['cashRegisters as is_open' => fn ($q) => $q->whereNull('closed_at')])
+            ->orderBy('name')
+            ->get(['id', 'name', 'branch_id'])
+            ->map(fn ($cp) => [
+                'id'      => $cp->id,
+                'name'    => $cp->name,
+                'is_open' => (bool) $cp->is_open,
+            ]);
 
         $history = CashRegister::with(['opener', 'closer'])
             ->where('business_id', $businessId)
@@ -93,6 +105,7 @@ class CashRegisterController extends Controller
         return Inertia::render('Cash/Index', [
             'cashRegister'     => $cashRegister,
             'allOpenRegisters' => $allOpenRegisters,
+            'cashPoints'       => $cashPoints,
             'history'          => $history,
             'kpis'             => $kpis,
             'todayRate'        => $todayRate,
@@ -106,18 +119,34 @@ class CashRegisterController extends Controller
     {
         $user       = Auth::user();
         $businessId = $user->business->id;
+        $branchId   = $user->branch_id;
 
-        $branchId = $user->branch_id;
+        $data = $request->validate([
+            'cash_point_id'     => ['required', 'integer'],
+            'opening_amount_bs' => ['required', 'numeric', 'min:0'],
+        ]);
 
-        // ── Bloquear si hay caja del día anterior sin cerrar ──────────────────
+        // La caja física debe ser del negocio, estar activa y (si el usuario tiene branch) ser de su sucursal.
+        $cashPoint = CashPoint::where('id', $data['cash_point_id'])
+            ->where('business_id', $businessId)
+            ->where('is_active', true)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->first();
+
+        if (! $cashPoint) {
+            return back()->withErrors(['cash_point_id' => 'Caja no válida para tu sucursal.']);
+        }
+
+        // ── Bloquear si ESTA caja física tiene una sesión de día anterior sin cerrar ──
         $cajaAnterior = CashRegister::where('business_id', $businessId)
+            ->where('cash_point_id', $cashPoint->id)
             ->whereNull('closed_at')
             ->whereDate('opened_at', '<', now('America/Caracas')->toDateString())
             ->first();
 
         if ($cajaAnterior) {
             return response()->json([
-                'message' => 'Hay una caja abierta desde el ' . $cajaAnterior->opened_at->format('d/m/Y') . '. Debes cerrarla antes de abrir una nueva.',
+                'message' => 'La caja "' . $cashPoint->name . '" tiene una sesión abierta desde el ' . $cajaAnterior->opened_at->format('d/m/Y') . '. Debes cerrarla antes de abrir una nueva.',
                 'errors'  => [
                     'requires_close' => 'true',
                     'caja_id'        => (string) $cajaAnterior->id,
@@ -126,20 +155,15 @@ class CashRegisterController extends Controller
             ], 422);
         }
 
-        // Bloquear solo si ESTE USUARIO ya tiene una caja abierta (admins exentos)
-        $isAdmin     = in_array($user->role, ['super_admin', 'admin', 'owner', 'branch_admin', 'analyst'], true);
+        // Una sesión abierta por cash_point a la vez (NO por usuario, NO por sucursal).
         $alreadyOpen = CashRegister::where('business_id', $businessId)
-            ->when(! $isAdmin, fn ($q) => $q->where('opened_by', $user->id))
+            ->where('cash_point_id', $cashPoint->id)
             ->whereNull('closed_at')
             ->exists();
 
         if ($alreadyOpen) {
-            return back()->withErrors(['caja' => 'Ya tienes una caja abierta. Haz el corte de tu turno antes de abrir una nueva.']);
+            return back()->withErrors(['caja' => 'La caja "' . $cashPoint->name . '" ya está abierta.']);
         }
-
-        $data = $request->validate([
-            'opening_amount_bs' => ['required', 'numeric', 'min:0'],
-        ]);
 
         $rate       = $this->rates->getTodayRate();
         $openingUsd = $rate > 0
@@ -148,8 +172,9 @@ class CashRegisterController extends Controller
 
         $register = CashRegister::create([
             'business_id'        => $businessId,
-            'branch_id'          => $branchId,
-            'name'               => 'Caja ' . now()->format('d/m/Y'),
+            'branch_id'          => $cashPoint->branch_id,
+            'cash_point_id'      => $cashPoint->id,
+            'name'               => $cashPoint->name . ' · ' . now()->format('d/m/Y'),
             'opened_at'          => now(),
             'opening_amount_usd' => $openingUsd,
             'opening_amount_bs'  => (float) $data['opening_amount_bs'],
@@ -157,16 +182,53 @@ class CashRegisterController extends Controller
             'opened_by'          => $user->id,
         ]);
 
+        // Fijar la caja recién abierta como activa para esta sesión del usuario.
+        session(['active_cash_register_id' => $register->id]);
+
         ActivityLog::create([
             'business_id' => $businessId,
             'user_id'     => $user->id,
             'action'      => 'caja.apertura',
             'model_type'  => CashRegister::class,
             'model_id'    => $register->id,
-            'new_values'  => ['monto_apertura' => $data['opening_amount_bs']],
+            'new_values'  => [
+                'cash_point_id'  => $cashPoint->id,
+                'monto_apertura' => $data['opening_amount_bs'],
+            ],
         ]);
 
         return redirect()->route('cash.index');
+    }
+
+    // ─── Seleccionar caja activa (multi-caja) ────────────────────────────────
+
+    public function selectRegister(Request $request): JsonResponse
+    {
+        $user       = Auth::user();
+        $businessId = $user->business->id;
+        $branchId   = $user->branch_id;
+
+        $data = $request->validate([
+            'cash_register_id' => ['required', 'integer'],
+        ]);
+
+        // Debe pertenecer al negocio, al branch del usuario y estar abierta.
+        $register = CashRegister::where('id', $data['cash_register_id'])
+            ->where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->whereNull('closed_at')
+            ->first();
+
+        if (! $register) {
+            return response()->json(['error' => 'Caja no válida para tu sucursal.'], 422);
+        }
+
+        session(['active_cash_register_id' => $register->id]);
+
+        return response()->json([
+            'id'   => $register->id,
+            'name' => $register->name,
+        ]);
     }
 
     // ─── Corte de turno (NO cierra la caja) ──────────────────────────────────
@@ -177,6 +239,9 @@ class CashRegisterController extends Controller
         $businessId = $user->business->id;
 
         abort_unless((int) $register->business_id === (int) $businessId, 403);
+
+        $userBranch = in_array($user->role, ['branch_admin', 'cashier'], true) ? $user->branch_id : (session('current_branch_id') ?? null);
+        abort_unless($userBranch === null || (int) $register->branch_id === (int) $userBranch, 403, 'Esta caja pertenece a otra sucursal.');
         abort_unless($register->closed_at === null, 422, 'La caja ya está cerrada.');
 
         $data = $request->validate([
@@ -413,6 +478,9 @@ class CashRegisterController extends Controller
         $businessId = $user->business->id;
 
         abort_unless((int) $register->business_id === (int) $businessId, 403);
+
+        $userBranch = in_array($user->role, ['branch_admin', 'cashier'], true) ? $user->branch_id : (session('current_branch_id') ?? null);
+        abort_unless($userBranch === null || (int) $register->branch_id === (int) $userBranch, 403, 'Esta caja pertenece a otra sucursal.');
         abort_unless($register->closed_at === null, 422, 'La caja ya está cerrada.');
 
         $data = $request->validate([
@@ -479,6 +547,9 @@ class CashRegisterController extends Controller
         $businessId = $user->business->id;
 
         abort_unless((int) $register->business_id === (int) $businessId, 403);
+
+        $userBranch = in_array($user->role, ['branch_admin', 'cashier'], true) ? $user->branch_id : (session('current_branch_id') ?? null);
+        abort_unless($userBranch === null || (int) $register->branch_id === (int) $userBranch, 403, 'Esta caja pertenece a otra sucursal.');
         abort_unless($register->closed_at === null, 422, 'La caja ya está cerrada.');
 
         $data = $request->validate([

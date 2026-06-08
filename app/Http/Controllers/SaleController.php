@@ -57,11 +57,16 @@ class SaleController extends Controller
             ->orderBy('sort_order')
             ->get();
 
-        // Caja del usuario actual — cada cajero tiene la suya
-        $cashRegister = CashRegister::where('business_id', $businessId)
-            ->where('opened_by', $user->id)
+        // Caja activa: la fijada en sesión, o la única abierta del branch (fallback).
+        $cashRegister = CashRegister::resolveActive($businessId, $branchId, session('active_cash_register_id'));
+
+        // Cajas abiertas del branch — el POS pide elegir cuando hay más de una.
+        $openRegisters = CashRegister::where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->whereNull('closed_at')
-            ->first();
+            ->orderBy('opened_at')
+            ->get(['id', 'name'])
+            ->map(fn ($r) => ['id' => $r->id, 'name' => $r->name]);
 
         // ─── Stock map para badges de inventario ──────────────────────────────
         $stockIn = InventoryEntry::where('business_id', $businessId)
@@ -98,6 +103,7 @@ class SaleController extends Controller
             'products'       => $products,
             'categories'     => $categories,
             'cashRegister'   => $cashRegister,
+            'openRegisters'  => $openRegisters,
             'todayRate'      => $this->rates->getTodayRate(),
             'paymentMethods' => $paymentMethods,
             'ticketPrefix'   => $business->ticket_prefix ?? 'VEN',
@@ -236,20 +242,11 @@ class SaleController extends Controller
         $origin  = $data['origin']  ?? 'onsite';
         $channel = $data['channel'] ?? 'physical';
 
-        // Caja abierta para el branch actual (delivery puede no tener caja — continúa sin bloquear)
-        $cashRegister = CashRegister::where('business_id', $businessId)
-            ->where('branch_id', $branchId)
-            ->whereNotNull('opened_at')
-            ->whereNull('closed_at')
-            ->latest('opened_at')
-            ->first();
+        // Caja activa del branch (delivery/crédito pueden no tener caja — continúa sin bloquear)
+        $cashRegister = CashRegister::resolveActive($businessId, $branchId, session('active_cash_register_id'));
 
         // Crédito: despacho inmediato, cobro pendiente
         if ($origin === 'credit') {
-            $cashRegister = CashRegister::where('business_id', $businessId)
-                ->whereNull('closed_at')
-                ->first();
-
             $nowCredit      = now('America/Caracas');
             $accountingDate = $nowCredit->hour >= 19
                 ? $nowCredit->copy()->addDay()->toDateString()
@@ -289,6 +286,7 @@ class SaleController extends Controller
                     }
                     InventoryEntry::create([
                         'business_id' => $businessId,
+                        'branch_id'   => $branchId,
                         'product_id'  => $item->product_id,
                         'quantity_kg' => -abs((float) $item->quantity_value),
                         'waste_kg'    => 0,
@@ -352,15 +350,16 @@ class SaleController extends Controller
         abort_unless($sale->business_id === $businessId, 403);
         abort_unless($sale->status === 'open', 422, 'Venta no está abierta.');
 
-        // Caja abierta por este usuario específicamente
-        $cashRegister = CashRegister::where('business_id', $businessId)
-            ->where('opened_by', $user->id)
-            ->whereNull('closed_at')
-            ->first();
+        $branchId = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? $user->branch_id);
+
+        // Caja activa: la fijada en sesión, o la única abierta del branch (fallback).
+        $cashRegister = CashRegister::resolveActive($businessId, $branchId, session('active_cash_register_id'));
 
         if (! $cashRegister) {
             return response()->json(
-                ['error' => 'Debe abrir la caja antes de procesar pagos'],
+                ['error' => 'Debe abrir y seleccionar una caja antes de procesar pagos'],
                 422
             );
         }
@@ -419,7 +418,7 @@ class SaleController extends Controller
 
         DB::transaction(function () use (
             $sale, $rate, $totalBs, $changeBs, $changeUsd,
-            $firstMethod, $data, $methods, $businessId, $user, $cashRegister, $clientId, $accountingDatePay
+            $firstMethod, $data, $methods, $businessId, $branchId, $user, $cashRegister, $clientId, $accountingDatePay
         ) {
             $sale->update([
                 'status'              => 'paid',
@@ -677,7 +676,7 @@ class SaleController extends Controller
         $user = Auth::user();
 
         abort_if(
-            ! in_array($user->role, ['super_admin', 'admin'], true),
+            ! in_array($user->role, ['admin', 'supervisor', 'owner', 'branch_admin', 'super_admin'], true),
             403,
             'Sin permiso para anular ventas.'
         );
@@ -694,12 +693,24 @@ class SaleController extends Controller
             'reason' => ['required', 'string', 'min:5', 'max:500'],
         ]);
 
-        DB::transaction(function () use ($sale, $user, $request): void {
-            foreach ($sale->items()->get() as $item) {
+        $branchId = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : ($sale->branch_id ?? null);
+
+        DB::transaction(function () use ($sale, $user, $request, $branchId): void {
+            $sale->load('items.product');
+            foreach ($sale->items as $item) {
+                if ($item->input_type !== 'weight') {
+                    continue;
+                }
+
+                $stockProductId = $item->product?->stock_product_id ?? $item->product_id;
+
                 InventoryEntry::create([
                     'business_id' => $sale->business_id,
-                    'product_id'  => $item->product_id,
-                    'quantity_kg' => $item->quantity_value,
+                    'branch_id'   => $branchId,
+                    'product_id'  => $stockProductId,
+                    'quantity_kg' => abs((float) $item->quantity_value),
                     'location'    => 'vitrina',
                     'waste_kg'    => 0,
                     'entered_at'  => now(),

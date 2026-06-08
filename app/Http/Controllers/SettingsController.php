@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Branch;
-use App\Models\CashRegister;
+use App\Models\CashPoint;
 use App\Models\PaymentMethod;
 use App\Models\PaymentTerminal;
 use App\Models\User;
@@ -180,12 +180,22 @@ class SettingsController extends Controller
         $branchId      = $user->branch_id;
         $isBranchAdmin = $user->role === 'branch_admin';
 
-        $registers = CashRegister::where('business_id', $business->id)
+        // Cajas físicas (cash_points) por sucursal. Estado "Abierta" = tiene sesión sin cerrar hoy.
+        $registers = CashPoint::where('business_id', $business->id)
             ->when($isBranchAdmin && $branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->withExists(['cashRegisters as has_open_session' => fn ($q) => $q->whereNull('closed_at')])
+            ->orderBy('branch_id')
             ->orderBy('id')
-            ->get(['id', 'name', 'branch_id', 'opened_at', 'closed_at']);
+            ->get(['id', 'name', 'branch_id', 'is_active'])
+            ->map(fn ($cp) => [
+                'id'          => $cp->id,
+                'name'        => $cp->name,
+                'branch_id'   => $cp->branch_id,
+                'is_active'   => (bool) $cp->is_active,
+                'is_open'     => (bool) $cp->has_open_session,
+            ]);
 
-        $branches = \App\Models\Branch::where('business_id', $business->id)
+        $branches = Branch::where('business_id', $business->id)
             ->where('is_active', true)
             ->when($isBranchAdmin && $branchId, fn ($q) => $q->where('id', $branchId))
             ->orderBy('name')
@@ -199,41 +209,62 @@ class SettingsController extends Controller
 
     public function storeCashRegister(Request $request): RedirectResponse
     {
-        $user     = Auth::user();
-        $business = $user->business;
+        $user          = Auth::user();
+        $business      = $user->business;
+        $isBranchAdmin = $user->role === 'branch_admin';
 
         $data = $request->validate([
             'name'      => ['required', 'string', 'max:100'],
             'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
         ]);
 
-        CashRegister::create([
+        // branch_admin queda fijo a su sucursal; el resto elige una. Una caja SIEMPRE tiene branch.
+        $branchId = $isBranchAdmin ? $user->branch_id : ($data['branch_id'] ?? $user->branch_id);
+
+        if (! $branchId) {
+            return back()->withErrors(['branch_id' => 'Debes asignar una sucursal a la caja.']);
+        }
+
+        // Aislamiento: la sucursal debe pertenecer al negocio.
+        $branchOk = Branch::where('id', $branchId)
+            ->where('business_id', $business->id)
+            ->exists();
+        abort_unless($branchOk, 403, 'La sucursal no pertenece al negocio.');
+
+        CashPoint::create([
             'name'        => $data['name'],
             'business_id' => $business->id,
-            'branch_id'   => $data['branch_id'] ?? $user->branch_id,
-            'opened_at'   => null,
+            'branch_id'   => $branchId,
+            'is_active'   => true,
         ]);
 
-        return back()->with('success', 'Caja registradora creada.');
+        return back()->with('success', 'Caja creada.');
     }
 
-    public function updateCashRegister(Request $request, CashRegister $cashRegister): RedirectResponse
+    public function updateCashRegister(Request $request, CashPoint $cashPoint): RedirectResponse
     {
-        $this->authorizeRegister($cashRegister);
+        $this->authorizeCashPoint($cashPoint);
 
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:100'],
+            'name'      => ['required', 'string', 'max:100'],
+            'is_active' => ['sometimes', 'boolean'],
         ]);
 
-        $cashRegister->update($data);
+        $cashPoint->update($data);
 
         return back()->with('success', 'Caja actualizada.');
     }
 
-    public function destroyCashRegister(CashRegister $cashRegister): RedirectResponse
+    public function destroyCashRegister(CashPoint $cashPoint): RedirectResponse
     {
-        $this->authorizeRegister($cashRegister);
-        $cashRegister->delete();
+        $this->authorizeCashPoint($cashPoint);
+
+        // No borrar cajas con historial — preservar trazabilidad. Desactivar en su lugar.
+        if ($cashPoint->cashRegisters()->exists()) {
+            return back()->withErrors(['caja' => 'Esta caja tiene historial de sesiones. Desactívala en lugar de eliminarla.']);
+        }
+
+        $cashPoint->delete();
 
         return back()->with('success', 'Caja eliminada.');
     }
@@ -309,9 +340,14 @@ class SettingsController extends Controller
         abort_unless($user->business_id === Auth::user()->business_id, 403);
     }
 
-    private function authorizeRegister(CashRegister $register): void
+    private function authorizeCashPoint(CashPoint $cashPoint): void
     {
-        abort_unless($register->business_id === Auth::user()->business_id, 403);
+        $user = Auth::user();
+        abort_unless($cashPoint->business_id === $user->business_id, 403);
+        // branch_admin solo gestiona cajas de su propia sucursal.
+        if ($user->role === 'branch_admin' && $user->branch_id) {
+            abort_unless((int) $cashPoint->branch_id === (int) $user->branch_id, 403);
+        }
     }
 
     // ─── Hardware ────────────────────────────────────────────────────────────

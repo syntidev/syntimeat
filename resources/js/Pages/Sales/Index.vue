@@ -220,7 +220,7 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
                             <th>Método</th>
                             <th class="text-right">Total Bs.</th>
                             <th>Estado</th>
-                            <th v-if="userRole === 'admin' || userRole === 'supervisor'"></th>
+                            <th v-if="['admin','supervisor','owner','branch_admin','super_admin'].includes(userRole)"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -239,7 +239,7 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
                                     {{ statusLabel[sale.status] ?? sale.status }}
                                 </span>
                             </td>
-                            <td v-if="userRole === 'admin' || userRole === 'supervisor'" class="actions-cell" data-label="">
+                            <td v-if="['admin','supervisor','owner','branch_admin','super_admin'].includes(userRole)" class="actions-cell" data-label="">
                                 <button
                                     v-if="sale.status === 'paid'"
                                     type="button"
@@ -279,7 +279,7 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
                         <span class="sv-method">{{ getMethodLabel(s.payment_method) }}</span>
                         <span :class="statusClass[s.status] ?? 'badge'">{{ statusLabel[s.status] ?? s.status }}</span>
                         <button
-                            v-if="s.status === 'paid' && (userRole === 'admin' || userRole === 'supervisor')"
+                            v-if="s.status === 'paid' && ['admin','supervisor','owner','branch_admin','super_admin'].includes(userRole)"
                             type="button"
                             class="btn-void"
                             @click="openVoid(s)"
