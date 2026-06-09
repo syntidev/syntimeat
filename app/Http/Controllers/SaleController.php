@@ -575,6 +575,7 @@ class SaleController extends Controller
 
         $query = Sale::with(['cashier:id,name', 'salePayments.paymentMethod'])
             ->where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->whereDate('sold_at', $date)
             ->latest('sold_at');
 

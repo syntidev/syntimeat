@@ -30,9 +30,9 @@ class CashRegisterController extends Controller
         $businessId = $user->business->id;
         $todayRate  = $this->rates->getTodayRate();
 
-        $branchId = $user->branch_id;
-
-        $isAdmin = in_array($user->role, ['admin', 'super_admin', 'owner', 'supervisor'], true);
+        $branchId = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? null);
 
         // Caja activa: la fijada en sesión, o la única abierta del branch (fallback).
         $cashRegister = CashRegister::resolveActive($businessId, $branchId, session('active_cash_register_id'));
@@ -73,7 +73,7 @@ class CashRegisterController extends Controller
 
         $history = CashRegister::with(['opener', 'closer'])
             ->where('business_id', $businessId)
-            ->when($branchId && ! $isAdmin, fn ($q) => $q->where('branch_id', $branchId))
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->whereNotNull('closed_at')
             ->orderByDesc('closed_at')
             ->limit(30)
@@ -394,6 +394,7 @@ class CashRegisterController extends Controller
 
         $bovedaActiva = BovedaEntry::active()
             ->where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->where('created_at', '>=', $cashRegister->opened_at)
             ->get()
             ->map(function (BovedaEntry $entry) use ($bovedaCategoryMap, $categoryStats): array {

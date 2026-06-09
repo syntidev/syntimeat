@@ -116,10 +116,15 @@ class ReportController extends Controller
             'category_id' => ['nullable', 'integer'],
         ]);
 
-        $businessId = Auth::user()->business->id;
+        $user       = Auth::user();
+        $businessId = $user->business->id;
+        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? null);
 
         $query = InventoryEntry::with(['product.category'])
             ->where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->orderByDesc('entered_at');
 
         if (! empty($data['fecha_desde'])) {
@@ -163,9 +168,14 @@ class ReportController extends Controller
             'fecha_hasta' => ['nullable', 'date'],
         ]);
 
-        $businessId = Auth::user()->business->id;
+        $user       = Auth::user();
+        $businessId = $user->business->id;
+        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? null);
 
         $query = CashRegister::where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->whereNotNull('closed_at')
             ->orderByDesc('closed_at');
 
@@ -204,10 +214,15 @@ class ReportController extends Controller
             'status'       => ['nullable', 'in:open,pending,paid,cancelled'],
         ]);
 
-        $businessId = Auth::user()->business->id;
+        $user       = Auth::user();
+        $businessId = $user->business->id;
+        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? null);
 
         $query = Order::withCount('items')
             ->where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->orderByDesc('created_at');
 
         if (! empty($data['fecha_desde'])) {

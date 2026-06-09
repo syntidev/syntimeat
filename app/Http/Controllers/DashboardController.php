@@ -202,6 +202,7 @@ class DashboardController extends Controller
 
         $utilidadBoveda = BovedaEntry::active()
             ->where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->get()
             ->map(function (BovedaEntry $entry) use ($bovedaCategoryMap, $categoriaStats): array {
                 $catName   = $bovedaCategoryMap[$entry->product_type] ?? null;
