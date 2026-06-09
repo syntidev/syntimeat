@@ -34,6 +34,8 @@ class CashRegisterController extends Controller
             ? $user->branch_id
             : (session('current_branch_id') ?? null);
 
+        $isAdmin = in_array($user->role, ['super_admin', 'admin', 'owner', 'branch_admin', 'analyst'], true);
+
         // Caja activa: la fijada en sesión, o la única abierta del branch (fallback).
         $cashRegister = CashRegister::resolveActive($businessId, $branchId, session('active_cash_register_id'));
         if ($cashRegister) {
