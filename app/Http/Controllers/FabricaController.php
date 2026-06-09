@@ -120,7 +120,7 @@ class FabricaController extends Controller
                 $catName = $catMap[$e->product_type]
                     ?? (str_contains(strtolower($e->product_type), 'pollo') ? 'Pollo' : null);
 
-                $resOrder   = ['Carne Total', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
+                $resOrder   = ['Carne Total', 'Premium', 'Primera', 'Segunda', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
                 $polloOrder = ['Pollo Picado', 'Muslo', 'Pechuga', 'Alas de Pollo', 'Molleja', 'Pedrero'];
 
                 $productos = $catName
