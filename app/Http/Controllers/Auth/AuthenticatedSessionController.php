@@ -46,6 +46,10 @@ class AuthenticatedSessionController extends Controller
             return redirect()->route('reports.consolidated');
         }
 
+        if ($user->role === 'cashier') {
+            return redirect()->route('pos.index');
+        }
+
         return redirect()->intended(route('dashboard', absolute: false));
     }
 
