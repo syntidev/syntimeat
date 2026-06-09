@@ -138,8 +138,8 @@ const helpSteps = [
     },
     {
         title: 'Res — 4 cortes exactos y fijos',
-        body: 'El Medio Canal de Res siempre se despieza en 4 destinos fijos: Carne del Canal, Costilla, Hueso Redondo y Hueso Rojo. Ingresa los kg reales según la balanza en cada uno.',
-        tip: 'Carne del Canal es el inventario base de toda la venta de res en el POS. Cuando la cajera vende Premium, Primera o Segunda, el sistema descuenta automáticamente de Carne del Canal. Regístralo bien.',
+        body: 'El Medio Canal de Res siempre se despieza en 4 destinos fijos: Carne Total, Costilla, Hueso Redondo y Hueso Rojo. Ingresa los kg reales según la balanza en cada uno.',
+        tip: 'Carne Total es el inventario base de toda la venta de res en el POS. Cuando la cajera vende Premium, Primera o Segunda, el sistema descuenta automáticamente de Carne Total. Regístralo bien.',
     },
     {
         title: 'Cerdo — todos los cortes de la categoría',
@@ -164,12 +164,12 @@ const helpFaqs = [
         a: 'Porque el Pollo Entero Congelado no requiere despiece. Cuando se surte desde Bóveda, los kg van directo al inventario de vitrina. No hace falta pasar por Fábrica.',
     },
     {
-        q: '¿Qué es "Carne del Canal" y por qué es tan importante?',
-        a: 'Carne del Canal es el inventario base de carne de res. Cuando la cajera vende Premium, Primera o Segunda en el punto de venta, el sistema descuenta automáticamente de Carne del Canal. Si ese inventario llega a cero, el POS bloquea la venta. Por eso es crítico registrar bien esos kg al despiezar.',
+        q: '¿Qué es "Carne Total" y por qué es tan importante?',
+        a: 'Carne Total es el inventario base de carne de res. Cuando la cajera vende Premium, Primera o Segunda en el punto de venta, el sistema descuenta automáticamente de Carne Total. Si ese inventario llega a cero, el POS bloquea la venta. Por eso es crítico registrar bien esos kg al despiezar.',
     },
     {
         q: '¿La Res y el Cerdo tienen los mismos cortes?',
-        a: 'No. La Res siempre tiene exactamente 4 cortes fijos: Carne del Canal, Costilla, Hueso Redondo y Hueso Rojo. El Cerdo usa todos los productos activos de la categoría Cerdo en vitrina, así que los destinos dependen de tu catálogo.',
+        a: 'No. La Res siempre tiene exactamente 4 cortes fijos: Carne Total, Costilla, Hueso Redondo y Hueso Rojo. El Cerdo usa todos los productos activos de la categoría Cerdo en vitrina, así que los destinos dependen de tu catálogo.',
     },
     {
         q: '¿Qué pasa con los kg que no documento en cortes?',
@@ -177,7 +177,7 @@ const helpFaqs = [
     },
     {
         q: '¿Cómo funciona el stock de Res en el punto de venta?',
-        a: 'Cuando el carnicero hace el despiece aquí en Fábrica, los kg de Carne del Canal se suman al inventario. Desde ahí, el POS descuenta automáticamente cada vez que la cajera vende Premium, Primera o Segunda. Si no hay kg en Carne del Canal, el POS bloquea esa venta.',
+        a: 'Cuando el carnicero hace el despiece aquí en Fábrica, los kg de Carne Total se suman al inventario. Desde ahí, el POS descuenta automáticamente cada vez que la cajera vende Premium, Primera o Segunda. Si no hay kg en Carne Total, el POS bloquea esa venta.',
     },
     {
         q: '¿Puedo fabricar un lote sin haber hecho despiece antes?',

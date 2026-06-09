@@ -33,6 +33,12 @@ const menu = [
             { label: 'Hardware',        route: 'settings.hardware',     icon: 'M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18' },
         ],
     },
+    {
+        section: 'RECURSOS',
+        items: [
+            { label: 'Ayuda y Guías', route: 'ayuda', icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+        ],
+    },
 ]
 
 function isActive(routeName) {

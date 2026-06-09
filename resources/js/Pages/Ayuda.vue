@@ -78,10 +78,11 @@ const flujos = [
                 cuerpo: [
                     'Ve a <strong>FÁBRICA</strong> en el menú.',
                     'Verás la canal pendiente de despiece.',
-                    'Escribe cuántos kilos salieron de cada corte (lomito, paleta, costilla…).',
+                    'Para <strong>Res</strong>: despieza en 4 cortes fijos — <strong>Carne Total</strong> (base para Premium/Primera/Segunda), <strong>Costilla</strong>, <strong>Hueso Redondo</strong>, <strong>Hueso Rojo</strong>. Ingresa los kg reales de cada uno según la balanza.',
+                    'Para <strong>Cerdo</strong>: despieza en todos los productos activos de la categoría Cerdo en tu catálogo.',
                     'Confirma.',
                 ],
-                tip: 'Fábrica registra el despiece para que el sistema sepa qué productos salieron de esa canal.',
+                tip: 'Carne Total es crítico: cuando la cajera vende Premium, Primera o Segunda en el POS, el sistema descuenta automáticamente de Carne Total. Si ese stock llega a cero, el POS bloquea la venta.',
                 nota: 'El pollo no pasa por Fábrica — se surte directamente a vitrina.',
             },
         ],
@@ -147,6 +148,19 @@ const flujos = [
                 ],
                 tip: 'El ticket aparece en pantalla listo para imprimir o mostrarle al cliente.',
                 nota: 'El stock se descuenta solo cuando la venta queda pagada. Un ticket abierto sin cobrar no toca el inventario.',
+            },
+            {
+                titulo: 'Anular un ticket si te equivocaste',
+                alerta: null,
+                cuerpo: [
+                    'Ve a <strong>VENTAS DEL DÍA</strong> en el menú.',
+                    'Busca el ticket que necesitas anular.',
+                    'Presiona el botón de <strong>Anular</strong> (disponible solo para Dueño, Admin de Sucursal y Supervisor).',
+                    'Escribe el motivo de la anulación (mínimo 5 caracteres).',
+                    'Confirma.',
+                ],
+                tip: 'Al anular, el sistema devuelve automáticamente los kilos al inventario. El dinero regresa al efectivo de la caja si pagó en efectivo.',
+                nota: 'Solo las personas autorizadas pueden anular tickets. El historial de anulaciones queda registrado para auditoría.',
             },
             {
                 titulo: 'Corte bancario — ventas después de las 7 PM',
@@ -409,7 +423,7 @@ onMounted(() => {
                     <CheckCircle :size="64" class="fin-icon" />
                     <h1 class="fin-titulo">¡Listo! Ya sabes usar SYNTImeat</h1>
                     <p class="fin-sub">
-                        Pasaste por los {{ flujos.length }} flujos principales del sistema.<br>
+                        Pasaste por los 9 flujos principales del sistema.<br>
                         Si tienes dudas, cada módulo tiene un botón <strong>?</strong> con ayuda específica.
                     </p>
                     <a href="/dashboard" class="btn-ir">Ir al sistema →</a>
