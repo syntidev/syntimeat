@@ -11,6 +11,7 @@ const props = defineProps({
     todayEntries: Array,
     stockMap:     Object,
     lastEntryMap: Object,
+    lastCostMap:  { type: Object, default: () => ({}) },
     kpis:         Object,
 })
 
@@ -131,8 +132,19 @@ const selectedProduct = computed(() => {
 
 const isUnitMode = computed(() => selectedProduct.value?.sale_mode === 'unit')
 
-watch(() => form.product_id, () => {
+watch(() => form.product_id, (newId) => {
     if (isUnitMode.value) form.waste_kg = 0
+    const numId = Number(newId)
+    if (!numId) return
+    const product = props.products.find(p => p.id === numId)
+    const lookupId = product?.stock_product_id ?? numId
+    const lastCost = props.lastCostMap[lookupId] ?? props.lastCostMap[numId] ?? null
+    if (lastCost && !form.cost_per_kg_usd) {
+        form.cost_per_kg_usd = parseFloat(lastCost)
+        if (dollarRate.value > 0) {
+            bsCostPrice.value = parseFloat((lastCost * dollarRate.value).toFixed(2))
+        }
+    }
 })
 
 const netKg = computed(() => {
@@ -187,6 +199,12 @@ function stockLabel(product) {
     if (s === 'empty') return 'Agotado'
     if (s === 'low')   return 'Bajo'
     return 'OK'
+}
+
+function getLastCost(product) {
+    return product.cost_per_kg_usd
+        ? parseFloat(product.cost_per_kg_usd).toFixed(2)
+        : null
 }
 
 function sharedPoolLabel(product) {
@@ -373,6 +391,7 @@ watch(drawerProduct, (val) => { if (! val) closeAdjust() })
                                 <th class="txt-right th-sort" @click="toggleSort('stock')">Stock <span class="sort-icon">{{ sortIcon('stock') }}</span></th>
                                 <th class="th-sort" @click="toggleSort('status')">Estado <span class="sort-icon">{{ sortIcon('status') }}</span></th>
                                 <th class="th-sort" @click="toggleSort('last')">Última entrada <span class="sort-icon">{{ sortIcon('last') }}</span></th>
+                                <th class="txt-right">Ultimo Costo</th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -404,6 +423,10 @@ watch(drawerProduct, (val) => { if (! val) closeAdjust() })
                                     </span>
                                 </td>
                                 <td class="txt-muted">{{ fmtDate(lastEntryMap[p.id]) }}</td>
+                                <td class="txt-right mono">
+                                    <span v-if="getLastCost(p)" class="cost-tag">{{ fmtUsd(getLastCost(p)) }}/{{ p.sale_mode === 'weight' ? 'kg' : 'und' }}</span>
+                                    <span v-else class="txt-muted">—</span>
+                                </td>
                                 <td class="txt-muted row-arrow">›</td>
                             </tr>
                             <tr v-if="pagedProducts.length === 0">

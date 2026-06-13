@@ -74,6 +74,10 @@ class InventoryController extends Controller
             ->groupBy('product_id')
             ->pluck('last_at', 'product_id');
 
+
+        // Ultimo costo de compra por producto (desde la columna products.cost_per_kg_usd)
+        $lastCostMap = $products->pluck('cost_per_kg_usd', 'id')
+            ->map(fn ($v) => $v ? (float) $v : null);
         // ─── KPIs — solo entradas positivas (excluye descuentos de Fábrica) ──────
         $positiveEntries = $todayEntries->filter(fn (InventoryEntry $e) => (float) $e->quantity_kg > 0);
         $kgToday    = $positiveEntries->sum(fn (InventoryEntry $e) => (float) $e->net_kg);
@@ -101,6 +105,7 @@ class InventoryController extends Controller
             'todayEntries' => $todayEntries,
             'stockMap'     => $stockMap,
             'lastEntryMap' => $lastEntryMap,
+            'lastCostMap'  => $lastCostMap,
             'kpis'         => [
                 'kg_today'    => round($kgToday, 3),
                 'total_stock' => round($totalStock, 3),
@@ -158,6 +163,11 @@ class InventoryController extends Controller
             'entered_at'      => $data['entered_at'],
             'created_by'      => $userId,
         ]);
+
+        // Actualizar costo de referencia en el producto si viene costo nuevo
+        if (! empty($data['cost_per_kg_usd']) && (float) $data['cost_per_kg_usd'] > 0) {
+            $product->update(['cost_per_kg_usd' => $data['cost_per_kg_usd']]);
+        }
 
         ActivityLog::create([
             'business_id' => $businessId,

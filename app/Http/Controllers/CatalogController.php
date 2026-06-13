@@ -54,26 +54,20 @@ class CatalogController extends Controller
         ->groupBy('product_id')
         ->pluck('total_net', 'product_id');
 
-    $stockOut = DB::table('sale_items')
-        ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
-        ->where('sales.business_id', $businessId)
-        ->where('sales.status', 'paid')
-        ->when($branchId, fn ($q) => $q->where('sales.branch_id', $branchId))
-        ->selectRaw('sale_items.product_id, SUM(sale_items.quantity_value) as total_sold')
-        ->groupBy('sale_items.product_id')
-        ->pluck('total_sold', 'product_id');
+    $lastCostMap = $products->pluck('cost_per_kg_usd', 'id')
+        ->map(fn ($v) => $v ? (float) $v : null);
 
     $stockMap = [];
     foreach ($products as $product) {
-        $net              = (float) ($stockIn[$product->id]  ?? 0);
-        $sold             = (float) ($stockOut[$product->id] ?? 0);
-        $stockMap[$product->id] = round($net - $sold, 3);
+        $poolId = $product->stock_product_id ?? $product->id;
+        $stockMap[$product->id] = round((float) ($stockIn[$poolId] ?? 0), 3);
     }
 
     return Inertia::render('Catalog/Index', [
-        'categories' => $categories,
-        'products'   => $products,
-        'stockMap'   => $stockMap,
+        'categories'  => $categories,
+        'products'    => $products,
+        'stockMap'    => $stockMap,
+        'lastCostMap' => $lastCostMap,
     ]);
 }
 
@@ -87,6 +81,7 @@ class CatalogController extends Controller
             'sale_mode'          => ['required', 'in:weight,unit'],
             'price_per_kg_usd'   => ['nullable', 'numeric', 'min:0', 'required_if:sale_mode,weight'],
             'price_per_unit_usd' => ['nullable', 'numeric', 'min:0', 'required_if:sale_mode,unit'],
+            'cost_per_kg_usd'    => ['nullable', 'numeric', 'min:0'],
             'min_stock'          => ['nullable', 'numeric', 'min:0'],
             'fabricable'         => ['boolean'],
             'is_favorite'        => ['boolean'],
@@ -123,6 +118,7 @@ class CatalogController extends Controller
             'base_unit_label'    => $validated['sale_mode'] === 'weight' ? 'kg' : 'und',
             'price_per_kg_usd'   => $validated['price_per_kg_usd'] ?? null,
             'price_per_unit_usd' => $validated['price_per_unit_usd'] ?? null,
+            'cost_per_kg_usd'    => $validated['cost_per_kg_usd'] ?? null,
             'min_stock'          => $validated['min_stock'] ?? 0,
             'fabricable'         => $validated['fabricable'] ?? false,
             'is_favorite'        => $validated['is_favorite'] ?? false,
@@ -165,6 +161,7 @@ class CatalogController extends Controller
             'sale_mode'          => ['required', 'in:weight,unit'],
             'price_per_kg_usd'   => ['nullable', 'numeric', 'min:0', 'required_if:sale_mode,weight'],
             'price_per_unit_usd' => ['nullable', 'numeric', 'min:0', 'required_if:sale_mode,unit'],
+            'cost_per_kg_usd'    => ['nullable', 'numeric', 'min:0'],
             'min_stock'          => ['nullable', 'numeric', 'min:0'],
             'fabricable'         => ['boolean'],
             'is_favorite'        => ['boolean'],
@@ -186,6 +183,7 @@ class CatalogController extends Controller
             'base_unit_label'    => $validated['sale_mode'] === 'weight' ? 'kg' : 'und',
             'price_per_kg_usd'   => $validated['price_per_kg_usd'] ?? null,
             'price_per_unit_usd' => $validated['price_per_unit_usd'] ?? null,
+            'cost_per_kg_usd'    => $validated['cost_per_kg_usd'] ?? null,
             'min_stock'          => $validated['min_stock'] ?? 0,
             'fabricable'         => $validated['fabricable'] ?? $product->fabricable,
             'is_favorite'        => $validated['is_favorite'] ?? $product->is_favorite,

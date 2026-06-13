@@ -9,10 +9,15 @@ const props = defineProps({
     categories:  { type: Array,   default: () => [] },
     products:    { type: Array,   default: () => [] },
     stockMap:    { type: Object,  default: () => ({}) },
+    lastCostMap: { type: Object,  default: () => ({}) },
 })
 
 const page       = usePage()
 const dollarRate = computed(() => page.props.tasa?.rate ?? 1)
+const userRole   = computed(() => page.props.auth?.user?.role ?? 'cashier')
+const canSeeCost = computed(() =>
+    ['super_admin', 'admin', 'owner', 'branch_admin', 'analyst'].includes(userRole.value)
+)
 
 // ─── Tabs + búsqueda ──────────────────────────────────────────────────────────
 const activeTab   = ref(props.categories[0]?.id ?? null)
@@ -61,6 +66,7 @@ const form = useForm({
     price_per_unit_usd: '',
     price_per_unit_bs:  '',
     min_stock:          0,
+    cost_per_kg_usd:    null,
     active:             true,
     fabricable:         false,
     is_favorite:        false,
@@ -121,6 +127,7 @@ function openEdit(product) {
     form.active             = product.active
     form.fabricable         = product.fabricable ?? false
     form.is_favorite        = product.is_favorite ?? false
+    form.cost_per_kg_usd    = product.cost_per_kg_usd ?? null
     form.image              = null
     form.remove_image       = false
     form.price_per_kg_bs   = product.price_per_kg_bs   ?? (form.price_per_kg_usd   ? (parseFloat(form.price_per_kg_usd)   * dollarRate.value).toFixed(0) : '')
@@ -177,6 +184,7 @@ function submitForm() {
         price_per_unit_usd: form.price_per_unit_usd || null,
         price_per_unit_bs:  form.price_per_unit_bs  || null,
         min_stock:          form.min_stock ?? 0,
+        cost_per_kg_usd:    form.cost_per_kg_usd || null,
         active:             form.active,
         fabricable:         form.fabricable ? 1 : 0,
         is_favorite:        form.is_favorite ? 1 : 0,
@@ -235,6 +243,11 @@ function stockLabel(product) {
     return `${stock.toFixed(2)} kg`
 }
 
+function fmtUsd(val) {
+    if (!val) return '—'
+    return '$' + Number(val).toFixed(2)
+}
+
 function priceDisplay(product) {
     if (product.sale_mode === 'weight') {
         return product.price_per_kg_usd
@@ -244,6 +257,20 @@ function priceDisplay(product) {
     return product.price_per_unit_usd
         ? `$${Number(product.price_per_unit_usd).toFixed(2)}/und`
         : '—'
+}
+
+function getProductCost(product) {
+    return product.cost_per_kg_usd
+        ? parseFloat(product.cost_per_kg_usd).toFixed(2)
+        : null
+}
+
+function getMargin(product) {
+    const cost = getProductCost(product)
+    if (!cost) return null
+    const price = product.price_per_kg_usd ?? product.price_per_unit_usd ?? null
+    if (!price || parseFloat(price) === 0) return null
+    return Math.round(((parseFloat(price) - parseFloat(cost)) / parseFloat(price)) * 100)
 }
 
 function categoryColor(id) {
@@ -567,6 +594,7 @@ const helpFaqs = [
                             <th v-if="searchQuery">Categoría</th>
                             <th>Tipo</th>
                             <th>Precio</th>
+                            <th v-if="canSeeCost">Costo</th>
                             <th>Existencia</th>
                             <th>Estado</th>
                             <th>Acciones</th>
@@ -593,6 +621,13 @@ const helpFaqs = [
                                 </span>
                             </td>
                             <td class="price-cell" data-label="Precio">{{ priceDisplay(p) }}</td>
+                            <td v-if="canSeeCost" data-label="Costo">
+                                <template v-if="getProductCost(p)">
+                                    <div class="price-cell">{{ fmtUsd(getProductCost(p)) }}/{{ p.sale_mode === 'weight' ? 'kg' : 'und' }}</div>
+                                    <div class="cost-margin" v-if="getMargin(p) !== null">{{ getMargin(p) }}% margen</div>
+                                </template>
+                                <template v-else><span class="text-muted">—</span></template>
+                            </td>
                             <td data-label="Existencia">{{ stockLabel(p) }}</td>
                             <td data-label="Estado">
                                 <span
@@ -841,6 +876,25 @@ const helpFaqs = [
                                             <span class="rate-hint">Bs/und (báscula) — Tasa ref: {{ dollarRate.toFixed(2) }}</span>
                                         </div>
                                         <p v-if="form.errors.price_per_unit_usd" class="field-error">{{ form.errors.price_per_unit_usd }}</p>
+                                    </template>
+
+                                    <!-- Costo de compra -->
+                                    <template v-if="canSeeCost">
+                                        <label class="field-label">Costo de compra ({{ form.sale_mode === 'weight' ? '$/kg' : '$/und' }})</label>
+                                        <input
+                                            v-model.number="form.cost_per_kg_usd"
+                                            type="number"
+                                            step="0.0001"
+                                            min="0"
+                                            class="field-input"
+                                            placeholder="0.00 (opcional)"
+                                        />
+                                        <span
+                                            v-if="form.cost_per_kg_usd && (form.price_per_kg_usd || form.price_per_unit_usd)"
+                                            class="rate-hint"
+                                        >
+                                            Margen: {{ Math.round(((parseFloat(form.price_per_kg_usd || form.price_per_unit_usd) - parseFloat(form.cost_per_kg_usd)) / parseFloat(form.price_per_kg_usd || form.price_per_unit_usd)) * 100) }}%
+                                        </span>
                                     </template>
 
                                     <!-- Existencia mínima -->
@@ -1263,6 +1317,7 @@ const helpFaqs = [
 .prod-name { font-weight: 500; }
 .price-cell { font-variant-numeric: tabular-nums; }
 .text-muted { color: var(--text-muted); }
+.cost-margin { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.1rem; }
 .empty-row { text-align: center; color: var(--text-muted); padding: 2rem; }
 
 /* ─── Badges ─────────────────────────────────────────────────────────────── */
@@ -1375,15 +1430,23 @@ const helpFaqs = [
 .prod-modal-box {
     max-width: 780px;
     max-height: 90dvh;
-    overflow-y: auto;
+    overflow-y: hidden;
+    display: flex;
+    flex-direction: column;
 }
 .prod-form-wrap {
     display: flex;
     flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
 }
 .prod-modal-body {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
 }
 .prod-col-left {
     padding: 1rem 1.25rem;
