@@ -1,6 +1,7 @@
 ﻿<script setup>
 import { ref, computed, onMounted, watch } from 'vue';
-import { router } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
+import axios from 'axios';
 import AppLayout  from '@/Layouts/AppLayout.vue';
 import HelpModal  from '@/Components/HelpModal.vue';
 import { Warehouse, Scissors, Factory, CheckCircle2, Package, Printer, Pencil, Trash2 } from '@lucide/vue';
@@ -16,6 +17,9 @@ const props = defineProps({
 
 // ─── Tab ──────────────────────────────────────────────────────────────────────
 const tab = ref('activas');
+
+const page     = usePage()
+const userRole = computed(() => page.props.auth?.user?.role ?? '')
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 function fmtKg(v)  { return Number(v || 0).toFixed(3) + ' kg'; }
@@ -38,6 +42,33 @@ const flash = ref('');
 function showFlash(msg) {
     flash.value = msg;
     setTimeout(() => { flash.value = ''; }, 3000);
+}
+
+// ─── Reverso Bóveda ───────────────────────────────────────────────────────────────
+function canReverse(entry) {
+    const adminRoles = ['owner', 'super_admin', 'admin', 'branch_admin']
+    return adminRoles.includes(userRole.value) &&
+           parseFloat(entry.kg_surtido_vitrina) > 0
+}
+
+async function reverseEntry(entry) {
+    if (!confirm(
+        `¿Revertir la entrada "${entry.product_type}" de ${entry.kg_entrada} kg?
+
+` +
+        `Esto eliminará todos los cortes registrados en vitrina y ` +
+        `devolverá la entrada a estado disponible en bóveda.
+
+` +
+        `Solo es posible si no hay ventas sobre los cortes.`
+    )) return
+
+    try {
+        await axios.patch(route('boveda.reverse', { entry: entry.id }))
+        router.reload({ only: ['activas', 'historial', 'kpis'] })
+    } catch (err) {
+        alert(err.response?.data?.error ?? 'Error al revertir la entrada.')
+    }
 }
 
 // ─── Modal Nueva Entrada ──────────────────────────────────────────────────────
@@ -734,6 +765,7 @@ async function deactivateProduct(product) {
                                 <th>Proveedor</th>
                                 <th>Ingresó</th>
                                 <th>Cerró</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -746,6 +778,13 @@ async function deactivateProduct(product) {
                                 <td>{{ e.supplier || '—' }}</td>
                                 <td class="date-col">{{ e.entered_at }}</td>
                                 <td class="date-col">{{ e.closed_at }}</td>
+                                <td>
+                                    <button
+                                        v-if="canReverse(e)"
+                                        class="btn-sm btn-reverse"
+                                        @click="reverseEntry(e)"
+                                    >Revertir</button>
+                                </td>
                             </tr>
                         </tbody>
                     </table>
@@ -1269,6 +1308,8 @@ async function deactivateProduct(product) {
 .btn-sm:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-merma  { background: rgba(245,158,11,0.12); color: #d97706; }
 .btn-merma:not(:disabled):hover { background: rgba(245,158,11,0.22); }
+.btn-reverse { background: rgba(217,119,6,0.15); color: #f59e0b; }
+.btn-reverse:hover { background: rgba(217,119,6,0.28); }
 .btn-edit        { background: rgba(75,85,99,0.12); color: var(--text-secondary); }
 .btn-edit:hover  { background: rgba(75,85,99,0.22); color: var(--text-primary); }
 .btn-danger      { background: rgba(239,68,68,0.08); color: #ef4444; }
