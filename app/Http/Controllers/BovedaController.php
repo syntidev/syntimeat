@@ -476,6 +476,44 @@ class BovedaController extends Controller
         });
     }
 
+    public function reverse(BovedaEntry $entry): \Illuminate\Http\JsonResponse
+    {
+        abort_unless($entry->business_id === Auth::user()->business_id, 403);
+        abort_unless(
+            in_array(Auth::user()->role, [
+                'owner', 'super_admin', 'admin', 'branch_admin'
+            ], true),
+            403,
+            'Sin permiso para revertir entradas de bóveda.'
+        );
+
+        // No se puede revertir si hay ventas encima de los cortes
+        $tieneVentas = InventoryEntry::where('boveda_entry_id', $entry->id)
+            ->where('quantity_kg', '<', 0)
+            ->exists();
+
+        if ($tieneVentas) {
+            return response()->json([
+                'error' => 'No se puede revertir: existen ventas registradas sobre los cortes de esta entrada.'
+            ], 422);
+        }
+
+        DB::transaction(function () use ($entry): void {
+            // Eliminar inventory_entries ligadas a esta entrada (vitrina y boveda)
+            InventoryEntry::where('boveda_entry_id', $entry->id)->delete();
+
+            // Revertir estado del boveda_entry
+            $entry->update([
+                'kg_surtido_vitrina'      => 0,
+                'despiece_completado_at'  => null,
+                'closed_at'               => null,
+                'waste_kg'                => 0,
+            ]);
+        });
+
+        return response()->json(['message' => 'Entrada revertida correctamente.']);
+    }
+
     public function registerMerma(Request $request, BovedaEntry $entry): \Illuminate\Http\JsonResponse
     {
         abort_unless($entry->business_id === Auth::user()->business_id, 403);

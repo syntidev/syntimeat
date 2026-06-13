@@ -145,8 +145,10 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
         Route::patch('/pedidos/{order}/cobrar', [OrderController::class, 'collect'])->name('orders.collect');
         Route::patch('/pedidos/{order}/despachar', [OrderController::class, 'dispatch'])->name('orders.dispatch');
         Route::patch('/pedidos/{order}/cancelar', [OrderController::class, 'cancel'])->name('orders.cancel');
+        Route::get('/pedidos/{order}/abonos', [OrderController::class, 'payments'])->name('orders.payments');
         Route::patch('/pedidos/{sale}/delivery-cobrado', [OrderController::class, 'confirmDelivery'])->name('sales.delivery-confirm');
         Route::patch('/ventas/{sale}/cobrar-pendiente', [OrderController::class, 'collectPending'])->name('sales.collect-pending');
+        Route::get('/ventas/{sale}/abonos', [OrderController::class, 'saleAbonos'])->name('sales.abonos');
 
         // Inventario — todos los roles operativos (incluye cashier y analyst)
         Route::get('/inventario', [InventoryController::class, 'index'])->name('inventory.index');
@@ -222,6 +224,7 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
         Route::delete('/boveda/{entry}', [BovedaController::class, 'destroy'])->name('boveda.destroy');
         Route::patch('/boveda/{entry}/surtir', [BovedaController::class, 'surte'])->name('boveda.surte');
         Route::patch('/boveda/{entry}/cerrar', [BovedaController::class, 'close'])->name('boveda.close');
+        Route::patch('/boveda/{entry}/revertir', [BovedaController::class, 'reverse'])->name('boveda.reverse');
         Route::patch('/boveda/{entry}/merma', [BovedaController::class, 'registerMerma'])->name('boveda.merma');
         Route::get('/boveda/{entry}/plantilla', [BovedaController::class, 'plantillaDespiece'])->name('boveda.plantilla');
         Route::post('/boveda/productos', [BovedaController::class, 'storeProduct'])->name('boveda.product.store');

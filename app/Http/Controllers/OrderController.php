@@ -14,6 +14,7 @@ use App\Models\PaymentMethod;
 use App\Models\PaymentTerminal;
 use App\Models\Product;
 use App\Models\Sale;
+use App\Models\SaleAbono;
 use App\Models\SalePayment;
 use App\Services\DollarRateService;
 use Illuminate\Http\JsonResponse;
@@ -460,7 +461,7 @@ class OrderController extends Controller
         return response()->json(['ok' => true, 'order_id' => $order->id]);
     }
 
-    // ─── Registrar cobro en venta pendiente ───────────────────────────────────
+    // ─── Registrar cobro en venta pendiente (abonos parciales) ──────────────────
 
     public function collectPending(Request $request, Sale $sale): JsonResponse
     {
@@ -484,13 +485,17 @@ class OrderController extends Controller
             'payments.*.payment_method_id'      => ['required', 'integer', 'exists:payment_methods,id'],
             'payments.*.amount_bs'              => ['required', 'numeric', 'min:0.01'],
             'payments.*.reference'              => ['nullable', 'string', 'max:50'],
+            'rate'                              => ['required', 'numeric', 'min:0.0001'],
+            'client_name'                       => ['nullable', 'string', 'max:100'],
+            'client_phone'                      => ['nullable', 'string', 'max:30'],
+            'client_id'                         => ['nullable', 'integer'],
         ]);
 
-        $rate    = $this->rates->getTodayRate();
-        // Usar total_bs guardado; fallback a recálculo si la venta es legacy (null)
-        $totalBs = $sale->total_bs !== null
+        $rate         = (float) $data['rate'];
+        $totalBs      = $sale->total_bs !== null
             ? (float) $sale->total_bs
             : round((float) $sale->total_usd * $rate, 2);
+        $totalAbonoBs = round(array_sum(array_column($data['payments'], 'amount_bs')), 2);
 
         $methodIds = array_column($data['payments'], 'payment_method_id');
         $methods   = PaymentMethod::whereIn('id', $methodIds)
@@ -502,64 +507,145 @@ class OrderController extends Controller
             abort_unless($methods->has($mid), 403, 'Método de pago no pertenece al negocio.');
         }
 
-        $sumPaidBs = array_sum(array_column($data['payments'], 'amount_bs'));
-        if (round($sumPaidBs, 2) < $totalBs) {
-            return response()->json(
-                ['error' => "Monto insuficiente. Total: {$totalBs} Bs., Pagado: " . round($sumPaidBs, 2) . ' Bs.'],
-                422
-            );
-        }
-
-        $changeBs  = round($sumPaidBs - $totalBs, 2);
-        $changeUsd = $rate > 0 ? round($changeBs / $rate, 2) : 0.0;
-
-        $firstMethod = $methods[$data['payments'][0]['payment_method_id']];
-
-        DB::transaction(function () use ($sale, $rate, $totalBs, $changeUsd, $firstMethod, $data, $businessId, $user, $cashRegister) {
-            $sale->update([
-                'status'              => 'paid',
-                'payment_status'      => 'paid',
-                'rate_used'           => $rate,
-                'total_bs'            => $totalBs,
-                'payment_method'      => substr($firstMethod->name, 0, 30),
-                'amount_received_usd' => $rate > 0 ? round(array_sum(array_column($data['payments'], 'amount_bs')) / $rate, 2) : 0.0,
-                'change_usd'          => $changeUsd,
-                'sold_at'             => now(),
-                'cash_register_id'    => $cashRegister->id,
-            ]);
-
-            if (empty($sale->getRawOriginal('accounting_date'))) {
-                $nowCollect = now('America/Caracas');
-                $acctDate   = $nowCollect->hour >= 19
-                    ? $nowCollect->copy()->addDay()->toDateString()
-                    : $nowCollect->toDateString();
-                $sale->update(['accounting_date' => $acctDate]);
-            }
-
+        $result = DB::transaction(function () use (
+            $sale, $rate, $totalBs, $totalAbonoBs, $data, $methods,
+            $businessId, $user, $cashRegister
+        ) {
+            // a. Crear sale_abonos
             foreach ($data['payments'] as $pmt) {
-                SalePayment::create([
+                $amtBs  = round((float) $pmt['amount_bs'], 2);
+                $amtUsd = $rate > 0 ? round($amtBs / $rate, 4) : 0.0;
+                SaleAbono::create([
                     'sale_id'           => $sale->id,
+                    'business_id'       => $businessId,
+                    'branch_id'         => $sale->branch_id,
                     'payment_method_id' => $pmt['payment_method_id'],
-                    'amount_bs'         => round((float) $pmt['amount_bs'], 2),
-                    'amount_usd'        => $rate > 0 ? round((float) $pmt['amount_bs'] / $rate, 2) : 0.0,
+                    'amount_bs'         => $amtBs,
+                    'amount_usd'        => $amtUsd,
+                    'rate'              => $rate,
                     'reference'         => $pmt['reference'] ?? null,
+                    'created_by'        => $user->id,
                 ]);
             }
 
-            ActivityLog::create([
-                'business_id' => $businessId,
-                'user_id'     => $user->id,
-                'action'      => 'sale.pending_collected',
-                'model_type'  => Sale::class,
-                'model_id'    => $sale->id,
-                'new_values'  => ['ticket_number' => $sale->ticket_number, 'total_bs' => $totalBs],
+            // b. Sumar acumulado
+            $newPaidBs  = round((float) $sale->amount_paid_bs + $totalAbonoBs, 2);
+            $newPaidUsd = $rate > 0 ? round($newPaidBs / $rate, 4) : 0.0;
+            $sale->update([
+                'amount_paid_bs'  => $newPaidBs,
+                'amount_paid_usd' => $newPaidUsd,
             ]);
+
+            // c. Descuento de inventario para delivery (solo la primera vez)
+            if (! $sale->inventory_released && $sale->origin === 'delivery') {
+                foreach ($sale->items as $item) {
+                    if ($item->input_type !== 'weight') {
+                        continue;
+                    }
+                    InventoryEntry::create([
+                        'business_id' => $businessId,
+                        'product_id'  => $item->product_id,
+                        'quantity_kg' => -abs((float) $item->quantity_value),
+                        'waste_kg'    => 0,
+                        'entered_at'  => now(),
+                        'created_by'  => $user->id,
+                        'notes'       => "Abono delivery {$sale->ticket_number}",
+                    ]);
+                }
+                $sale->update(['inventory_released' => true]);
+            }
+
+            $balanceBs = round($totalBs - $newPaidBs, 2);
+
+            // d. Marcar pagado si saldo cubierto (margen 0.1%)
+            if ($newPaidBs >= $totalBs * 0.999) {
+                $firstMethod = $methods[$data['payments'][0]['payment_method_id']];
+
+                $sale->update([
+                    'status'              => 'paid',
+                    'payment_status'      => 'paid',
+                    'rate_used'           => $rate,
+                    'total_bs'            => $totalBs,
+                    'payment_method'      => substr($firstMethod->name, 0, 30),
+                    'amount_received_usd' => $rate > 0 ? round($newPaidBs / $rate, 2) : 0.0,
+                    'change_usd'          => 0,
+                    'sold_at'             => now(),
+                    'cash_register_id'    => $cashRegister->id,
+                ]);
+
+                if (empty($sale->getRawOriginal('accounting_date'))) {
+                    $nowCollect = now('America/Caracas');
+                    $acctDate   = $nowCollect->hour >= 19
+                        ? $nowCollect->copy()->addDay()->toDateString()
+                        : $nowCollect->toDateString();
+                    $sale->update(['accounting_date' => $acctDate]);
+                }
+
+                foreach ($sale->abonos()->get() as $abono) {
+                    SalePayment::create([
+                        'sale_id'           => $sale->id,
+                        'payment_method_id' => $abono->payment_method_id,
+                        'amount_bs'         => (float) $abono->amount_bs,
+                        'amount_usd'        => (float) $abono->amount_usd,
+                        'reference'         => $abono->reference,
+                    ]);
+                }
+
+                $balanceBs = 0;
+
+                ActivityLog::create([
+                    'business_id' => $businessId,
+                    'user_id'     => $user->id,
+                    'action'      => 'sale.pending_collected',
+                    'model_type'  => Sale::class,
+                    'model_id'    => $sale->id,
+                    'new_values'  => ['ticket_number' => $sale->ticket_number, 'total_bs' => $totalBs],
+                ]);
+            } else {
+                ActivityLog::create([
+                    'business_id' => $businessId,
+                    'user_id'     => $user->id,
+                    'action'      => 'sale.partial_payment',
+                    'model_type'  => Sale::class,
+                    'model_id'    => $sale->id,
+                    'new_values'  => [
+                        'amount_bs'  => $totalAbonoBs,
+                        'paid_bs'    => $newPaidBs,
+                        'balance_bs' => $balanceBs,
+                    ],
+                ]);
+            }
+
+            return [
+                'completed'  => $sale->fresh()->payment_status === 'paid',
+                'paid_bs'    => $newPaidBs,
+                'balance_bs' => $balanceBs,
+                'total_bs'   => $totalBs,
+            ];
         });
 
-        return response()->json(['ok' => true, 'sale_id' => $sale->id]);
+        return response()->json(array_merge(['ok' => true, 'sale_id' => $sale->id], $result));
     }
 
-    // ─── Cancelar pedido ──────────────────────────────────────────────────────
+    // ─── Historial de abonos de una venta pendiente ───────────────────────────
+
+    public function saleAbonos(Sale $sale): JsonResponse
+    {
+        abort_unless($sale->business_id === Auth::user()->business_id, 403);
+        $rate    = $this->rates->getTodayRate();
+        $totalBs = $sale->total_bs !== null
+            ? (float) $sale->total_bs
+            : round((float) $sale->total_usd * $rate, 2);
+        return response()->json([
+            'abonos'     => $sale->abonos()->with('paymentMethod')->get(),
+            'total_bs'   => $totalBs,
+            'paid_bs'    => (float) $sale->amount_paid_bs,
+            'balance_bs' => max(0, $totalBs - (float) $sale->amount_paid_bs),
+        ]);
+    }
+
+
+        // ─── Cancelar pedido ──────────────────────────────────────────────────────
 
     public function cancel(Request $request, Order $order): JsonResponse
     {
@@ -795,6 +881,7 @@ class OrderController extends Controller
             'cashier_name'  => $sale->cashier?->name ?? '—',
             'created_at'    => $sale->created_at?->toDateTimeString(),
             'order_id'      => $sale->order_id,
+            'amount_paid_bs' => (float) $sale->amount_paid_bs,
             'items'         => $sale->items->map(fn ($i) => [
                 'product_name'   => $i->product_name,
                 'input_type'     => $i->input_type,

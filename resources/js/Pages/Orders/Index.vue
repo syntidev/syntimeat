@@ -230,73 +230,84 @@ function resolveOption(selectedValue, customRef) {
 // ──────────────────────────────────────────────────────────────────────────────
 // MODAL: COBRAR
 // ──────────────────────────────────────────────────────────────────────────────
-const showCollectModal = ref(false)
-const collectOrder     = ref(null)
-const payments         = ref([])
-const newPmtMethodId   = ref('')
-const newPmtAmountBs   = ref('')
-const newPmtRef        = ref('')
-const collectError     = ref('')
+const showCollectModal  = ref(false)
+const collectOrder      = ref(null)
+const collectMethodId   = ref('')
+const collectAbono      = ref('')
+const collectRef        = ref('')
+const collectError      = ref('')
+const collectSaldo      = ref(null)
+const showAbonos        = ref(false)
+const abonosHistorial   = ref([])
+const loadingAbonos     = ref(false)
 
-const collectTotalBs = computed(() => collectOrder.value?.total_bs ?? 0)
-const paidBs         = computed(() => payments.value.reduce((s, p) => s + p.amount_bs, 0))
-const restBs         = computed(() => Math.max(0, collectTotalBs.value - paidBs.value))
-const changeBs       = computed(() => Math.max(0, paidBs.value - collectTotalBs.value))
-const canConfirm     = computed(() => payments.value.length > 0 && paidBs.value >= collectTotalBs.value)
+const collectTotalBs     = computed(() => collectOrder.value?.total_bs ?? 0)
+const collectAlreadyPaid = computed(() => collectOrder.value?.amount_paid_bs ?? 0)
+const collectBalance     = computed(() => Math.max(0, round2(collectTotalBs.value - collectAlreadyPaid.value)))
+const canConfirm         = computed(() => {
+    const amt = parseFloat(collectAbono.value)
+    return !!collectMethodId.value && !isNaN(amt) && amt > 0
+})
 
 function openCollect(order) {
-    collectOrder.value   = order
-    payments.value       = []
-    newPmtMethodId.value = allPaymentOptions.value[0]?.value ?? ''
-    newPmtAmountBs.value = ''
-    newPmtRef.value      = ''
-    collectError.value   = ''
+    collectOrder.value    = order
+    collectMethodId.value = allPaymentOptions.value[0]?.value ?? ''
+    collectAbono.value    = ''
+    collectRef.value      = ''
+    collectError.value    = ''
+    collectSaldo.value    = null
+    showAbonos.value      = false
+    abonosHistorial.value = []
     showCollectModal.value = true
 }
 
-function addPayment() {
-    if (!newPmtMethodId.value || !newPmtAmountBs.value) return
-    const amt = parseFloat(newPmtAmountBs.value)
-    if (isNaN(amt) || amt <= 0) return
-    const resolved = resolveOption(newPmtMethodId.value, newPmtRef.value)
-    payments.value.push({
-        payment_method_id: resolved.payment_method_id,
-        amount_bs:         round2(amt),
-        reference:         resolved.reference,
-        _label:            resolved._label,
-    })
-    newPmtAmountBs.value = ''
-    newPmtRef.value      = ''
-}
-
 function fillRest() {
-    newPmtAmountBs.value = restBs.value > 0 ? restBs.value.toFixed(2) : ''
-}
-
-function removePayment(idx) {
-    payments.value.splice(idx, 1)
+    collectAbono.value = collectBalance.value > 0 ? collectBalance.value.toFixed(2) : ''
 }
 
 async function submitCollect() {
     if (!canConfirm.value) return
+    const amt = parseFloat(collectAbono.value)
     saving.value       = true
     collectError.value = ''
+    const resolved = resolveOption(collectMethodId.value, collectRef.value)
     try {
-        await axios.patch(route('orders.collect', collectOrder.value.id), {
-            payments: payments.value.map(p => ({
-                payment_method_id: p.payment_method_id,
-                amount_bs:         p.amount_bs,
-                reference:         p.reference,
-            })),
+        const res = await axios.patch(route('orders.collect', collectOrder.value.id), {
+            payment_method_id: resolved.payment_method_id,
+            amount_bs:         round2(amt),
+            rate:              props.todayRate,
+            reference:         resolved.reference,
         })
         const id = collectOrder.value.id
-        pedidos.value   = pedidos.value.filter(o => o.id !== id)
-        cobradosHoy.value++
-        showCollectModal.value = false
+        if (res.data.completed) {
+            pedidos.value = pedidos.value.filter(o => o.id !== id)
+            cobradosHoy.value++
+            showCollectModal.value = false
+        } else {
+            const ord = pedidos.value.find(o => o.id === id)
+            if (ord) ord.amount_paid_bs = res.data.paid_bs
+            collectOrder.value = { ...collectOrder.value, amount_paid_bs: res.data.paid_bs }
+            collectAbono.value  = ''
+            collectSaldo.value  = { paid: res.data.paid_bs, balance: res.data.balance_bs }
+        }
     } catch (err) {
-        collectError.value = err.response?.data?.error ?? 'Error al cobrar el pedido.'
+        collectError.value = err.response?.data?.error ?? 'Error al registrar el abono.'
     } finally {
         saving.value = false
+    }
+}
+
+async function loadAbonos() {
+    if (!collectOrder.value) return
+    loadingAbonos.value  = true
+    showAbonos.value     = true
+    try {
+        const res = await axios.get(route('orders.payments', collectOrder.value.id))
+        abonosHistorial.value = res.data.payments ?? []
+    } catch (e) {
+        // silent
+    } finally {
+        loadingAbonos.value = false
     }
 }
 
@@ -360,12 +371,17 @@ const pendPmtMethodId      = ref('')
 const pendPmtAmountBs      = ref('')
 const pendPmtRef           = ref('')
 const pendCollectError     = ref('')
+const pendSaldo            = ref(null)
+const pendAbonosHistorial  = ref([])
+const loadingPendAbonos    = ref(false)
+const showPendAbonos       = ref(false)
 
-const pendTotalBs  = computed(() => pendCollectSale.value?.total_bs ?? 0)
-const pendPaidBs   = computed(() => pendPayments.value.reduce((s, p) => s + p.amount_bs, 0))
-const pendRestBs   = computed(() => Math.max(0, pendTotalBs.value - pendPaidBs.value))
-const pendChangeBs = computed(() => Math.max(0, pendPaidBs.value - pendTotalBs.value))
-const pendCanConfirm = computed(() => pendPayments.value.length > 0 && pendPaidBs.value >= pendTotalBs.value)
+const pendTotalBs      = computed(() => pendCollectSale.value?.total_bs ?? 0)
+const pendAlreadyPaid  = computed(() => pendCollectSale.value?.amount_paid_bs ?? 0)
+const pendPaidBs       = computed(() => pendPayments.value.reduce((s, p) => s + p.amount_bs, 0))
+const pendRestBs       = computed(() => Math.max(0, pendTotalBs.value - pendAlreadyPaid.value - pendPaidBs.value))
+const pendChangeBs     = computed(() => Math.max(0, pendAlreadyPaid.value + pendPaidBs.value - pendTotalBs.value))
+const pendCanConfirm   = computed(() => pendPayments.value.length > 0 && pendPaidBs.value > 0)
 
 function openPendCollect(sale) {
     pendCollectSale.value    = sale
@@ -374,6 +390,9 @@ function openPendCollect(sale) {
     pendPmtAmountBs.value    = ''
     pendPmtRef.value         = ''
     pendCollectError.value   = ''
+    pendSaldo.value          = null
+    pendAbonosHistorial.value = []
+    showPendAbonos.value     = false
     showPendCollectModal.value = true
 }
 
@@ -396,6 +415,20 @@ function fillPendRest() {
     pendPmtAmountBs.value = pendRestBs.value > 0 ? pendRestBs.value.toFixed(2) : ''
 }
 
+async function loadPendAbonos() {
+    if (!pendCollectSale.value) return
+    loadingPendAbonos.value  = true
+    showPendAbonos.value     = true
+    try {
+        const res = await axios.get(route('sales.abonos', pendCollectSale.value.id))
+        pendAbonosHistorial.value = res.data.abonos ?? []
+    } catch (e) {
+        // silent
+    } finally {
+        loadingPendAbonos.value = false
+    }
+}
+
 function removePendPayment(idx) {
     pendPayments.value.splice(idx, 1)
 }
@@ -409,17 +442,26 @@ async function submitPendCollect() {
         const collectRoute = isDelivery
             ? route('sales.delivery-confirm', pendCollectSale.value.id)
             : route('sales.collect-pending',  pendCollectSale.value.id)
-        await axios.patch(collectRoute, {
+        const res = await axios.patch(collectRoute, {
             payments: pendPayments.value.map(p => ({
                 payment_method_id: p.payment_method_id,
                 amount_bs:         p.amount_bs,
                 reference:         p.reference,
             })),
+            rate: props.todayRate,
         })
         const id = pendCollectSale.value.id
-        cobrosPendientes.value = cobrosPendientes.value.filter(s => s.id !== id)
-        cobradosHoy.value++
-        showPendCollectModal.value = false
+        if (res.data.completed || isDelivery) {
+            cobrosPendientes.value = cobrosPendientes.value.filter(s => s.id !== id)
+            cobradosHoy.value++
+            showPendCollectModal.value = false
+        } else {
+            const s = cobrosPendientes.value.find(s => s.id === id)
+            if (s) s.amount_paid_bs = res.data.paid_bs
+            pendCollectSale.value = { ...pendCollectSale.value, amount_paid_bs: res.data.paid_bs }
+            pendPayments.value    = []
+            pendSaldo.value       = { paid: res.data.paid_bs, balance: res.data.balance_bs }
+        }
     } catch (err) {
         pendCollectError.value = err.response?.data?.error ?? 'Error al registrar el cobro.'
     } finally {
@@ -514,6 +556,7 @@ function methodName(id) {
                                 <span class="order-client">{{ order.client_name }}</span>
                             </div>
                             <span class="order-elapsed">⏱ {{ elapsed(order.created_at) }}</span>
+                        <span class="order-date muted">{{ fmtDatetime(order.created_at) }}</span>
                         </div>
 
                         <div class="order-items">
@@ -528,9 +571,10 @@ function methodName(id) {
                             <div class="order-total">
                                 <span class="total-bs">{{ fmtBs(order.total_bs) }}</span>
                                 <span class="total-usd">{{ fmtUsd(order.total_usd) }}</span>
+                                <span v-if="order.amount_paid_bs > 0" class="type-badge badge-amber">Crédito parcial · {{ fmtBs(order.amount_paid_bs) }}</span>
                             </div>
                             <div class="order-actions">
-                                <button class="btn-collect" @click="openCollect(order)">Cobrar</button>
+                                <button class="btn-collect" @click="openCollect(order)">Abonar</button>
                                 <button class="btn-dispatch" :disabled="saving" @click="dispatchOrder(order)">Despachar</button>
                                 <button class="btn-cancel-order" @click="openCancel(order)">Cancelar</button>
                             </div>
@@ -551,6 +595,7 @@ function methodName(id) {
                                 <span class="cobro-ticket">{{ sale.ticket_number }}</span>
                                 <span v-if="sale.client_name" class="cobro-client">{{ sale.client_name }}</span>
                                 <span v-else class="cobro-client-none">Sin cliente asignado</span>
+                                <span class="order-date">{{ fmtDatetime(sale.sold_at ?? sale.created_at) }}</span>
                             </div>
                             <span class="cobro-elapsed">⏱ {{ elapsed(sale.created_at) }}</span>
                         </div>
@@ -565,6 +610,7 @@ function methodName(id) {
                             <div class="order-total">
                                 <span class="total-bs">{{ fmtBs(sale.total_bs) }}</span>
                                 <span class="total-usd">{{ fmtUsd(sale.total_usd) }}</span>
+                                <span v-if="sale.amount_paid_bs > 0" class="type-badge badge-amber">Crédito parcial · {{ fmtBs(sale.amount_paid_bs) }}</span>
                             </div>
                             <button class="btn-collect" @click="openPendCollect(sale)">Registrar Cobro</button>
                         </div>
@@ -599,8 +645,8 @@ function methodName(id) {
                                 <td class="center muted" data-label="Items">{{ o.items_count }}</td>
                                 <td class="amount" data-label="Total Bs.">{{ fmtBs(o.total_bs) }}</td>
                                 <td data-label="Estado">
-                                    <span class="status-pill" :class="o.status === 'paid' ? 'pill-paid' : 'pill-cancelled'">
-                                        {{ o.status === 'paid' ? 'Cobrado' : 'Cancelado' }}
+                                    <span class="status-pill" :class="o.status === 'completed' ? 'pill-paid' : o.status === 'paid' ? 'pill-paid' : 'pill-cancelled'">
+                                        {{ (o.status === 'paid' || o.status === 'completed') ? 'Cobrado' : 'Cancelado' }}
                                     </span>
                                 </td>
                             </tr>
@@ -753,7 +799,7 @@ function methodName(id) {
             <div v-if="showCollectModal" class="modal-overlay">
                 <div class="modal-box modal-md">
                     <div class="modal-head">
-                        <h2 class="modal-title">Cobrar Pedido</h2>
+                        <h2 class="modal-title">Abonar Pedido</h2>
                         <button class="modal-close" @click="showCollectModal = false">✕</button>
                     </div>
 
@@ -763,6 +809,22 @@ function methodName(id) {
                         <span v-else class="collect-client-none">Sin cliente asignado</span>
                     </div>
 
+                    <!-- Resumen saldo -->
+                    <div class="abono-summary">
+                        <div class="abono-row">
+                            <span>Total del pedido</span>
+                            <span>{{ fmtBs(collectTotalBs) }}</span>
+                        </div>
+                        <div class="abono-row" v-if="collectAlreadyPaid > 0">
+                            <span>Abonado</span>
+                            <span class="ok-text">{{ fmtBs(collectAlreadyPaid) }}</span>
+                        </div>
+                        <div class="abono-row abono-balance">
+                            <span><strong>Saldo pendiente</strong></span>
+                            <span class="balance-amount"><strong>{{ fmtBs(collectBalance) }}</strong></span>
+                        </div>
+                    </div>
+
                     <!-- Resumen items -->
                     <div class="collect-items">
                         <div v-for="item in collectOrder?.items ?? []" :key="item.id" class="collect-item-row">
@@ -770,51 +832,29 @@ function methodName(id) {
                             <span class="ci-qty">{{ item.quantity_value }} {{ item.unit_label }}</span>
                             <span class="ci-sub">{{ fmtBs(item.subtotal_bs) }}</span>
                         </div>
-                        <div class="collect-total-row">
-                            <span>Total a cobrar</span>
-                            <span class="collect-total-bs">{{ fmtBs(collectTotalBs) }}</span>
-                        </div>
                     </div>
 
-                    <!-- Multi-pago -->
+                    <!-- Pago del abono -->
                     <div class="pay-section">
-                        <p class="pay-section-label">Pagos registrados</p>
-                        <div v-for="(p, i) in payments" :key="i" class="pay-line">
-                            <span class="pay-method">{{ p._label }}</span>
-                            <span class="pay-amount">{{ fmtBs(p.amount_bs) }}</span>
-                            <button class="pay-remove" @click="removePayment(i)">✕</button>
-                        </div>
-
+                        <p class="pay-section-label">Registrar abono</p>
                         <div class="pay-add-row">
-                            <select v-model="newPmtMethodId" class="field-input pay-select">
+                            <select v-model="collectMethodId" class="field-input pay-select">
                                 <optgroup label="Métodos de pago">
-                                    <option v-for="m in paymentMethods" :key="m.id" :value="String(m.id)">{{ m.name }}</option>
+                                    <option v-for="m in props.paymentMethods" :key="m.id" :value="String(m.id)">{{ m.name }}</option>
                                 </optgroup>
-                                <optgroup v-if="paymentTerminals.length" label="Terminales">
-                                    <option v-for="t in paymentTerminals" :key="`T:${t.id}`" :value="`T:${t.id}`">{{ t.bank_name ?? t.method }}</option>
+                                <optgroup v-if="props.paymentTerminals.length" label="Terminales">
+                                    <option v-for="t in props.paymentTerminals" :key="`T:${t.id}`" :value="`T:${t.id}`">{{ t.bank_name ?? t.method }}</option>
                                 </optgroup>
                             </select>
-                            <input v-model="newPmtAmountBs" class="field-input pay-amount-input" type="number" step="0.01" placeholder="Monto Bs." />
-                            <button class="btn-sm" @click="fillRest" title="Completar restante">↓</button>
-                            <button class="btn-brand btn-sm" @click="addPayment" :disabled="paidBs >= collectTotalBs">+ Agregar</button>
+                            <input v-model="collectAbono" class="field-input pay-amount-input" type="number" step="0.01" :placeholder="`Monto Bs. (máx ${collectBalance.toFixed(2)})`" />
+                            <button class="btn-sm" @click="fillRest" title="Completar saldo">↓</button>
                         </div>
+                        <input v-model="collectRef" class="field-input mt-1" placeholder="Referencia (opcional)" />
+                    </div>
 
-                        <input v-model="newPmtRef" class="field-input mt-1" placeholder="Referencia (opcional)" />
-
-                        <div class="pay-summary">
-                            <div class="pay-row-summary">
-                                <span>Pagado</span>
-                                <span>{{ fmtBs(paidBs) }}</span>
-                            </div>
-                            <div class="pay-row-summary" v-if="restBs > 0">
-                                <span class="warn-text">Resta</span>
-                                <span class="warn-text">{{ fmtBs(restBs) }}</span>
-                            </div>
-                            <div class="pay-row-summary" v-if="changeBs > 0">
-                                <span class="ok-text">Vuelto</span>
-                                <span class="ok-text">{{ fmtBs(changeBs) }}</span>
-                            </div>
-                        </div>
+                    <!-- Mensaje de abono parcial registrado -->
+                    <div v-if="collectSaldo" class="abono-ok-msg">
+                        Abono registrado. Saldo pendiente: <strong>{{ fmtBs(collectSaldo.balance) }}</strong>
                     </div>
 
                     <p v-if="collectError" class="error-msg">{{ collectError }}</p>
@@ -823,12 +863,28 @@ function methodName(id) {
                         class="btn-brand btn-block"
                         :disabled="!canConfirm || saving"
                         @click="submitCollect"
-                    >{{ saving ? 'Procesando…' : 'Confirmar Cobro' }}</button>
+                    >{{ saving ? 'Procesando…' : 'Confirmar Abono' }}</button>
+
+                    <!-- Historial de abonos -->
+                    <div class="abonos-section">
+                        <button class="btn-link-sm" @click="loadAbonos" :disabled="loadingAbonos">
+                            {{ showAbonos ? 'Actualizar abonos' : 'Ver historial de abonos' }}
+                        </button>
+                        <div v-if="showAbonos" class="abonos-list">
+                            <div v-if="loadingAbonos" class="muted">Cargando…</div>
+                            <div v-else-if="!abonosHistorial.length" class="muted">Sin abonos registrados.</div>
+                            <div v-for="(p, i) in abonosHistorial" :key="i" class="abono-item-row">
+                                <span class="ai-method">{{ p.payment_method?.name ?? '—' }}</span>
+                                <span class="ai-amount">{{ fmtBs(p.amount_bs) }}</span>
+                                <span class="ai-date muted">{{ fmtDatetime(p.created_at) }}</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </Teleport>
 
-        <!-- ═══════════════════════════════════════════════════════════════════
+                <!-- ═══════════════════════════════════════════════════════════════════
              MODAL: CANCELAR
         ════════════════════════════════════════════════════════════════════ -->
         <Teleport to="body">
@@ -876,6 +932,22 @@ function methodName(id) {
                     </p>
                     <p v-else class="pend-client-none">Sin cliente asignado</p>
 
+                    <!-- Resumen saldo -->
+                    <div class="abono-summary">
+                        <div class="abono-row">
+                            <span>Total</span>
+                            <span>{{ fmtBs(pendTotalBs) }}</span>
+                        </div>
+                        <div class="abono-row" v-if="pendAlreadyPaid > 0">
+                            <span>Abonado previo</span>
+                            <span class="ok-text">{{ fmtBs(pendAlreadyPaid) }}</span>
+                        </div>
+                        <div class="abono-row abono-balance">
+                            <span><strong>Saldo pendiente</strong></span>
+                            <span class="balance-amount"><strong>{{ fmtBs(Math.max(0, pendTotalBs - pendAlreadyPaid - pendPaidBs)) }}</strong></span>
+                        </div>
+                    </div>
+
                     <!-- Resumen items -->
                     <div class="collect-items">
                         <div v-for="(item, i) in pendCollectSale?.items ?? []" :key="i" class="collect-item-row">
@@ -883,15 +955,11 @@ function methodName(id) {
                             <span class="ci-qty">{{ item.quantity_value }} {{ item.unit_label }}</span>
                             <span class="ci-sub">{{ fmtBs(item.subtotal_bs) }}</span>
                         </div>
-                        <div class="collect-total-row">
-                            <span>Total a cobrar</span>
-                            <span class="collect-total-bs">{{ fmtBs(pendTotalBs) }}</span>
-                        </div>
                     </div>
 
                     <!-- Multi-pago -->
                     <div class="pay-section">
-                        <p class="pay-section-label">Pagos</p>
+                        <p class="pay-section-label">Pagos de este abono</p>
                         <div v-for="(p, i) in pendPayments" :key="i" class="pay-line">
                             <span class="pay-method">{{ p._label }}</span>
                             <span class="pay-amount">{{ fmtBs(p.amount_bs) }}</span>
@@ -908,19 +976,19 @@ function methodName(id) {
                                 </optgroup>
                             </select>
                             <input v-model="pendPmtAmountBs" class="field-input pay-amount-input" type="number" step="0.01" placeholder="Monto Bs." />
-                            <button class="btn-sm" @click="fillPendRest" title="Completar restante">↓</button>
-                            <button class="btn-brand btn-sm" @click="addPendPayment" :disabled="pendPaidBs >= pendTotalBs">+ Agregar</button>
+                            <button class="btn-sm" @click="fillPendRest" title="Completar saldo">↓</button>
+                            <button class="btn-brand btn-sm" @click="addPendPayment">+ Agregar</button>
                         </div>
 
                         <input v-model="pendPmtRef" class="field-input mt-1" placeholder="Referencia (opcional)" />
 
-                        <div class="pay-summary">
+                        <div class="pay-summary" v-if="pendPayments.length > 0">
                             <div class="pay-row-summary">
-                                <span>Pagado</span>
+                                <span>Este abono</span>
                                 <span>{{ fmtBs(pendPaidBs) }}</span>
                             </div>
                             <div class="pay-row-summary" v-if="pendRestBs > 0">
-                                <span class="warn-text">Resta</span>
+                                <span class="warn-text">Quedaría pendiente</span>
                                 <span class="warn-text">{{ fmtBs(pendRestBs) }}</span>
                             </div>
                             <div class="pay-row-summary" v-if="pendChangeBs > 0">
@@ -930,6 +998,11 @@ function methodName(id) {
                         </div>
                     </div>
 
+                    <!-- Mensaje post-abono parcial -->
+                    <div v-if="pendSaldo" class="abono-ok-msg">
+                        Abono registrado. Saldo pendiente: <strong>{{ fmtBs(pendSaldo.balance) }}</strong>
+                    </div>
+
                     <p v-if="pendCollectError" class="error-msg">{{ pendCollectError }}</p>
 
                     <button
@@ -937,11 +1010,27 @@ function methodName(id) {
                         :disabled="!pendCanConfirm || saving"
                         @click="submitPendCollect"
                     >{{ saving ? 'Procesando…' : 'Confirmar Cobro' }}</button>
+
+                    <!-- Historial de abonos -->
+                    <div class="abonos-section">
+                        <button class="btn-link-sm" @click="loadPendAbonos" :disabled="loadingPendAbonos">
+                            {{ showPendAbonos ? 'Actualizar historial' : 'Ver historial de abonos' }}
+                        </button>
+                        <div v-if="showPendAbonos" class="abonos-list">
+                            <div v-if="loadingPendAbonos" class="muted">Cargando…</div>
+                            <div v-else-if="!pendAbonosHistorial.length" class="muted">Sin abonos registrados.</div>
+                            <div v-for="(p, i) in pendAbonosHistorial" :key="i" class="abono-item-row">
+                                <span class="ai-method">{{ p.payment_method?.name ?? '—' }}</span>
+                                <span class="ai-amount">{{ fmtBs(p.amount_bs) }}</span>
+                                <span class="ai-date muted">{{ fmtDatetime(p.created_at) }}</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </Teleport>
 
-        <!-- ── Panel de ayuda ────────────────────────────────────────────── -->
+                <!-- ── Panel de ayuda ────────────────────────────────────────────── -->
         <HelpModal
             :show="showHelp"
             title="Pedidos — Cómo funciona"
@@ -1381,4 +1470,20 @@ function methodName(id) {
     .qty-input { font-size: 1rem; }
     .bs-input  { font-size: 1rem; }
 }
+
+/* ─── Abonos ─────────────────────────────────────────────────────────────── */
+.abono-summary { display: flex; flex-direction: column; gap: 0.3rem; padding: 0.75rem; background: var(--bg-base); border-radius: 10px; margin-bottom: 0.75rem; font-size: 0.88rem; }
+.abono-row { display: flex; justify-content: space-between; align-items: center; }
+.abono-balance { padding-top: 0.4rem; border-top: 1px solid var(--border); font-size: 0.95rem; }
+.balance-amount { color: var(--brand); font-size: 1.05rem; }
+.abono-ok-msg { background: rgba(22,163,74,0.12); color: #16a34a; font-size: 0.84rem; padding: 0.5rem 0.75rem; border-radius: 7px; margin-bottom: 0.5rem; }
+.abonos-section { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+.abonos-list { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.5rem; }
+.abono-item-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.83rem; padding: 0.3rem 0.5rem; background: var(--bg-base); border-radius: 7px; }
+.ai-method { flex: 1; }
+.ai-amount { font-weight: 700; }
+.ai-date   { font-size: 0.78rem; }
+.btn-link-sm { background: none; border: none; color: var(--brand); font-size: 0.82rem; cursor: pointer; padding: 0; text-decoration: underline; }
+.btn-link-sm:disabled { opacity: 0.5; cursor: not-allowed; }
+
 </style>

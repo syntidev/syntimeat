@@ -141,7 +141,7 @@ class SaleController extends Controller
             'items.*.quantity_value' => ['sometimes', 'numeric', 'min:0.001'],
             'origin'                 => ['sometimes', 'string', 'in:onsite,delivery,credit'],
             'channel'                => ['sometimes', 'string', 'in:physical,online'],
-            'client_name'            => ['required_if:origin,credit,delivery', 'nullable', 'string', 'max:100'],
+            'client_name'            => ['required_if:origin,credit,delivery', 'string', 'max:100'],
             'client_phone'           => ['nullable', 'string', 'max:30'],
         ]);
 
