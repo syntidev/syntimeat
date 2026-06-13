@@ -116,7 +116,7 @@ const dollarRate  = computed(() => page.props.tasa?.rate ?? 1)
 const bsCostPrice = ref('')
 
 function syncBsCost()  { bsCostPrice.value    = (parseFloat(form.cost_per_kg_usd) * dollarRate.value).toFixed(2) }
-function syncUsdCost() { form.cost_per_kg_usd = (parseFloat(bsCostPrice.value)    / dollarRate.value).toFixed(4) }
+function syncUsdCost() { form.cost_per_kg_usd = (parseFloat(bsCostPrice.value)    / dollarRate.value).toFixed(2) }
 
 const selectedCategory = ref('')
 
@@ -139,12 +139,10 @@ watch(() => form.product_id, (newId) => {
     const product = props.products.find(p => p.id === numId)
     const lookupId = product?.stock_product_id ?? numId
     const lastCost = props.lastCostMap[lookupId] ?? props.lastCostMap[numId] ?? null
-    if (lastCost && !form.cost_per_kg_usd) {
-        form.cost_per_kg_usd = parseFloat(lastCost)
-        if (dollarRate.value > 0) {
-            bsCostPrice.value = parseFloat((lastCost * dollarRate.value).toFixed(2))
-        }
-    }
+    form.cost_per_kg_usd = lastCost ? parseFloat(lastCost) : ''
+    bsCostPrice.value = lastCost && dollarRate.value > 0
+        ? parseFloat((lastCost * dollarRate.value).toFixed(2))
+        : ''
 })
 
 const netKg = computed(() => {

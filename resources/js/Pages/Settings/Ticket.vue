@@ -68,14 +68,14 @@ const previewItems = computed(() => {
             name:        item.name,
             description: form.show_description ? item.description : null,
             kg:          kgLine,
-            bs:          form.show_bs  ? item.total_bs.toLocaleString('de-DE', { minimumFractionDigits: 2 }) + ' Bs.' : null,
+            bs:          form.show_bs  ? item.total_bs.toLocaleString('es-VE', { minimumFractionDigits: 2 }) + ' Bs.' : null,
             usd:         form.show_usd ? (form.usd_format === 'ref' ? 'REF ' : '$') + item.total_usd.toFixed(2) : null,
         }
     })
 })
 
 const previewTotal = computed(() =>
-    DEMO_ITEMS.reduce((s, i) => s + i.total_bs, 0).toLocaleString('de-DE', { minimumFractionDigits: 2 }) + ' Bs.'
+    DEMO_ITEMS.reduce((s, i) => s + i.total_bs, 0).toLocaleString('es-VE', { minimumFractionDigits: 2 }) + ' Bs.'
 )
 
 const inputClass = 'w-full bg-[var(--bg-input)] border border-[var(--border)] text-[var(--text-primary)] rounded-lg px-3.5 py-2.5 text-sm placeholder:text-[var(--text-muted)] focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)] outline-none transition'

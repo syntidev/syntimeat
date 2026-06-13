@@ -53,14 +53,15 @@ function canReverse(entry) {
 
 async function reverseEntry(entry) {
     if (!confirm(
-        `¿Revertir la entrada "${entry.product_type}" de ${entry.kg_entrada} kg?
-
-` +
-        `Esto eliminará todos los cortes registrados en vitrina y ` +
-        `devolverá la entrada a estado disponible en bóveda.
-
-` +
-        `Solo es posible si no hay ventas sobre los cortes.`
+        `⚠️ ADVERTENCIA\n\n` +
+        `Va a revertir la entrada "${entry.product_type}" de ${entry.kg_entrada} kg.\n\n` +
+        `Esta acción eliminará los cortes registrados en vitrina para esta canal.\n` +
+        `Úsela solo si la canal fue intercambiada físicamente y no se ha vendido.\n\n` +
+        `¿Desea continuar?`
+    )) return
+    if (!confirm(
+        `¿Está completamente seguro?\n\n` +
+        `Se eliminarán los cortes de vitrina de esta canal y quedará disponible para nuevo despiece.`
     )) return
 
     try {

@@ -78,9 +78,9 @@ const selectedImagePreview = ref(null)
 const fileInputRef         = ref(null)
 
 function syncBsKg()    { form.price_per_kg_bs   = (parseFloat(form.price_per_kg_usd)   * dollarRate.value).toFixed(0) }
-function syncUsdKg()   { form.price_per_kg_usd   = (parseFloat(form.price_per_kg_bs)   / dollarRate.value).toFixed(4) }
+function syncUsdKg()   { form.price_per_kg_usd   = (parseFloat(form.price_per_kg_bs)   / dollarRate.value).toFixed(2) }
 function syncBsUnit()  { form.price_per_unit_bs  = (parseFloat(form.price_per_unit_usd) * dollarRate.value).toFixed(0) }
-function syncUsdUnit() { form.price_per_unit_usd = (parseFloat(form.price_per_unit_bs)  / dollarRate.value).toFixed(4) }
+function syncUsdUnit() { form.price_per_unit_usd = (parseFloat(form.price_per_unit_bs)  / dollarRate.value).toFixed(2) }
 
 const activeCategory = computed(() =>
     props.categories.find(c => c.id === Number(form.category_id))

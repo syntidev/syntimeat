@@ -169,7 +169,7 @@ function priceBs(product) {
         : parseFloat(product.price_per_unit_usd || 0);
     return usd * props.todayRate;
 }
-function fmtBs(n)  { return Number(n).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fmtBs(n)  { return Number(n).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function fmtUsd(n) { return '$' + Number(n).toFixed(2); }
 function fmtQty(qty, mode) {
     return mode === 'weight' ? Number(qty).toFixed(3) + ' kg' : Number(qty).toFixed(0) + ' und';
@@ -2080,9 +2080,8 @@ const helpFaqs = [
     font-family: inherit;
 }
 .product-card--no-stock {
-    opacity: 0.45;
-    cursor: not-allowed;
-    pointer-events: none;
+    opacity: 0.55;
+    cursor: pointer;
 }
 .product-card::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(145deg, rgba(255,255,255,0.025) 0%, transparent 55%); }
 .product-card::after { content: '+'; position: absolute; top: 8px; right: 10px; font-size: 16px; font-weight: 300; color: var(--text-muted); opacity: 0; transition: opacity 0.15s, transform 0.18s cubic-bezier(0.34,1.56,0.64,1); transform: scale(0.7) rotate(20deg); }
