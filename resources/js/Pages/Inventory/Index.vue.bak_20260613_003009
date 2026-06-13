@@ -413,7 +413,7 @@ watch(drawerProduct, (val) => { if (! val) closeAdjust() })
                                         {{ p.sale_mode === 'unit'
                                             ? parseInt(stockValue(p.id))
                                             : fmtKg(stockValue(p.id)) }}
-                                        <small>{{ p.sale_mode === 'weight' ? 'kg' : (p.base_unit_label ?? 'und') }}</small>
+                                        <small>{{ p.sale_mode === 'weight' ? 'kg' : 'und' }}</small>
                                     </div>
                                     <small v-if="p.shared_pool_name" class="txt-muted" style="font-size: 0.7rem; font-weight: 400;">{{ sharedPoolLabel(p) }}</small>
                                 </td>
@@ -424,7 +424,7 @@ watch(drawerProduct, (val) => { if (! val) closeAdjust() })
                                 </td>
                                 <td class="txt-muted">{{ fmtDate(lastEntryMap[p.id]) }}</td>
                                 <td class="txt-right mono">
-                                    <span v-if="getLastCost(p)" class="cost-tag">{{ fmtUsd(getLastCost(p)) }}/{{ p.sale_mode === 'weight' ? 'kg' : (p.base_unit_label ?? 'und') }}</span>
+                                    <span v-if="getLastCost(p)" class="cost-tag">{{ fmtUsd(getLastCost(p)) }}/{{ p.sale_mode === 'weight' ? 'kg' : 'und' }}</span>
                                     <span v-else class="txt-muted">—</span>
                                 </td>
                                 <td class="txt-muted row-arrow">›</td>
@@ -455,7 +455,7 @@ watch(drawerProduct, (val) => { if (! val) closeAdjust() })
                                     {{ p.sale_mode === 'unit'
                                         ? parseInt(stockValue(p.id))
                                         : fmtKg(stockValue(p.id)) }}
-                                    <small>{{ p.sale_mode === 'weight' ? 'kg' : (p.base_unit_label ?? 'und') }}</small>
+                                    <small>{{ p.sale_mode === 'weight' ? 'kg' : 'und' }}</small>
                                 </div>
                                 <small v-if="p.shared_pool_name" class="txt-muted" style="font-size: 0.7rem; font-weight: 400; display: block; margin-top: 0.2rem;">{{ sharedPoolLabel(p) }}</small>
                             </div>

@@ -238,10 +238,7 @@ function stockStatus(product) {
 
 function stockLabel(product) {
     const st = stockStatus(product)
-    if (st === 'unit') {
-        const stock = Number(props.stockMap[product.id] ?? 0)
-        return `${Math.round(stock)} ${product.base_unit_label ?? 'und'}`
-    }
+    if (st === 'unit') return '—'
     const stock = Number(props.stockMap[product.id] ?? 0)
     return `${stock.toFixed(2)} kg`
 }
@@ -1432,7 +1429,7 @@ const helpFaqs = [
 /* ─── Product modal: 2-column, no external scroll ─────────────────────── */
 .prod-modal-box {
     max-width: 780px;
-    max-height: 92dvh;
+    max-height: 90dvh;
     overflow-y: hidden;
     display: flex;
     flex-direction: column;
@@ -1454,14 +1451,12 @@ const helpFaqs = [
 .prod-col-left {
     padding: 1rem 1.25rem;
     border-right: 1px solid var(--border);
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
 }
 .prod-col-right {
     padding: 1rem 1.25rem;
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 0.4rem;

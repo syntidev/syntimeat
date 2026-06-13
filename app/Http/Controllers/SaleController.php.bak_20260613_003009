@@ -677,7 +677,7 @@ class SaleController extends Controller
         $user = Auth::user();
 
         abort_if(
-            ! in_array($user->role, ['admin', 'supervisor', 'owner', 'branch_admin', 'super_admin', 'cashier'], true),
+            ! in_array($user->role, ['admin', 'supervisor', 'owner', 'branch_admin', 'super_admin'], true),
             403,
             'Sin permiso para anular ventas.'
         );

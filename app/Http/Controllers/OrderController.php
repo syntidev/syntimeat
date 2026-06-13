@@ -8,6 +8,7 @@ use App\Models\ActivityLog;
 use App\Models\CashRegister;
 use App\Models\InventoryEntry;
 use App\Models\Order;
+use App\Models\OrderPayment;
 use App\Models\OrderItem;
 use App\Models\PaymentMethod;
 use App\Models\PaymentTerminal;
@@ -48,7 +49,7 @@ class OrderController extends Controller
         $historial = Order::with(['items'])
             ->where('business_id', $businessId)
             ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
-            ->whereIn('status', ['paid', 'cancelled'])
+            ->whereIn('status', ['paid', 'cancelled', 'completed'])
             ->orderByDesc('updated_at')
             ->limit(30)
             ->get();
@@ -194,7 +195,7 @@ class OrderController extends Controller
         return response()->json(['order' => $this->formatOrder($order, $rate)]);
     }
 
-    // ─── Cobrar pedido ────────────────────────────────────────────────────────
+    // ─── Cobrar pedido (abonos parciales) ───────────────────────────────────
 
     public function collect(Request $request, Order $order): JsonResponse
     {
@@ -215,124 +216,172 @@ class OrderController extends Controller
         }
 
         $data = $request->validate([
-            'payments'                          => ['required', 'array', 'min:1'],
-            'payments.*.payment_method_id'      => ['required', 'integer', 'exists:payment_methods,id'],
-            'payments.*.amount_bs'              => ['required', 'numeric', 'min:0.01'],
-            'payments.*.reference'              => ['nullable', 'string', 'max:50'],
+            'payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
+            'amount_bs'         => ['required', 'numeric', 'min:0.01'],
+            'rate'              => ['required', 'numeric', 'min:0.0001'],
+            'reference'         => ['nullable', 'string', 'max:50'],
+            'notes'             => ['nullable', 'string', 'max:255'],
         ]);
 
-        $rate     = $this->rates->getTodayRate();
-        $totalUsd = (float) $order->total_usd;
-        $totalBs  = round($totalUsd * $rate, 2);
-
-        $methodIds = array_column($data['payments'], 'payment_method_id');
-        $methods   = PaymentMethod::whereIn('id', $methodIds)
+        $method = PaymentMethod::where('id', $data['payment_method_id'])
             ->where('business_id', $businessId)
-            ->get()
-            ->keyBy('id');
+            ->firstOrFail();
 
-        foreach ($methodIds as $mid) {
-            abort_unless($methods->has($mid), 403, 'Método de pago no pertenece al negocio.');
-        }
+        $rate      = (float) $data['rate'];
+        $amountBs  = round((float) $data['amount_bs'], 2);
+        $amountUsd = $rate > 0 ? round($amountBs / $rate, 4) : 0.0;
+        $totalUsd  = (float) $order->total_usd;
+        $totalBs   = round($totalUsd * $rate, 2);
 
-        $sumPaidBs = array_sum(array_column($data['payments'], 'amount_bs'));
-
-        if (round($sumPaidBs, 2) < $totalBs) {
-            return response()->json(
-                ['error' => "Monto insuficiente. Total: {$totalBs} Bs., Pagado: " . round($sumPaidBs, 2) . ' Bs.'],
-                422
-            );
-        }
-
-        $changeBs    = round($sumPaidBs - $totalBs, 2);
-        $changeUsd   = $rate > 0 ? round($changeBs / $rate, 2) : 0.0;
-        $firstMethod = $methods[$data['payments'][0]['payment_method_id']];
-        $prefix      = $business->ticket_prefix ?? 'VEN';
-        $ticketNum   = Sale::where('business_id', $businessId)->count() + 1;
-        $ticketNumber = 'P-' . $prefix . '-' . str_pad((string) $ticketNum, 4, '0', STR_PAD_LEFT);
-
-        DB::transaction(function () use (
-            $order, $rate, $totalBs, $totalUsd, $changeBs, $changeUsd,
-            $firstMethod, $data, $methods, $businessId, $user,
-            $cashRegister, $ticketNumber
+        $result = DB::transaction(function () use (
+            $order, $rate, $totalBs, $totalUsd, $amountBs, $amountUsd,
+            $method, $data, $businessId, $user, $cashRegister
         ) {
-            $sale = Sale::create([
-                'business_id'         => $businessId,
-                'ticket_number'       => $ticketNumber,
-                'status'              => 'paid',
-                'payment_status'      => 'paid',
-                'order_id'            => $order->id,
-                'total_usd'           => $totalUsd,
-                'rate_used'           => $rate,
-                'total_bs'            => $totalBs,
-                'payment_method'      => substr($firstMethod->name, 0, 30),
-                'amount_received_usd' => $rate > 0 ? round($data['payments'][0]['amount_bs'] / $rate, 2) : 0.0,
-                'change_usd'          => $changeUsd,
-                'sold_at'             => now(),
-                'cashier_id'          => $user->id,
-                'cash_register_id'    => $cashRegister->id,
-                'client_name'         => $order->client_name,
-                'notes'               => "Pedido #{$order->id}",
+            // 1. Registrar abono
+            OrderPayment::create([
+                'order_id'          => $order->id,
+                'business_id'       => $businessId,
+                'branch_id'         => $order->branch_id,
+                'payment_method_id' => $method->id,
+                'amount_bs'         => $amountBs,
+                'amount_usd'        => $amountUsd,
+                'rate'              => $rate,
+                'notes'             => $data['notes'] ?? $data['reference'] ?? null,
+                'created_by'        => $user->id,
             ]);
 
-            foreach ($order->items as $item) {
-                $sale->items()->create([
-                    'product_id'         => $item->product_id,
-                    'product_name'       => $item->product_name,
-                    'input_type'         => $item->input_type,
-                    'quantity_value'     => $item->quantity_value,
-                    'unit_label'         => $item->unit_label,
-                    'price_per_kg_usd'   => $item->price_per_kg_usd,
-                    'price_per_unit_usd' => $item->price_per_unit_usd,
-                    'subtotal_usd'       => $item->subtotal_usd,
-                    'discount_usd'       => 0,
-                ]);
+            // 2. Sumar acumulado en orders
+            $newPaidBs  = round((float) $order->amount_paid_bs + $amountBs, 2);
+            $newPaidUsd = round((float) $order->amount_paid_usd + $amountUsd, 4);
+            $order->update([
+                'amount_paid_bs'  => $newPaidBs,
+                'amount_paid_usd' => $newPaidUsd,
+            ]);
+
+            // 3. Descontar inventario solo la primera vez
+            if (! $order->inventory_released) {
+                foreach ($order->items as $item) {
+                    if ($item->input_type !== 'weight') {
+                        continue;
+                    }
+                    InventoryEntry::create([
+                        'business_id' => $businessId,
+                        'product_id'  => $item->product_id,
+                        'quantity_kg' => -abs((float) $item->quantity_value),
+                        'waste_kg'    => 0,
+                        'entered_at'  => now(),
+                        'created_by'  => $user->id,
+                        'notes'       => "Abono pedido #{$order->id}",
+                    ]);
+                }
+                $order->update(['inventory_released' => true]);
             }
 
-            foreach ($data['payments'] as $pmt) {
-                SalePayment::create([
-                    'sale_id'           => $sale->id,
-                    'payment_method_id' => $pmt['payment_method_id'],
-                    'amount_bs'         => round((float) $pmt['amount_bs'], 2),
-                    'amount_usd'        => $rate > 0 ? round((float) $pmt['amount_bs'] / $rate, 2) : 0.0,
-                    'reference'         => $pmt['reference'] ?? null,
-                ]);
-            }
+            // 4. Marcar completado si saldo saldado (margen 0.1%)
+            $balanceBs = round($totalBs - $newPaidBs, 2);
+            if ($newPaidBs >= $totalBs * 0.999) {
+                $prefix       = $order->business->ticket_prefix ?? 'VEN';
+                $ticketNum    = Sale::where('business_id', $businessId)->count() + 1;
+                $ticketNumber = 'P-' . $prefix . '-' . str_pad((string) $ticketNum, 4, '0', STR_PAD_LEFT);
 
-            foreach ($order->items as $item) {
-                if ($item->input_type !== 'weight') {
-                    continue;
+                $sale = Sale::create([
+                    'business_id'         => $businessId,
+                    'ticket_number'       => $ticketNumber,
+                    'status'              => 'paid',
+                    'payment_status'      => 'paid',
+                    'order_id'            => $order->id,
+                    'total_usd'           => $totalUsd,
+                    'rate_used'           => $rate,
+                    'total_bs'            => $totalBs,
+                    'payment_method'      => substr($method->name, 0, 30),
+                    'amount_received_usd' => round($newPaidBs / $rate, 2),
+                    'change_usd'          => 0,
+                    'sold_at'             => now(),
+                    'cashier_id'          => $user->id,
+                    'cash_register_id'    => $cashRegister->id,
+                    'client_name'         => $order->client_name,
+                    'notes'               => "Pedido #{$order->id} — abonos",
+                ]);
+
+                foreach ($order->items as $item) {
+                    $sale->items()->create([
+                        'product_id'         => $item->product_id,
+                        'product_name'       => $item->product_name,
+                        'input_type'         => $item->input_type,
+                        'quantity_value'     => $item->quantity_value,
+                        'unit_label'         => $item->unit_label,
+                        'price_per_kg_usd'   => $item->price_per_kg_usd,
+                        'price_per_unit_usd' => $item->price_per_unit_usd,
+                        'subtotal_usd'       => $item->subtotal_usd,
+                        'discount_usd'       => 0,
+                    ]);
                 }
 
-                InventoryEntry::create([
+                foreach ($order->payments()->get() as $pmt) {
+                    SalePayment::create([
+                        'sale_id'           => $sale->id,
+                        'payment_method_id' => $pmt->payment_method_id,
+                        'amount_bs'         => (float) $pmt->amount_bs,
+                        'amount_usd'        => (float) $pmt->amount_usd,
+                        'reference'         => null,
+                    ]);
+                }
+
+                $order->update(['status' => 'completed']);
+                $balanceBs = 0;
+
+                ActivityLog::create([
                     'business_id' => $businessId,
-                    'product_id'  => $item->product_id,
-                    'quantity_kg' => -abs((float) $item->quantity_value),
-                    'waste_kg'    => 0,
-                    'entered_at'  => now(),
-                    'created_by'  => $user->id,
-                    'notes'       => "Cobro pedido #{$order->id} — {$ticketNumber}",
+                    'user_id'     => $user->id,
+                    'action'      => 'order.completed',
+                    'model_type'  => Order::class,
+                    'model_id'    => $order->id,
+                    'new_values'  => [
+                        'ticket_number' => $ticketNumber,
+                        'total_bs'      => $totalBs,
+                        'rate_used'     => $rate,
+                    ],
+                ]);
+            } else {
+                ActivityLog::create([
+                    'business_id' => $businessId,
+                    'user_id'     => $user->id,
+                    'action'      => 'order.partial_payment',
+                    'model_type'  => Order::class,
+                    'model_id'    => $order->id,
+                    'new_values'  => [
+                        'amount_bs'  => $amountBs,
+                        'paid_bs'    => $newPaidBs,
+                        'balance_bs' => $balanceBs,
+                    ],
                 ]);
             }
 
-            $order->update(['status' => 'paid']);
-
-            ActivityLog::create([
-                'business_id' => $businessId,
-                'user_id'     => $user->id,
-                'action'      => 'order.collected',
-                'model_type'  => Order::class,
-                'model_id'    => $order->id,
-                'new_values'  => [
-                    'ticket_number' => $ticketNumber,
-                    'total_bs'      => $totalBs,
-                    'rate_used'     => $rate,
-                ],
-            ]);
+            return [
+                'completed'  => $order->fresh()->status === 'completed',
+                'paid_bs'    => $newPaidBs,
+                'balance_bs' => $balanceBs,
+                'total_bs'   => $totalBs,
+            ];
         });
 
-        return response()->json(['success' => true, 'order_id' => $order->id]);
+        return response()->json(array_merge(['success' => true, 'order_id' => $order->id], $result));
     }
+
+    // ─── Historial de abonos de un pedido ─────────────────────────────────────
+
+    public function payments(Order $order): JsonResponse
+    {
+        abort_unless($order->business_id === Auth::user()->business_id, 403);
+        $rate = $this->rates->getTodayRate();
+        return response()->json([
+            'payments'   => $order->payments()->with('paymentMethod')->get(),
+            'total_bs'   => round((float) $order->total_usd * $rate, 2),
+            'paid_bs'    => (float) $order->amount_paid_bs,
+            'balance_bs' => max(0, round((float) $order->total_usd * $rate, 2) - (float) $order->amount_paid_bs),
+        ]);
+    }
+
 
     // ─── Despachar sin cobrar (crédito temporal) ─────────────────────────────
 
@@ -695,8 +744,10 @@ class OrderController extends Controller
             'status'      => $order->status,
             'total_usd'   => (float) $order->total_usd,
             'total_bs'    => round((float) $order->total_usd * $rate, 2),
-            'notes'       => $order->notes,
-            'created_at'  => $order->created_at?->toDateTimeString(),
+            'notes'           => $order->notes,
+            'amount_paid_bs'  => (float) $order->amount_paid_bs,
+            'amount_paid_usd' => (float) $order->amount_paid_usd,
+            'created_at'      => $order->created_at?->toDateTimeString(),
             'updated_at'  => $order->updated_at?->toDateTimeString(),
             'items'       => $order->items->map(fn (OrderItem $i) => [
                 'id'             => $i->id,

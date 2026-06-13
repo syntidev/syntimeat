@@ -200,9 +200,8 @@ class InventoryController extends Controller
             ->where('business_id', $businessId)
             ->firstOrFail();
 
-        $isGlobalRole = in_array($user->role, ['owner', 'super_admin'], true);
         abort_unless(
-            $isGlobalRole || $branchId === null || $product->branch_id === $branchId,
+            $branchId === null || $product->branch_id === $branchId,
             403,
             'Producto no pertenece a esta sucursal.'
         );

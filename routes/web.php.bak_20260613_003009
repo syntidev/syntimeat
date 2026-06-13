@@ -187,7 +187,7 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
     Route::middleware('role:super_admin,admin,owner,branch_admin,supervisor,analyst')->group(function () {
 
         // Acciones de caja/venta sensibles — solo admin/super_admin (anular, tasa)
-        Route::middleware('role:super_admin,admin,owner,branch_admin,supervisor,cashier')->group(function () {
+        Route::middleware('role:super_admin,admin,owner,branch_admin,supervisor')->group(function () {
             // Tasa manual
             Route::post('/tasa/manual', [SettingsController::class, 'setManualRate'])->name('rate.manual');
 

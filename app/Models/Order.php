@@ -23,12 +23,18 @@ class Order extends Model
         'total_usd',
         'notes',
         'created_by',
+        'amount_paid_bs',
+        'amount_paid_usd',
+        'inventory_released',
     ];
 
     protected function casts(): array
     {
         return [
-            'total_usd' => 'decimal:2',
+            'total_usd'            => 'decimal:2',
+            'amount_paid_bs'       => 'decimal:2',
+            'amount_paid_usd'      => 'decimal:4',
+            'inventory_released'   => 'boolean',
         ];
     }
 
@@ -50,5 +56,10 @@ class Order extends Model
     public function sale(): HasOne
     {
         return $this->hasOne(Sale::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(OrderPayment::class);
     }
 }
