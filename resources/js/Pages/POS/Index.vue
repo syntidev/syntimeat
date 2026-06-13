@@ -698,7 +698,8 @@ function onSearchKeydown(e) {
         scannerLastTime.value = 0
         if (buf.length === 13 && /^\d{13}$/.test(buf)) {
             e.preventDefault()
-            processBarcode(buf)
+            handleScan(buf)
+            search.value = ''
         }
         return
     }
@@ -713,33 +714,6 @@ function onSearchKeydown(e) {
     }
 }
 
-function processBarcode(code) {
-    // Código no-precio (prefijo ≠ '2') → caer en búsqueda normal por nombre
-    if (code[0] !== '2') {
-        search.value = code
-        return
-    }
-
-    // PLU: dígitos 2-6 (índices 1-5), precio: dígitos 7-11 (índices 6-10)
-    const skuRaw  = code.slice(2, 7)    // pos 2-6 = PLU (Roccia prefijo 29)
-    const priceRaw = code.slice(7, 12)  // pos 7-11 = precio Bs
-    const priceBs  = priceRaw.endsWith('00') ? parseInt(priceRaw, 10) / 100 : parseInt(priceRaw, 10) / 10
-    const skuInt   = parseInt(skuRaw, 10)
-
-    // Buscar por campo sku si existe, si no por id
-    const product =
-        props.products.find(p => p.sku && parseInt(p.sku, 10) === skuInt) ??
-        props.products.find(p => p.id  === skuInt)
-
-    if (!product) {
-        // No encontrado → búsqueda por texto del PLU
-        search.value = skuInt > 0 ? String(skuInt) : skuRaw
-        return
-    }
-
-    addToCartFromScanner(product, priceBs)
-    search.value = ''
-}
 
 // ─── Scanner global — multi-estándar EAN-13 / Code128 ────────────────────────
 let scanBuffer = ''
@@ -776,7 +750,7 @@ function parseBarcodeScale(code) {
             const productCode = raw.substring(2, 7)  // 5 dígitos producto
             const valueRaw    = raw.substring(7, 12) // 5 dígitos valor
 
-            const asPriceBs  = valueRaw.endsWith('00') ? parseInt(valueRaw) / 100 : parseInt(valueRaw) / 10
+            const asPriceBs  = parseInt(valueRaw)
             const asWeightKg = parseInt(valueRaw) / 1000  // kg con 3 decimales
 
             return { type: 'scale_ean13', productCode, priceBs: asPriceBs, weightKg: asWeightKg, raw }
@@ -791,15 +765,18 @@ function parseBarcodeScale(code) {
 }
 
 function handleScan(code) {
-    // Roccia ROP-30: EAN-13 prefijo '2', PLU en pos 2-6, precio Bs÷10 en pos 7-11
-    if (code.length === 13 && code[0] === '2') {
-        const plu      = code.slice(2, 7)
-        const priceRaw = code.slice(7, 12)
-        const priceBs  = priceRaw.endsWith('00') ? parseInt(priceRaw, 10) / 100 : parseInt(priceRaw, 10) / 10
-        const product = props.products.find(p => p.barcode && parseInt(p.barcode, 10) === parseInt(plu, 10))
+    // EAN-13 báscula (prefijo 20-29) en modo PESO: pos 2-6 = PLU, pos 7-11 = gramos.
+    // Producto, peso y monto entran al carrito AUTOMÁTICAMENTE, sin intervención.
+    if (code.length === 13 && parseInt(code.substring(0, 2)) >= 20 && parseInt(code.substring(0, 2)) <= 29) {
+        const plu       = code.slice(2, 7)
+        const weightRaw = code.slice(7, 12)
+        const kg        = parseInt(weightRaw, 10) / 1000
+        const product   = props.products.find(p => p.barcode && parseInt(p.barcode, 10) === parseInt(plu, 10))
         if (product) {
-            addToCartFromScanner(product, priceBs)
-            showScanFeedback(product.name, 1)
+            const priceBsKg = (product.price_per_kg_usd ?? 0) * (props.todayRate ?? 1)
+            const totalBs   = Math.round(kg * priceBsKg * 100) / 100
+            addToCartFromScanner(product, totalBs)
+            showScanFeedback(product.name, kg)
         }
         return
     }

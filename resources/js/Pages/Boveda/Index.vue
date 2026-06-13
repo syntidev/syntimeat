@@ -1077,12 +1077,21 @@ async function deactivateProduct(product) {
                         </div>
 
                         <div v-if="isPollo" class="form-field full" style="margin-top: 0.5rem;">
-                            <label>¿A dónde van estos kg?</label>
-                            <select v-model="surtirForm.pollo_tipo" class="form-select" required>
-                                <option value="">-- Selecciona destino --</option>
-                                <option value="fabrica">Fábrica (se despieza en cortes)</option>
-                                <option value="vitrina">Vitrina directo (va entero a venta)</option>
-                            </select>
+                            <label>¿A dónde van estos kg? (elige uno)</label>
+                            <div class="dest-toggle">
+                                <button
+                                    type="button"
+                                    class="dest-btn"
+                                    :class="{ 'dest-btn--on': surtirForm.pollo_tipo === 'vitrina' }"
+                                    @click="surtirForm.pollo_tipo = 'vitrina'"
+                                >Vitrina directa</button>
+                                <button
+                                    type="button"
+                                    class="dest-btn"
+                                    :class="{ 'dest-btn--on': surtirForm.pollo_tipo === 'fabrica' }"
+                                    @click="surtirForm.pollo_tipo = 'fabrica'"
+                                >Fábrica (despiece)</button>
+                            </div>
                         </div>
 
                         <div class="modal-actions">
@@ -1439,6 +1448,23 @@ async function deactivateProduct(product) {
                 margin:0; padding-top:4px; }
 .field-group  { display:flex; flex-direction:column; gap:4px; }
 .field-group label { font-size:0.8rem; color:var(--text-secondary); }
+.dest-toggle { display: flex; gap: 0.5rem; margin-top: 0.35rem; }
+.dest-btn {
+    flex: 1;
+    padding: 0.6rem 0.75rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    min-height: 44px;
+}
+.dest-btn--on { border-color: var(--brand); background: rgba(37,99,235,0.12); color: var(--brand); }
+.dest-btn:not(.dest-btn--on):hover { border-color: var(--text-muted); color: var(--text-secondary); }
 
 @media (max-width: 768px) {
     /* Layout */
