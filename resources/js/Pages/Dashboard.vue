@@ -2,6 +2,7 @@
 import AppLayout  from '@/Layouts/AppLayout.vue'
 import HelpModal  from '@/Components/HelpModal.vue'
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { usePage } from '@inertiajs/vue3'
 import axios from 'axios'
 import { Receipt, BarChart2, AlertTriangle, CheckCircle, Package, Check, Bell, X, Layers } from '@lucide/vue'
 
@@ -142,6 +143,9 @@ onUnmounted(() => clearInterval(clockTimer))
 const canales        = ref([])
 const loadingCanales = ref(false)
 const canalChecks    = ref({})
+const historialCanales = ref([])
+const canalTab = ref('activos')
+const userRole = computed(() => usePage().props.auth?.user?.role ?? '')
 
 async function loadCanales() {
     loadingCanales.value = true
@@ -171,7 +175,31 @@ function canalUtilidad(canal) {
     return canalVendido(canal) - canal.costo_usd
 }
 
-onMounted(() => { loadCanales() })
+async function cerrarCanal(boveda_entry_id) {
+    if (!confirm('¿Confirma que este canal ya fue vendido completamente y desea enviarlo al historial?')) return
+    try {
+        await axios.post('/reportes/canal-cerrar',
+            { boveda_entry_id },
+            { withCredentials: true }
+        )
+        const res = await axios.get('/reportes/canal-rendimiento', { withCredentials: true })
+        canales.value = res.data.canales ?? []
+        const h = await axios.get('/reportes/canal-historial', { withCredentials: true })
+        historialCanales.value = h.data.historial ?? []
+    } catch (e) {
+        alert(e.response?.data?.message ?? 'Error al cerrar el canal.')
+    }
+}
+
+onMounted(async () => {
+    loadCanales()
+    try {
+        const h = await axios.get('/reportes/canal-historial', { withCredentials: true })
+        historialCanales.value = h.data.historial ?? []
+    } catch (e) {
+        console.error('Error cargando historial canales', e)
+    }
+})
 
 // ─── Ayuda ────────────────────────────────────────────────────────────────────
 const showHelp = ref(false)
@@ -340,13 +368,27 @@ function dismissBankingAlert() {
                     <BarChart2 :size="18" /> Rendimiento por Canal
                 </h2>
 
+                <div class="canal-tabs">
+                    <button
+                        class="canal-tab-btn"
+                        :class="{ 'canal-tab-active': canalTab === 'activos' }"
+                        @click="canalTab = 'activos'"
+                    >Activos</button>
+                    <button
+                        class="canal-tab-btn"
+                        :class="{ 'canal-tab-active': canalTab === 'historial' }"
+                        @click="canalTab = 'historial'"
+                    >Historial</button>
+                </div>
+
                 <div v-if="loadingCanales" class="canal-loading">Cargando canales…</div>
 
                 <div v-else-if="canales.length === 0" class="canal-empty">
                     <p>Sin bóveda activa hoy — registra una entrada para ver el rendimiento del canal.</p>
                 </div>
 
-                <div v-else class="canal-grid">
+                <div v-else>
+                <div v-show="canalTab === 'activos'" class="canal-grid">
                     <div v-for="canal in canales" :key="canal.boveda_entry_id" class="canal-card">
                         <div class="canal-header">
                             <span class="canal-tipo">{{ canal.tipo }}</span>
@@ -424,7 +466,39 @@ function dismissBankingAlert() {
                         >
                             {{ canal.costo_usd > 0 ? ((canalVendido(canal) / canal.costo_usd) * 100).toFixed(1) : '0.0' }}% recuperado del costo
                         </span>
+                        <button
+                            v-if="['owner','super_admin','admin','branch_admin'].includes(userRole)"
+                            class="btn-cerrar-canal"
+                            @click="cerrarCanal(canal.boveda_entry_id)"
+                        >
+                            Kilos vendidos — Enviar al historial
+                        </button>
                     </div>
+                </div>
+
+                <div v-show="canalTab === 'historial'" class="canal-hist-view">
+                    <div v-if="historialCanales.length === 0" class="canal-hist-empty">
+                        Sin canales en historial.
+                    </div>
+                    <table v-else class="canal-hist-table">
+                        <thead><tr>
+                            <th>Tipo</th>
+                            <th>Entrada</th>
+                            <th>Kg entrada</th>
+                            <th>Costo</th>
+                            <th>Cerrado</th>
+                        </tr></thead>
+                        <tbody>
+                            <tr v-for="h in historialCanales" :key="h.id">
+                                <td>{{ h.product_type }}</td>
+                                <td>{{ h.entered_at }}</td>
+                                <td>{{ h.kg_entrada }} kg</td>
+                                <td>${{ h.costo_usd }}</td>
+                                <td>{{ h.closed_at ?? '—' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
                 </div>
             </section>
 
@@ -1189,4 +1263,83 @@ function dismissBankingAlert() {
 .canal-margen-label { font-size: 0.72rem; color: var(--text-muted); }
 .canal-loading { color: var(--text-muted); padding: 1rem; text-align: center; font-size: 0.86rem; }
 .badge-manana { font-size: 0.7rem; color: var(--amber); background: rgba(251,191,36,0.12); padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
+
+.btn-cerrar-canal {
+    width: 100%;
+    margin-top: 0.75rem;
+    padding: 0.5rem 1rem;
+    background: rgba(22,163,74,0.15);
+    color: var(--success, #22c55e);
+    border: 1px solid rgba(22,163,74,0.3);
+    border-radius: 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.btn-cerrar-canal:hover { background: rgba(22,163,74,0.25); }
+
+.canal-historial { margin-top: 1.5rem; }
+.canal-hist-title { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem; }
+.canal-hist-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.canal-hist-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.5rem 0.75rem; display: flex; flex-direction: column; gap: 0.2rem; min-width: 160px; opacity: 0.7; }
+.hist-tipo { font-size: 0.8rem; font-weight: 600; color: var(--text-primary); }
+.hist-fecha { font-size: 0.7rem; color: var(--text-muted); }
+.hist-kg { font-size: 0.75rem; color: var(--text-secondary); }
+.hist-cerrado { font-size: 0.7rem; color: var(--success, #22c55e); }
+
+.canal-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+.canal-tab-btn {
+    padding: 0.35rem 1rem;
+    border-radius: 99px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+    min-height: 36px;
+}
+.canal-tab-active { border-color: var(--brand); background: rgba(37,99,235,0.12); color: var(--brand); }
+.canal-tab-btn:hover:not(.canal-tab-active) { border-color: var(--text-muted); color: var(--text-secondary); }
+.canal-hist-view { margin-top: 0; }
+.canal-hist-empty {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    padding: 2rem 1rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+.canal-hist-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.84rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+.canal-hist-table th {
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+}
+.canal-hist-table td {
+    padding: 0.55rem 0.75rem;
+    color: var(--text-primary);
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    font-variant-numeric: tabular-nums;
+}
+.canal-hist-table tr:last-child td { border-bottom: none; }
+.canal-hist-table tr:hover td { background: rgba(255,255,255,0.02); }
 </style>

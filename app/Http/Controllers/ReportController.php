@@ -494,6 +494,28 @@ class ReportController extends Controller
 
     // ─── Helper: agregación consolidada por sucursal ─────────────────────────
 
+    public function cerrarCanal(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $user = Auth::user();
+        abort_unless(
+            in_array($user->role, ['owner', 'super_admin', 'admin', 'branch_admin'], true),
+            403,
+            'Sin permiso para cerrar canales.'
+        );
+
+        $data = $request->validate([
+            'boveda_entry_id' => ['required', 'integer', 'exists:boveda_entries,id'],
+        ]);
+
+        $entry = \App\Models\BovedaEntry::where('id', $data['boveda_entry_id'])
+            ->where('business_id', $user->business_id)
+            ->firstOrFail();
+
+        $entry->update(['closed_at' => now()]);
+
+        return response()->json(['message' => 'Canal cerrado y enviado al historial.']);
+    }
+
     private function buildConsolidatedData(int $businessId, array $branchIds, string $desde, string $hasta): array
     {
         if (empty($branchIds)) {

@@ -171,6 +171,8 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
     });
     Route::middleware('role:super_admin,owner,branch_admin,analyst')->group(function () {
         Route::get('/reportes/canal-rendimiento', [ReportController::class, 'canalRendimiento'])->name('reports.canal');
+        Route::get('/reportes/canal-historial', [ReportController::class, 'canalHistorial'])->name('reports.canal.historial');
+        Route::post('/reportes/canal-cerrar', [ReportController::class, 'cerrarCanal'])->name('reports.canal.cerrar');
     });
 
     // ── Reportes — incluye analyst (rol de solo-lectura / contable) ───────────

@@ -1,5 +1,5 @@
 ﻿﻿<script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { usePage, router } from '@inertiajs/vue3';
 import AppLogo from '@/Components/AppLogo.vue';
 import HelpModal from '@/Components/HelpModal.vue';
@@ -92,8 +92,30 @@ const scanFeedback = ref(null);
 function emptyTicket(n) {
     return { id: n, label: `Ticket #${n}`, items: [], sale: null };
 }
-const tickets      = ref([emptyTicket(1)]);
-const activeTicket = ref(0);
+function loadTicketsFromSession() {
+    try {
+        const saved = sessionStorage.getItem('pos_tickets')
+        const savedActive = sessionStorage.getItem('pos_active_ticket')
+        if (saved) {
+            const parsed = JSON.parse(saved)
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                return { tickets: parsed, active: parseInt(savedActive ?? '0') }
+            }
+        }
+    } catch (e) {}
+    return null
+}
+const _savedPos = loadTicketsFromSession()
+const tickets      = ref(_savedPos ? _savedPos.tickets : [emptyTicket(1)])
+const activeTicket = ref(_savedPos ? _savedPos.active : 0)
+
+watch(tickets, (val) => {
+    try { sessionStorage.setItem('pos_tickets', JSON.stringify(val)) } catch (e) {}
+}, { deep: true })
+
+watch(activeTicket, (val) => {
+    try { sessionStorage.setItem('pos_active_ticket', String(val)) } catch (e) {}
+})
 const cart         = computed(() => tickets.value[activeTicket.value].items);
 
 function addTicket() {
@@ -456,6 +478,9 @@ function confirmPay() {
                 closePayModal();
                 successModal.value = true;
                 tickets.value[activeTicket.value].items = [];
+                try {
+                    sessionStorage.setItem('pos_tickets', JSON.stringify(tickets.value))
+                } catch (e) {}
             })
             .catch((err) => { alert(err?.response?.data?.error ?? err?.response?.data?.message ?? err?.message ?? 'Error al registrar el delivery.'); })
             .finally(() => { paying.value = false; });
@@ -482,6 +507,9 @@ function confirmPay() {
                 closePayModal();
                 successModal.value = true;
                 tickets.value[activeTicket.value].items = [];
+                try {
+                    sessionStorage.setItem('pos_tickets', JSON.stringify(tickets.value))
+                } catch (e) {}
             })
             .catch((err) => { alert(err?.response?.data?.error ?? err?.response?.data?.message ?? err?.message ?? 'Error al registrar el crédito.'); })
             .finally(() => { paying.value = false; });
@@ -515,6 +543,9 @@ function confirmPay() {
         closePayModal();
         successModal.value = true;
         tickets.value[activeTicket.value].items = [];
+        try {
+            sessionStorage.setItem('pos_tickets', JSON.stringify(tickets.value))
+        } catch (e) {}
     })
     .catch((err) => { alert(err?.response?.data?.error ?? err?.response?.data?.message ?? err?.message ?? 'Error al procesar el pago. Intente nuevamente.'); })
     .finally(() => { paying.value = false; });

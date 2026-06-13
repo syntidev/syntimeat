@@ -60,4 +60,15 @@ class BovedaEntry extends Model
     {
         $query->whereNull('closed_at');
     }
+
+    public function scopeConRemanente(Builder $query): void
+    {
+        $query->whereNotNull('despiece_completado_at')
+              ->whereRaw('(kg_entrada - kg_surtido_vitrina - waste_kg) > 0');
+    }
+
+    public function scopeAgotado(Builder $query): void
+    {
+        $query->whereRaw('(kg_entrada - kg_surtido_vitrina - waste_kg) <= 0');
+    }
 }

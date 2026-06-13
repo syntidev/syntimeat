@@ -50,6 +50,11 @@ const voidReason    = ref('')
 const voidError     = ref('')
 const voidProcessing = ref(false)
 
+const expandedSaleId = ref(null)
+function toggleSale(id) {
+    expandedSaleId.value = expandedSaleId.value === id ? null : id
+}
+
 function openVoid(sale) {
     voidTarget.value   = sale
     voidReason.value   = ''
@@ -217,8 +222,9 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
                         <tr v-if="!sales.length">
                             <td colspan="8" class="empty-row">Sin ventas para los filtros seleccionados</td>
                         </tr>
-                        <tr v-for="sale in sales" :key="sale.id" :class="{ 'row--cancelled': sale.status === 'cancelled' }">
-                            <td class="ticket-cell" data-label="Ticket">{{ sale.ticket_number }}</td>
+                        <template v-for="sale in sales" :key="sale.id">
+                        <tr :class="{ 'row--cancelled': sale.status === 'cancelled' }">
+                            <td class="ticket-cell" data-label="Ticket" @click="toggleSale(sale.id)" style="cursor:pointer"><span>{{ sale.ticket_number }}</span> <span style="color:var(--text-muted);font-size:0.7rem">{{ expandedSaleId === sale.id ? "▲" : "▼" }}</span></td>
                             <td data-label="Hora">{{ sale.sold_at }}</td>
                             <td data-label="Cajero">{{ sale.cashier ?? '—' }}</td>
                             <td class="client-cell" data-label="Cliente">{{ sale.client_name || '—' }}</td>
@@ -243,6 +249,29 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
                                 </span>
                             </td>
                         </tr>
+                        <tr v-if="expandedSaleId === sale.id" class="sale-detail-row">
+                            <td colspan="8" class="sale-detail-cell">
+                                <div class="sale-detail-wrap">
+                                    <div v-for="(item, i) in sale.items" :key="i" class="sale-detail-item">
+                                        <span class="detail-name">{{ item.product_name }}</span>
+                                        <span class="detail-qty">
+                                            {{ item.input_type === 'weight'
+                                                ? Number(item.quantity_value).toFixed(3) + ' kg'
+                                                : Number(item.quantity_value).toFixed(0) + ' und' }}
+                                        </span>
+                                        <span class="detail-price">
+                                            Bs. {{ Number(item.subtotal_bs).toLocaleString('es-VE', {minimumFractionDigits:2}) }}
+                                        </span>
+                                    </div>
+                                    <div v-if="sale.payments?.length" class="sale-detail-payments">
+                                        <span v-for="(p, i) in sale.payments" :key="i" class="detail-payment">
+                                            {{ p.method }} · Bs. {{ Number(p.amount_bs).toLocaleString('es-VE', {minimumFractionDigits:2}) }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        </template>
                     </tbody>
                 </table>
             </div>
@@ -710,4 +739,14 @@ function getMethodLabel(m) { return methodLabel[m] ?? m ?? '—' }
     .modal__footer .btn-ghost,
     .modal__footer .btn-danger { min-height: 44px; flex: 1; justify-content: center; }
 }
+
+.sale-detail-row td { padding: 0; }
+.sale-detail-cell { background: var(--bg-base); border-bottom: 1px solid var(--border); }
+.sale-detail-wrap { padding: 0.75rem 1.5rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.sale-detail-item { display: flex; gap: 1rem; align-items: center; font-size: 0.82rem; }
+.detail-name { flex: 1; color: var(--text-primary); }
+.detail-qty { color: var(--text-muted); min-width: 80px; }
+.detail-price { color: var(--brand); font-weight: 500; min-width: 140px; text-align: right; }
+.sale-detail-payments { margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border); display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.detail-payment { font-size: 0.78rem; color: var(--text-muted); background: var(--bg-card); padding: 0.2rem 0.6rem; border-radius: 1rem; }
 </style>

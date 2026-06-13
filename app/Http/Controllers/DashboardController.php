@@ -201,6 +201,7 @@ class DashboardController extends Controller
         ];
 
         $utilidadBoveda = BovedaEntry::active()
+            ->conRemanente()
             ->where('business_id', $businessId)
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->get()

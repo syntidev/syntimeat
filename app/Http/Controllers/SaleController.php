@@ -573,7 +573,7 @@ class SaleController extends Controller
         $method  = $request->input('method');
         $status  = $request->input('status');
 
-        $query = Sale::with(['cashier:id,name', 'salePayments.paymentMethod'])
+        $query = Sale::with(['cashier:id,name', 'salePayments.paymentMethod', 'items.product'])
             ->where('business_id', $businessId)
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->whereDate('sold_at', $date)
@@ -606,6 +606,17 @@ class SaleController extends Controller
                 'sold_at'             => $sale->sold_at?->format('H:i'),
                 'client_name'         => $sale->client_name,
                 'items_count'         => $sale->items->count(),
+                'items'               => $sale->items->map(fn ($i) => [
+                    'product_name'   => $i->product?->name ?? $i->product_name ?? '—',
+                    'quantity_value' => (float) $i->quantity_value,
+                    'input_type'     => $i->input_type,
+                    'subtotal_bs'    => (float) $i->subtotal_bs,
+                    'subtotal_usd'   => (float) $i->subtotal_usd,
+                ])->values(),
+                'payments'            => $sale->salePayments->map(fn ($p) => [
+                    'method' => $p->paymentMethod?->name ?? '—',
+                    'amount_bs' => (float) $p->amount_bs,
+                ])->values(),
                 'cancelled_at'        => $sale->cancelled_at?->format('d/m H:i'),
                 'cancellation_reason' => $sale->cancellation_reason,
             ];
