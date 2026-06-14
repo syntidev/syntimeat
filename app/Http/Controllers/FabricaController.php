@@ -121,7 +121,7 @@ class FabricaController extends Controller
                     ?? (str_contains(strtolower($e->product_type), 'pollo') ? 'Pollo' : null);
 
                 $resOrder   = ['Carne Total', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
-                $polloOrder = ['Pollo Picado', 'Muslo', 'Pechuga', 'Alas de Pollo', 'Molleja', 'Pedrero'];
+                $polloOrder = ['Pollo Picado', 'Muslo', 'Pechuga con Hueso', 'Ala', 'Molleja', 'Pedrero'];
 
                 $productos = $catName
                     ? Product::with('category')

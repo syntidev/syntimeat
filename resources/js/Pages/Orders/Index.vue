@@ -2,6 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue'
 import HelpModal  from '@/Components/HelpModal.vue'
 import { ref, computed, reactive } from 'vue'
+import { usePage } from '@inertiajs/vue3'
 import axios from 'axios'
 import { FileText, Truck, Home } from '@lucide/vue'
 
@@ -22,7 +23,9 @@ const pedidos           = ref([...props.pedidosActivos])
 const historial         = ref([...props.historial])
 const cobrosPendientes  = ref([...props.cobrosPendientes])
 const cobradosHoy       = ref(props.kpis.cobrados_hoy ?? 0)
-const activeTab         = ref('pending')
+const activeTab         = ref('cobros')
+const { props: pageProps } = usePage()
+const userRole = computed(() => pageProps.auth?.user?.role ?? 'cashier')
 const saving            = ref(false)
 const globalError       = ref('')
 
@@ -326,6 +329,47 @@ function openCancel(order) {
     showCancelModal.value = true
 }
 
+// ─── Anular venta pendiente de cobro ──────────────────────────────────────
+const voidPendSale       = ref(null)
+const voidPendReason     = ref('')
+const voidPendError      = ref('')
+const voidPendProcessing = ref(false)
+const showVoidPendModal  = ref(false)
+
+function openVoidPend(sale) {
+    console.log('openVoidPend llamado', sale.id) // TEMPORAL
+    voidPendSale.value       = sale
+    voidPendReason.value     = ''
+    voidPendError.value      = ''
+    voidPendProcessing.value = false
+    showVoidPendModal.value  = true
+}
+function closeVoidPend() {
+    showVoidPendModal.value = false
+    voidPendSale.value = null
+}
+async function confirmVoidPend() {
+    if (voidPendReason.value.trim().length < 5) {
+        voidPendError.value = 'El motivo debe tener al menos 5 caracteres.'
+        return
+    }
+    voidPendProcessing.value = true
+    try {
+        await axios.patch(
+            route('sales.void', voidPendSale.value.id),
+            { reason: voidPendReason.value }
+        )
+        cobrosPendientes.value = cobrosPendientes.value.filter(
+            s => s.id !== voidPendSale.value.id
+        )
+        closeVoidPend()
+    } catch (err) {
+        voidPendError.value = err.response?.data?.message ?? 'Error al anular.'
+    } finally {
+        voidPendProcessing.value = false
+    }
+}
+
 async function submitCancel() {
     if (!cancelReason.value.trim() || cancelReason.value.length < 5) {
         cancelError.value = 'El motivo debe tener al menos 5 caracteres.'
@@ -613,6 +657,10 @@ function methodName(id) {
                                 <span v-if="sale.amount_paid_bs > 0" class="type-badge badge-amber">Crédito parcial · {{ fmtBs(sale.amount_paid_bs) }}</span>
                             </div>
                             <button class="btn-collect" @click="openPendCollect(sale)">Registrar Cobro</button>
+                            <button
+                                class="btn-void-pend"
+                                @click="openVoidPend(sale)"
+                            >Anular</button>
                         </div>
                     </div>
                 </div>
@@ -1040,6 +1088,38 @@ function methodName(id) {
         />
 
     </AppLayout>
+
+    <!-- ─── Modal anular venta pendiente ─────────────────────────────── -->
+    <Teleport to="body">
+        <div v-if="showVoidPendModal" class="modal-overlay">
+            <div class="modal-box modal-sm">
+                <div class="modal-header">
+                    <h3>Anular venta pendiente</h3>
+                    <button class="close-btn" @click="closeVoidPend">×</button>
+                </div>
+                <p>Ticket: <strong>{{ voidPendSale?.ticket_number }}</strong></p>
+                <p>Cliente: <strong>{{ voidPendSale?.client_name ?? 'Sin cliente' }}</strong></p>
+                <p class="warn-text">El ticket quedará cancelado. El stock no se verá afectado.</p>
+                <div class="field-group">
+                    <label class="field-label">Motivo (mínimo 5 caracteres)</label>
+                    <input
+                        v-model="voidPendReason"
+                        class="field-input"
+                        placeholder="Motivo de anulación..."
+                    />
+                    <p v-if="voidPendError" class="error-msg">{{ voidPendError }}</p>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-ghost" @click="closeVoidPend">Cancelar</button>
+                    <button
+                        class="btn btn-danger"
+                        :disabled="voidPendProcessing"
+                        @click="confirmVoidPend"
+                    >Anular venta</button>
+                </div>
+            </div>
+        </div>
+    </Teleport>
 </template>
 
 <style scoped>
@@ -1486,4 +1566,17 @@ function methodName(id) {
 .btn-link-sm { background: none; border: none; color: var(--brand); font-size: 0.82rem; cursor: pointer; padding: 0; text-decoration: underline; }
 .btn-link-sm:disabled { opacity: 0.5; cursor: not-allowed; }
 
+
+.btn-void-pend {
+    background: rgba(239,68,68,0.12);
+    color: #ef4444;
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 0.5rem;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+    font-family: inherit;
+    cursor: pointer;
+    min-height: 36px;
+}
+.btn-void-pend:hover { background: rgba(239,68,68,0.22); }
 </style>

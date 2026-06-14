@@ -492,6 +492,7 @@ function confirmPay() {
         window.axios.post(route('sales.store'), {
             items,
             origin: 'credit',
+            client_id:    clientId.value || null,
             client_name:  clientName.value.trim() || null,
             client_phone: clientPhone.value.trim() || null,
         })

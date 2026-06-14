@@ -646,7 +646,7 @@ class BovedaController extends Controller
             ?? (str_contains(strtolower($entry->product_type), 'res') ? 'Res' : null)
             ?? (str_contains(strtolower($entry->product_type), 'cerdo') ? 'Cerdo' : null);
         $resOrder   = ['Carne Total', 'Costilla', 'Hueso Redondo', 'Hueso Rojo'];
-        $polloOrder = ['Pollo Picado', 'Muslo', 'Pechuga', 'Alas de Pollo', 'Molleja', 'Pedrero'];
+        $polloOrder = ['Pollo Picado', 'Muslo', 'Pechuga con Hueso', 'Ala', 'Molleja', 'Pedrero'];
 
         $productos = Product::with('category')
             ->where('business_id', $businessId)

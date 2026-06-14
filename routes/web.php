@@ -105,6 +105,7 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
 
     // ── Todos los roles ───────────────────────────────────────────────────────
     Route::middleware('role:super_admin,admin,owner,branch_admin,supervisor,analyst,cashier')->group(function () {
+        Route::patch('/ventas/{sale}/anular', [SaleController::class, 'void'])->name('sales.void');
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
         Route::get('/dashboard/data', [DashboardController::class, 'data'])->name('dashboard.data');
 
@@ -196,7 +197,7 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
             Route::post('/tasa/manual', [SettingsController::class, 'setManualRate'])->name('rate.manual');
 
             // Anular venta
-            Route::patch('/ventas/{sale}/anular', [SaleController::class, 'void'])->name('sales.void');
+
         });
 
         // Catálogo

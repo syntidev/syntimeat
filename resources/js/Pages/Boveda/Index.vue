@@ -185,7 +185,7 @@ const surtirForm        = ref({ peso_real: '', pollo_tipo: '' });
 const surtirErrors      = ref({});
 const savingSurtir      = ref(false);
 const DESPIECE_KEY      = 'boveda_despiece_pendiente';
-const isPollo           = computed(() => surtirEntry.value?.requires_despiece === true);
+const isPollo           = computed(() => !!surtirEntry.value?.requires_despiece);
 const despiecePendiente = ref(null);
 
 // ─── Modal Crear Producto Vitrina (fallback cuando surte() no encuentra producto) ──

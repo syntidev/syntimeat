@@ -141,7 +141,7 @@ class SaleController extends Controller
             'items.*.quantity_value' => ['sometimes', 'numeric', 'min:0.001'],
             'origin'                 => ['sometimes', 'string', 'in:onsite,delivery,credit'],
             'channel'                => ['sometimes', 'string', 'in:physical,online'],
-            'client_name'            => ['required_if:origin,credit,delivery', 'string', 'max:100'],
+            'client_name'            => ['required_if:origin,credit,delivery', 'nullable', 'string', 'max:100'],
             'client_phone'           => ['nullable', 'string', 'max:30'],
         ]);
 
@@ -696,9 +696,9 @@ class SaleController extends Controller
         abort_if($sale->business_id !== $user->business->id, 403);
 
         abort_if(
-            $sale->status !== 'paid',
+            ! in_array($sale->status, ['paid', 'pending'], true),
             422,
-            'Solo se pueden anular ventas pagadas.'
+            'Solo se pueden anular ventas pagadas o pendientes de cobro.'
         );
 
         $request->validate([
@@ -710,25 +710,28 @@ class SaleController extends Controller
             : ($sale->branch_id ?? null);
 
         DB::transaction(function () use ($sale, $user, $request, $branchId): void {
-            $sale->load('items.product');
-            foreach ($sale->items as $item) {
-                if ($item->input_type !== 'weight') {
-                    continue;
+            // Revertir stock solo si la venta estaba pagada (pending no desconta stock)
+            if ($sale->status === 'paid') {
+                $sale->load('items.product');
+                foreach ($sale->items as $item) {
+                    if ($item->input_type !== 'weight') {
+                        continue;
+                    }
+
+                    $stockProductId = $item->product?->stock_product_id ?? $item->product_id;
+
+                    InventoryEntry::create([
+                        'business_id' => $sale->business_id,
+                        'branch_id'   => $branchId,
+                        'product_id'  => $stockProductId,
+                        'quantity_kg' => abs((float) $item->quantity_value),
+                        'location'    => 'vitrina',
+                        'waste_kg'    => 0,
+                        'entered_at'  => now(),
+                        'notes'       => 'Reversión anulación #' . $sale->ticket_number,
+                        'created_by'  => $user->id,
+                    ]);
                 }
-
-                $stockProductId = $item->product?->stock_product_id ?? $item->product_id;
-
-                InventoryEntry::create([
-                    'business_id' => $sale->business_id,
-                    'branch_id'   => $branchId,
-                    'product_id'  => $stockProductId,
-                    'quantity_kg' => abs((float) $item->quantity_value),
-                    'location'    => 'vitrina',
-                    'waste_kg'    => 0,
-                    'entered_at'  => now(),
-                    'notes'       => 'Reversión anulación #' . $sale->ticket_number,
-                    'created_by'  => $user->id,
-                ]);
             }
 
             $sale->update([

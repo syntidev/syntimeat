@@ -83,6 +83,7 @@ class OrderController extends Controller
             ->where('business_id', $businessId)
             ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
             ->where('payment_status', 'pendiente_cobro')
+            ->where('status', '!=', 'cancelled')
             ->orderByDesc('created_at')
             ->get();
 
