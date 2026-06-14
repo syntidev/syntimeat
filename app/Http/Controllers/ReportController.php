@@ -494,6 +494,14 @@ class ReportController extends Controller
             $utilidadReal   = round($ingresosTotal - $costoCanal, 2);
             $utilidadTotal  = round($utilidadReal + $valorRemanente, 2);
 
+            // Auto-cierre: canal sin remanente, completamente surtida y con ventas
+            $kgSurtido = (float) $canal->kg_surtido_vitrina;
+            $kgEntrada = (float) $canal->kg_entrada;
+            if ($kgRemanente <= 0 && $kgSurtido >= $kgEntrada && $ingresosTotal > 0) {
+                $canal->update(['closed_at' => now()]);
+                return null;
+            }
+
             return [
                 'boveda_entry_id' => $canal->id,
                 'tipo'            => $canal->product_type,
@@ -512,7 +520,7 @@ class ReportController extends Controller
                 'recuperado_pct'  => $costoCanal > 0 ? round(($ingresosTotal / $costoCanal) * 100, 1) : 0,
                 'productos'       => $productos,
             ];
-        });
+        })->filter()->values();
 
         return response()->json(['canales' => $resultado]);
     }
