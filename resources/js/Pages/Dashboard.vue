@@ -4,7 +4,7 @@ import HelpModal  from '@/Components/HelpModal.vue'
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { usePage } from '@inertiajs/vue3'
 import axios from 'axios'
-import { Receipt, BarChart2, AlertTriangle, CheckCircle, Package, Check, Bell, X, Layers } from '@lucide/vue'
+import { Receipt, BarChart2, AlertTriangle, CheckCircle, Package, Check, Bell, X, Layers, List } from '@lucide/vue'
 
 // ─── Props iniciales desde Inertia ────────────────────────────────────────────
 const props = defineProps({
@@ -145,6 +145,7 @@ const loadingCanales = ref(false)
 const canalChecks    = ref({})
 const historialCanales = ref([])
 const canalTab = ref('activos')
+const canalViewMode = ref('consolidado')
 const userRole = computed(() => usePage().props.auth?.user?.role ?? '')
 
 async function loadCanales() {
@@ -175,6 +176,70 @@ function canalUtilidad(canal) {
     return canalVendido(canal) - canal.costo_usd
 }
 
+const canalesConsolidadas = computed(() => {
+    const grupos = {}
+    for (const canal of canales.value) {
+        const tipo = canal.tipo
+        if (!grupos[tipo]) {
+            grupos[tipo] = {
+                tipo: tipo, count: 0, costo_usd: 0,
+                kg_remanente: 0, valor_remanente: 0,
+                boveda_entry_id: null, fecha_entrada: null,
+                productos_map: {},
+            }
+        }
+        const g = grupos[tipo]
+        g.count           += 1
+        g.costo_usd       += canal.costo_usd       ?? 0
+        g.kg_remanente    += canal.kg_remanente     ?? 0
+        g.valor_remanente += canal.valor_remanente  ?? 0
+        for (const prod of (canal.productos ?? [])) {
+            if (!g.productos_map[prod.nombre]) {
+                g.productos_map[prod.nombre] = {
+                    nombre: prod.nombre, product_id: prod.nombre,
+                    ingresos_usd: 0, kg_vendido_hoy: 0,
+                    kg_despiece: 0, kg_remanente: 0,
+                }
+            }
+            const gp = g.productos_map[prod.nombre]
+            gp.ingresos_usd   += prod.ingresos_usd   ?? 0
+            gp.kg_vendido_hoy += prod.kg_vendido_hoy ?? 0
+            gp.kg_despiece    += prod.kg_despiece     ?? 0
+            gp.kg_remanente   += prod.kg_remanente    ?? 0
+        }
+    }
+    return Object.values(grupos).map(g => {
+        const productos   = Object.values(g.productos_map)
+        const vendido_usd = productos.reduce((s, p) => s + (p.ingresos_usd ?? 0), 0)
+        return {
+            tipo: g.tipo, count: g.count,
+            boveda_entry_id: null, fecha_entrada: null,
+            costo_usd:       Math.round(g.costo_usd * 100) / 100,
+            kg_remanente:    Math.round(g.kg_remanente * 1000) / 1000,
+            valor_remanente: Math.round(g.valor_remanente * 100) / 100,
+            vendido_usd:     Math.round(vendido_usd * 100) / 100,
+            utilidad_usd:    Math.round((vendido_usd - g.costo_usd) * 100) / 100,
+            pct_recuperado:  g.costo_usd > 0 ? Math.round(vendido_usd / g.costo_usd * 1000) / 10 : 0,
+            productos,
+        }
+    })
+})
+
+const canalesParaMostrar = computed(() =>
+    canalViewMode.value === 'consolidado'
+        ? canalesConsolidadas.value
+        : canales.value
+)
+
+function canalVendidoDisplay(canal) {
+    if (canalViewMode.value === 'consolidado') return canal.vendido_usd ?? 0
+    return canalVendido(canal)
+}
+function canalUtilidadDisplay(canal) {
+    if (canalViewMode.value === 'consolidado') return canal.utilidad_usd ?? 0
+    return canalUtilidad(canal)
+}
+
 async function cerrarCanal(boveda_entry_id) {
     if (!confirm('¿Confirma que este canal ya fue vendido completamente y desea enviarlo al historial?')) return
     try {
@@ -185,7 +250,7 @@ async function cerrarCanal(boveda_entry_id) {
         const res = await axios.get('/reportes/canal-rendimiento', { withCredentials: true })
         canales.value = res.data.canales ?? []
         const h = await axios.get('/reportes/canal-historial', { withCredentials: true })
-        historialCanales.value = h.data.historial ?? []
+        historialCanales.value = h.data.canales ?? []
     } catch (e) {
         alert(e.response?.data?.message ?? 'Error al cerrar el canal.')
     }
@@ -195,7 +260,7 @@ onMounted(async () => {
     loadCanales()
     try {
         const h = await axios.get('/reportes/canal-historial', { withCredentials: true })
-        historialCanales.value = h.data.historial ?? []
+        historialCanales.value = h.data.canales ?? []
     } catch (e) {
         console.error('Error cargando historial canales', e)
     }
@@ -379,6 +444,10 @@ function dismissBankingAlert() {
                         :class="{ 'canal-tab-active': canalTab === 'historial' }"
                         @click="canalTab = 'historial'"
                     >Historial</button>
+                    <div v-if="canalTab === 'activos'" class="canal-view-toggle">
+                        <button class="view-btn" :class="{ 'view-btn--active': canalViewMode === 'consolidado' }" @click="canalViewMode = 'consolidado'"><Layers :size="14" /> Consolidado</button>
+                        <button class="view-btn" :class="{ 'view-btn--active': canalViewMode === 'detalle' }" @click="canalViewMode = 'detalle'"><List :size="14" /> Detalle</button>
+                    </div>
                 </div>
 
                 <div v-if="loadingCanales" class="canal-loading">Cargando canales…</div>
@@ -389,10 +458,13 @@ function dismissBankingAlert() {
 
                 <div v-else>
                 <div v-show="canalTab === 'activos'" class="canal-grid">
-                    <div v-for="canal in canales" :key="canal.boveda_entry_id" class="canal-card">
+                    <div v-for="canal in canalesParaMostrar" :key="canal.boveda_entry_id ?? canal.tipo" class="canal-card">
                         <div class="canal-header">
-                            <span class="canal-tipo">{{ canal.tipo }}</span>
-                            <span class="canal-fecha">{{ canal.fecha_entrada }}</span>
+                            <span class="canal-tipo">
+                                {{ canal.tipo }}
+                                <span v-if="canalViewMode === 'consolidado'" class="canal-count-badge">{{ canal.count }} {{ canal.count !== 1 ? 'canales' : 'canal' }}</span>
+                            </span>
+                            <span v-if="canalViewMode === 'detalle'" class="canal-fecha">{{ canal.fecha_entrada }}</span>
                             <span class="canal-costo">Costo: ${{ canal.costo_usd.toFixed(2) }}</span>
                         </div>
 
@@ -404,6 +476,7 @@ function dismissBankingAlert() {
                                 title="Marcar/desmarcar para incluir o excluir este producto del análisis"
                             >
                                 <input
+                                    v-if="canalViewMode === 'detalle'"
                                     type="checkbox"
                                     :checked="canalChecks[canal.boveda_entry_id]?.[prod.product_id] !== false"
                                     @change="toggleProd(canal.boveda_entry_id, prod.product_id)"
@@ -432,12 +505,12 @@ function dismissBankingAlert() {
                         <div class="canal-footer">
                             <div class="canal-stat">
                                 <span>Vendido</span>
-                                <strong>${{ canalVendido(canal).toFixed(2) }}</strong>
+                                <strong>${{ canalVendidoDisplay(canal).toFixed(2) }}</strong>
                             </div>
                             <div class="canal-stat">
                                 <span>Utilidad real</span>
-                                <strong :class="canalUtilidad(canal) >= 0 ? 'canal-pos' : 'canal-neg'">
-                                    ${{ canalUtilidad(canal).toFixed(2) }}
+                                <strong :class="canalUtilidadDisplay(canal) >= 0 ? 'canal-pos' : 'canal-neg'">
+                                    ${{ canalUtilidadDisplay(canal).toFixed(2) }}
                                 </strong>
                             </div>
                             <div class="canal-stat">
@@ -456,18 +529,18 @@ function dismissBankingAlert() {
                         <div class="canal-progress-bar">
                             <div
                                 class="canal-progress-fill"
-                                :class="canalVendido(canal) >= canal.costo_usd ? 'canal-progress-fill--pos' : 'canal-progress-fill--neg'"
-                                :style="{ width: Math.min(100, canal.costo_usd > 0 ? (canalVendido(canal) / canal.costo_usd) * 100 : 0) + '%' }"
+                                :class="canalVendidoDisplay(canal) >= canal.costo_usd ? 'canal-progress-fill--pos' : 'canal-progress-fill--neg'"
+                                :style="{ width: Math.min(100, canal.costo_usd > 0 ? (canalVendidoDisplay(canal) / canal.costo_usd) * 100 : 0) + '%' }"
                             />
                         </div>
                         <span
                             class="canal-margen-label"
-                            :class="canalVendido(canal) >= canal.costo_usd ? 'canal-pos' : 'canal-neg'"
+                            :class="canalVendidoDisplay(canal) >= canal.costo_usd ? 'canal-pos' : 'canal-neg'"
                         >
-                            {{ canal.costo_usd > 0 ? ((canalVendido(canal) / canal.costo_usd) * 100).toFixed(1) : '0.0' }}% recuperado del costo
+                            {{ canal.costo_usd > 0 ? ((canalVendidoDisplay(canal) / canal.costo_usd) * 100).toFixed(1) : '0.0' }}% recuperado del costo
                         </span>
                         <button
-                            v-if="['owner','super_admin','admin','branch_admin'].includes(userRole)"
+                            v-if="canalViewMode === 'detalle' && ['owner','super_admin','admin','branch_admin'].includes(userRole)"
                             class="btn-cerrar-canal"
                             @click="cerrarCanal(canal.boveda_entry_id)"
                         >
@@ -489,12 +562,12 @@ function dismissBankingAlert() {
                             <th>Cerrado</th>
                         </tr></thead>
                         <tbody>
-                            <tr v-for="h in historialCanales" :key="h.id">
-                                <td>{{ h.product_type }}</td>
-                                <td>{{ h.entered_at }}</td>
+                            <tr v-for="h in historialCanales" :key="h.boveda_entry_id">
+                                <td>{{ h.tipo }}</td>
+                                <td>{{ h.fecha_entrada }}</td>
                                 <td>{{ h.kg_entrada }} kg</td>
                                 <td>${{ h.costo_usd }}</td>
-                                <td>{{ h.closed_at ?? '—' }}</td>
+                                <td>{{ h.fecha_cierre ?? '—' }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1342,4 +1415,45 @@ function dismissBankingAlert() {
 }
 .canal-hist-table tr:last-child td { border-bottom: none; }
 .canal-hist-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+/* ─── Canal view toggle ──────────────────────────────────────────────────────*/
+.canal-view-toggle {
+    display: flex;
+    gap: 0.25rem;
+    background: var(--bg-base);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    padding: 0.2rem;
+    margin-left: auto;
+}
+.view-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.65rem;
+    border-radius: 0.35rem;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+    white-space: nowrap;
+}
+.view-btn--active {
+    background: var(--brand);
+    color: #fff;
+}
+.canal-count-badge {
+    background: rgba(255,255,255,0.15);
+    color: inherit;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.1rem 0.4rem;
+    border-radius: 999px;
+    margin-left: 0.25rem;
+    vertical-align: middle;
+}
 </style>

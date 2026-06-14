@@ -4,7 +4,7 @@ import { router, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 import AppLayout  from '@/Layouts/AppLayout.vue';
 import HelpModal  from '@/Components/HelpModal.vue';
-import { Warehouse, Scissors, Factory, CheckCircle2, Package, Printer, Pencil, Trash2 } from '@lucide/vue';
+import { Warehouse, Scissors, Factory, CheckCircle2, Package, Printer, Pencil, Trash2, ChevronLeft, ChevronRight, MoreVertical } from '@lucide/vue';
 
 const props = defineProps({
     activas:          { type: Array,  default: () => [] },
@@ -209,6 +209,7 @@ onMounted(() => {
         despiecePendiente.value = JSON.parse(saved);
         sessionStorage.removeItem(DESPIECE_KEY);
     }
+    document.addEventListener('click', () => { openActionsMenu.value = null });
 });
 
 function openSurtir(entry) {
@@ -461,6 +462,76 @@ const localBovedaProducts = ref([...props.bovedaProducts]);
 // ─── Ayuda ────────────────────────────────────────────────────────────────────
 const showHelp = ref(false);
 
+// ─── Búsqueda, filtros y paginación ──────────────────────────────────────────
+const searchActivas    = ref('')
+const searchHistorial  = ref('')
+const searchProductos  = ref('')
+const filterTipo       = ref('todos')
+const pageActivas      = ref(1)
+const pageHistorial    = ref(1)
+const perPage          = 10
+
+const tiposDisponibles = computed(() => {
+    const tipos = [...new Set(props.activas.map(e => e.product_type))]
+    return ['todos', ...tipos]
+})
+
+const filteredActivas = computed(() =>
+    props.activas.filter(e =>
+        e.product_type.toLowerCase().includes(searchActivas.value.toLowerCase()) ||
+        (e.supplier ?? '').toLowerCase().includes(searchActivas.value.toLowerCase())
+    )
+)
+
+const filteredActivasConTipo = computed(() =>
+    filterTipo.value === 'todos'
+        ? filteredActivas.value
+        : filteredActivas.value.filter(e => e.product_type === filterTipo.value)
+)
+
+const paginatedActivas = computed(() => {
+    const start = (pageActivas.value - 1) * perPage
+    return filteredActivasConTipo.value.slice(start, start + perPage)
+})
+
+const totalPagesActivas = computed(() =>
+    Math.ceil(filteredActivasConTipo.value.length / perPage)
+)
+
+const filteredHistorial = computed(() =>
+    props.historial.filter(e =>
+        e.product_type.toLowerCase().includes(searchHistorial.value.toLowerCase()) ||
+        (e.supplier ?? '').toLowerCase().includes(searchHistorial.value.toLowerCase())
+    )
+)
+
+const paginatedHistorial = computed(() => {
+    const start = (pageHistorial.value - 1) * perPage
+    return filteredHistorial.value.slice(start, start + perPage)
+})
+
+const totalPagesHistorial = computed(() =>
+    Math.ceil(filteredHistorial.value.length / perPage)
+)
+
+const filteredProductos = computed(() =>
+    localBovedaProducts.value.filter(p =>
+        p.name.toLowerCase().includes(searchProductos.value.toLowerCase())
+    )
+)
+
+watch(searchActivas,   () => { pageActivas.value = 1 })
+watch(filterTipo,      () => { pageActivas.value = 1 })
+watch(searchHistorial, () => { pageHistorial.value = 1 })
+
+// ─── Acciones responsive ──────────────────────────────────────────────────────
+const openActionsMenu = ref(null)
+
+function toggleMenu(id) {
+    openActionsMenu.value = openActionsMenu.value === id ? null : id
+}
+function closeMenu() { openActionsMenu.value = null }
+
 const helpSteps = [
     {
         title: 'Tipos de entrada en Bóveda',
@@ -666,10 +737,12 @@ async function deactivateProduct(product) {
             <!-- Tabs -->
             <div class="tabs-row">
                 <button class="tab-btn" :class="{ active: tab === 'activas' }" @click="tab = 'activas'">
-                    Activas ({{ activas.length }})
+                    Activas
+                    <span class="tab-badge">{{ activas.length }}</span>
                 </button>
                 <button class="tab-btn" :class="{ active: tab === 'historial' }" @click="tab = 'historial'">
                     Historial
+                    <span class="tab-badge">{{ historial.length }}</span>
                 </button>
                 <button class="tab-btn" :class="{ active: tab === 'productos' }" @click="tab = 'productos'">
                     Productos bóveda ({{ localBovedaProducts.length }})
@@ -679,9 +752,20 @@ async function deactivateProduct(product) {
 
             <!-- Tabla Activas -->
             <div v-if="tab === 'activas'">
+                <div v-if="activas.length" class="tab-toolbar">
+                    <input v-model="searchActivas" class="search-input" placeholder="Buscar por producto o proveedor..." />
+                    <select v-model="filterTipo" class="filter-select">
+                        <option v-for="t in tiposDisponibles" :key="t" :value="t">{{ t === 'todos' ? 'Todos los tipos' : t }}</option>
+                    </select>
+                    <span class="result-count">{{ filteredActivasConTipo.length }} registro(s)</span>
+                </div>
                 <div v-if="!activas.length" class="empty-state">
                     <div class="empty-icon"><Package :size="36" /></div>
                     <p>No hay entradas activas en bóveda.</p>
+                </div>
+                <div v-else-if="!filteredActivasConTipo.length" class="empty-state">
+                    <div class="empty-icon"><Package :size="36" /></div>
+                    <p>Sin resultados para la búsqueda.</p>
                 </div>
                 <div v-else class="table-wrap">
                     <table class="bov-table">
@@ -699,7 +783,7 @@ async function deactivateProduct(product) {
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="e in activas" :key="e.id">
+                            <tr v-for="e in paginatedActivas" :key="e.id">
                                 <td>{{ e.description || '—' }}</td>
                                 <td><span class="product-badge">{{ e.product_type }}</span></td>
                                 <td class="num">{{ fmtKg2(e.kg_entrada) }}</td>
@@ -711,48 +795,48 @@ async function deactivateProduct(product) {
                                 <td class="col-proveedor">{{ e.supplier || '—' }}</td>
                                 <td class="date-col col-fecha">{{ e.entered_at }}</td>
                                 <td class="actions-col">
-                                    <button
-                                        class="btn-sm btn-edit"
-                                        @click="openEdit(e)"
-                                        title="Editar entrada"
-                                    ><Pencil :size="12" style="vertical-align:middle;margin-right:3px;" />Editar</button>
-                                    <button
-                                        class="btn-sm btn-surtir"
-                                        :disabled="e.kg_disponible <= 0"
-                                        @click="openSurtir(e)"
-                                        title="Registrar peso y surtir a vitrina"
-                                    >Surtir</button>
-                                    <a
-                                        v-if="e.requires_despiece && e.kg_surtido_vitrina > 0"
-                                        :href="route('boveda.plantilla', { entry: e.id })"
-                                        target="_blank"
-                                        class="btn-sm btn-plantilla"
-                                        title="Imprimir planilla de despiece"
-                                    ><Printer :size="13" style="vertical-align:middle;margin-right:4px;" />Planilla</a>
-                                    <button
-                                        class="btn-sm btn-close"
-                                        :disabled="closing === e.id"
-                                        @click="closeEntry(e)"
-                                        title="Mover al historial"
-                                    >Mover a Historial</button>
-                                    <button
-                                        v-if="e.kg_surtido_vitrina === 0"
-                                        class="btn-sm btn-danger"
-                                        @click="openDelete(e)"
-                                        title="Eliminar entrada"
-                                    ><Trash2 :size="12" style="vertical-align:middle;margin-right:3px;" />Eliminar</button>
+                                    <div class="actions-inline">
+                                        <button class="btn-sm btn-edit" @click="openEdit(e)" title="Editar entrada"><Pencil :size="12" style="vertical-align:middle;margin-right:3px;" />Editar</button>
+                                        <button class="btn-sm btn-surtir" :disabled="e.kg_disponible <= 0" @click="openSurtir(e)" title="Registrar peso y surtir a vitrina">Surtir</button>
+                                        <a v-if="e.requires_despiece && e.kg_surtido_vitrina > 0" :href="route('boveda.plantilla', { entry: e.id })" target="_blank" class="btn-sm btn-plantilla" title="Imprimir planilla de despiece"><Printer :size="13" style="vertical-align:middle;margin-right:4px;" />Planilla</a>
+                                        <button class="btn-sm btn-close" :disabled="closing === e.id" @click="closeEntry(e)" title="Mover al historial">Mover a Historial</button>
+                                        <button v-if="e.kg_surtido_vitrina === 0" class="btn-sm btn-danger" @click="openDelete(e)" title="Eliminar entrada"><Trash2 :size="12" style="vertical-align:middle;margin-right:3px;" />Eliminar</button>
+                                    </div>
+                                    <div class="actions-menu">
+                                        <button class="btn-sm btn-edit actions-menu-toggle" @click.stop="toggleMenu(e.id)" title="Acciones"><MoreVertical :size="16" /></button>
+                                        <div v-if="openActionsMenu === e.id" class="actions-dropdown" @click.stop>
+                                            <button @click="openEdit(e); closeMenu()">Editar</button>
+                                            <button :disabled="e.kg_disponible <= 0" @click="openSurtir(e); closeMenu()">Surtir</button>
+                                            <a v-if="e.requires_despiece && e.kg_surtido_vitrina > 0" :href="route('boveda.plantilla', { entry: e.id })" target="_blank" class="dropdown-link" @click="closeMenu()">Planilla</a>
+                                            <button @click="closeEntry(e); closeMenu()">Mover a Historial</button>
+                                            <button v-if="e.kg_surtido_vitrina === 0" @click="openDelete(e); closeMenu()">Eliminar</button>
+                                        </div>
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
+                    <div class="pagination" v-if="totalPagesActivas > 1">
+                        <button :disabled="pageActivas === 1" @click="pageActivas--"><ChevronLeft :size="16" /></button>
+                        <span>{{ pageActivas }} / {{ totalPagesActivas }}</span>
+                        <button :disabled="pageActivas === totalPagesActivas" @click="pageActivas++"><ChevronRight :size="16" /></button>
+                    </div>
                 </div>
             </div>
 
             <!-- Historial -->
             <div v-if="tab === 'historial'">
+                <div v-if="historial.length" class="tab-toolbar">
+                    <input v-model="searchHistorial" class="search-input" placeholder="Buscar por producto o proveedor..." />
+                    <span class="result-count">{{ filteredHistorial.length }} registro(s)</span>
+                </div>
                 <div v-if="!historial.length" class="empty-state">
                     <div class="empty-icon"><Package :size="36" /></div>
                     <p>Sin entradas cerradas aún.</p>
+                </div>
+                <div v-else-if="!filteredHistorial.length" class="empty-state">
+                    <div class="empty-icon"><Package :size="36" /></div>
+                    <p>Sin resultados para la búsqueda.</p>
                 </div>
                 <div v-else class="table-wrap">
                     <table class="bov-table">
@@ -770,7 +854,7 @@ async function deactivateProduct(product) {
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="e in historial" :key="e.id" class="row-closed">
+                            <tr v-for="e in paginatedHistorial" :key="e.id" class="row-closed">
                                 <td>{{ e.description || '—' }}</td>
                                 <td><span class="product-badge">{{ e.product_type }}</span></td>
                                 <td class="num">{{ fmtKg2(e.kg_entrada) }}</td>
@@ -789,6 +873,11 @@ async function deactivateProduct(product) {
                             </tr>
                         </tbody>
                     </table>
+                    <div class="pagination" v-if="totalPagesHistorial > 1">
+                        <button :disabled="pageHistorial === 1" @click="pageHistorial--"><ChevronLeft :size="16" /></button>
+                        <span>{{ pageHistorial }} / {{ totalPagesHistorial }}</span>
+                        <button :disabled="pageHistorial === totalPagesHistorial" @click="pageHistorial++"><ChevronRight :size="16" /></button>
+                    </div>
                 </div>
             </div>
 
@@ -796,7 +885,10 @@ async function deactivateProduct(product) {
             <div v-if="tab === 'productos'">
                 <div class="products-header">
                     <p class="products-hint">Catálogo de productos bóveda. Los activos aparecen en el selector de nuevas entradas.</p>
-                    <button class="btn-brand" @click="openNewProduct">+ Agregar producto</button>
+                    <div class="products-toolbar">
+                        <input v-model="searchProductos" class="search-input" placeholder="Buscar producto..." />
+                        <button class="btn-brand" @click="openNewProduct">+ Agregar producto</button>
+                    </div>
                 </div>
                 <div v-if="!localBovedaProducts.length" class="empty-state">
                     <div class="empty-icon"><Package :size="36" /></div>
@@ -814,7 +906,7 @@ async function deactivateProduct(product) {
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="p in localBovedaProducts" :key="p.id" :class="{ 'row-closed': !p.active }">
+                            <tr v-for="p in filteredProductos" :key="p.id" :class="{ 'row-closed': !p.active }">
                                 <td>{{ p.name }}</td>
                                 <td><span class="unit-badge">{{ p.unit }}</span></td>
                                 <td>
@@ -1512,5 +1604,134 @@ async function deactivateProduct(product) {
     .modal-actions { flex-direction: column-reverse; }
     .modal-actions .btn-brand,
     .modal-actions .btn-ghost { width: 100%; justify-content: center; min-height: 44px; }
+}
+
+/* ─── Tab badge ─────────────────────────────────────────────────────────────*/
+.tab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(37,99,235,0.15);
+    color: var(--brand);
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.05rem 0.45rem;
+    margin-left: 0.4rem;
+    min-width: 1.2rem;
+}
+.tab-btn.active .tab-badge { background: var(--brand); color: #fff; }
+
+/* ─── Toolbar ────────────────────────────────────────────────────────────────*/
+.tab-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+.search-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 0.45rem 0.75rem;
+    background: var(--bg-base);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    font-family: inherit;
+}
+.search-input:focus { outline: none; border-color: var(--brand); }
+.filter-select {
+    padding: 0.45rem 0.75rem;
+    background: var(--bg-base);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    font-family: inherit;
+    cursor: pointer;
+}
+.result-count {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+.products-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+/* ─── Pagination ─────────────────────────────────────────────────────────────*/
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border);
+}
+.pagination button {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0.4rem;
+    padding: 0.3rem 0.5rem;
+    cursor: pointer;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    min-height: 32px;
+}
+.pagination button:disabled { opacity: 0.3; cursor: not-allowed; }
+.pagination button:not(:disabled):hover { border-color: var(--brand); color: var(--brand); }
+
+/* ─── Actions responsive ─────────────────────────────────────────────────────*/
+.actions-menu { position: relative; display: inline-block; }
+.actions-dropdown {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    z-index: 50;
+    min-width: 170px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    margin-top: 0.25rem;
+}
+.actions-dropdown button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    font-family: inherit;
+    min-height: 36px;
+}
+.actions-dropdown button:hover { background: rgba(255,255,255,0.05); }
+.actions-dropdown button:disabled { opacity: 0.4; cursor: not-allowed; }
+.dropdown-link {
+    display: block;
+    padding: 0.5rem 0.75rem;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    text-decoration: none;
+}
+.dropdown-link:hover { background: rgba(255,255,255,0.05); }
+@media (min-width: 769px) {
+    .actions-menu-toggle { display: none !important; }
+    .actions-inline { display: flex !important; gap: 0.4rem; }
+}
+@media (max-width: 768px) {
+    .actions-inline { display: none !important; }
+    .actions-menu-toggle { display: inline-flex !important; }
 }
 </style>

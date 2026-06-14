@@ -389,10 +389,38 @@ class ReportController extends Controller
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->whereDate('entered_at', '<=', $fecha)
             ->whereIn('product_type', ['RES - Medio Canal', 'CERDO - Canal', 'POLLO - Entero Congelado', 'JAMON - Pierna Sellado'])
+            ->whereNull('closed_at')
             ->orderByDesc('entered_at')
             ->get();
 
-        $resultado = $canales->map(function ($canal) use ($fecha, $businessId, $branchId) {
+        // Ingresos del día por product_id: una query para todas las canales
+        $ingresosDelDia = \DB::table('sale_items')
+            ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
+            ->where('sales.business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('sales.branch_id', $branchId))
+            ->where('sales.status', 'paid')
+            ->whereDate('sales.accounting_date', $fecha)
+            ->select(
+                'sale_items.product_id',
+                \DB::raw('SUM(sale_items.subtotal_usd) as total_usd'),
+                \DB::raw('SUM(sale_items.subtotal_bs)  as total_bs')
+            )
+            ->groupBy('sale_items.product_id')
+            ->get()
+            ->keyBy('product_id');
+
+        // Kg despiezado total por product_id en TODAS las canales (para calcular proporción)
+        $kgTotalPorProducto = \DB::table('inventory_entries')
+            ->where('business_id', $businessId)
+            ->whereIn('boveda_entry_id', $canales->pluck('id'))
+            ->where('quantity_kg', '>', 0)
+            ->where('location', 'vitrina')
+            ->select('product_id', \DB::raw('SUM(quantity_kg) as total_kg'))
+            ->groupBy('product_id')
+            ->get()
+            ->keyBy('product_id');
+
+        $resultado = $canales->map(function ($canal) use ($fecha, $businessId, $branchId, $ingresosDelDia, $kgTotalPorProducto) {
             // Productos despiezados de esta canal: inventory_entries con boveda_entry_id = canal.id,
             // quantity_kg > 0, location = 'vitrina' (las entradas positivas de cortes)
             $despiezadosRaw = \App\Models\InventoryEntry::where('business_id', $businessId)
@@ -404,7 +432,7 @@ class ReportController extends Controller
                 ->get();
 
             // Mapear a productos con sus datos
-            $productos = $despiezadosRaw->map(function ($entry) use ($fecha, $businessId, $branchId) {
+            $productos = $despiezadosRaw->map(function ($entry) use ($fecha, $businessId, $branchId, $ingresosDelDia, $kgTotalPorProducto) {
                 $prod = \App\Models\Product::find($entry->product_id);
                 if (!$prod) {
                     return null;
@@ -434,19 +462,16 @@ class ReportController extends Controller
                           ->orWhere('stock_product_id', $prod->id);
                     })->pluck('id');
 
-                $ingresosHoy = (float) \App\Models\SaleItem::whereHas('sale', function ($q) use ($businessId, $branchId, $fecha) {
-                    $q->where('business_id', $businessId)
-                      ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
-                      ->where('status', 'paid')
-                      ->whereDate('accounting_date', $fecha);
-                })->whereIn('product_id', $productIds)->sum('subtotal_usd');
+                // Ingresos totales hoy para este grupo de productos (ya pre-calculados)
+                $totalUsdProducto = $productIds->sum(fn ($pid) => (float) ($ingresosDelDia[$pid]->total_usd ?? 0));
+                $totalBsProducto  = $productIds->sum(fn ($pid) => (float) ($ingresosDelDia[$pid]->total_bs  ?? 0));
 
-                $ingresosHoyBs = (float) \App\Models\SaleItem::whereHas('sale', function ($q) use ($businessId, $branchId, $fecha) {
-                    $q->where('business_id', $businessId)
-                      ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
-                      ->where('status', 'paid')
-                      ->whereDate('accounting_date', $fecha);
-                })->whereIn('product_id', $productIds)->sum('subtotal_bs');
+                // Atribución proporcional: esta canal recibe ingresos en proporción a sus kg despiezados
+                $kgEstaCanal   = (float) ($entry->kg_despiece ?? 0);
+                $kgTotalGlobal = (float) ($kgTotalPorProducto[$entry->product_id]->total_kg ?? 0);
+                $proporcion    = $kgTotalGlobal > 0 ? $kgEstaCanal / $kgTotalGlobal : 1.0;
+                $ingresosHoy   = $totalUsdProducto * $proporcion;
+                $ingresosHoyBs = $totalBsProducto  * $proporcion;
 
                 return [
                     'product_id'     => $prod->id,
@@ -1066,4 +1091,35 @@ HTML;
             $query->whereDate($column, '<=', $filters['fecha_hasta']);
         }
     }
+
+    // ─── Historial de canales cerradas ───────────────────────────────────────
+
+    public function canalHistorial(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $user       = Auth::user();
+        $businessId = $user->business->id;
+        $isAdmin    = in_array($user->role, ['super_admin', 'owner']);
+        $branchId   = $isAdmin ? null : $user->branch_id;
+
+        $canales = \App\Models\BovedaEntry::where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->whereNotNull('closed_at')
+            ->whereIn('product_type', ['RES - Medio Canal', 'CERDO - Canal', 'POLLO - Entero Congelado', 'JAMON - Pierna Sellado'])
+            ->orderByDesc('closed_at')
+            ->get()
+            ->map(fn ($c) => [
+                'boveda_entry_id' => $c->id,
+                'tipo'            => $c->product_type,
+                'descripcion'     => $c->description,
+                'fecha_entrada'   => $c->entered_at->format('d/m/Y'),
+                'fecha_cierre'    => $c->closed_at->format('d/m/Y'),
+                'kg_entrada'      => round((float) $c->kg_entrada, 2),
+                'kg_surtido'      => round((float) $c->kg_surtido_vitrina, 2),
+                'costo_usd'       => round((float) $c->costo_usd, 2),
+                'supplier'        => $c->supplier,
+            ]);
+
+        return response()->json(['canales' => $canales]);
+    }
+
 }
