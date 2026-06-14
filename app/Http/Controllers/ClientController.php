@@ -18,9 +18,14 @@ class ClientController extends Controller
 
     public function index(Request $request): Response
     {
-        $businessId = Auth::user()->business->id;
+        $user       = Auth::user();
+        $businessId = $user->business_id;
+        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? null);
 
         $query = Client::where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->withCount('sales')
             ->withMax('sales', 'sold_at');
 
@@ -34,31 +39,34 @@ class ClientController extends Controller
 
         $clients = $query->orderBy('name')->paginate(20)->withQueryString();
 
-        // KPIs
-        $total     = Client::where('business_id', $businessId)->count();
-        $newMonth  = Client::where('business_id', $businessId)
+        $kpiBase    = Client::where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId));
+        $total      = (clone $kpiBase)->count();
+        $newMonth   = (clone $kpiBase)
             ->whereMonth('created_at', now()->month)
             ->whereYear('created_at', now()->year)
             ->count();
-        $identified = Sale::where('business_id', $businessId)
-            ->whereNotNull('client_id')
-            ->count();
-        $anonymous  = Sale::where('business_id', $businessId)
-            ->whereNull('client_id')
-            ->count();
+        $saleBase   = Sale::where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId));
+        $identified = (clone $saleBase)->whereNotNull('client_id')->count();
+        $anonymous  = (clone $saleBase)->whereNull('client_id')->count();
 
         return Inertia::render('Clients/Index', [
-            'clients'       => $clients,
-            'kpis'          => compact('total', 'newMonth', 'identified', 'anonymous'),
-            'filters'       => ['q' => $request->get('q', '')],
+            'clients' => $clients,
+            'kpis'    => compact('total', 'newMonth', 'identified', 'anonymous'),
+            'filters' => ['q' => $request->get('q', '')],
         ]);
     }
 
     // ─── Crear ────────────────────────────────────────────────────────────────
 
-    public function store(Request $request): \Illuminate\Http\RedirectResponse
+    public function store(Request $request): JsonResponse
     {
-        $businessId = Auth::user()->business->id;
+        $user       = Auth::user();
+        $businessId = $user->business_id;
+        $branchId   = $user->branch_id
+            ?? session('current_branch_id')
+            ?? \App\Models\Branch::where('business_id', $businessId)->orderBy('id')->value('id');
 
         $data = $request->validate([
             'cedula'  => ['nullable', 'string', 'max:20'],
@@ -75,7 +83,7 @@ class ClientController extends Controller
                 ->exists();
 
             if ($exists) {
-                return back()->withErrors(['cedula' => 'Ya existe un cliente con esa cédula.']);
+                return response()->json(['errors' => ['cedula' => ['Ya existe un cliente con esa cédula.']]], 422);
             }
         }
 
@@ -85,20 +93,24 @@ class ClientController extends Controller
                 ->exists();
 
             if ($exists) {
-                return back()->withErrors(['phone' => 'Ya existe un cliente con ese teléfono.']);
+                return response()->json(['errors' => ['phone' => ['Ya existe un cliente con ese teléfono.']]], 422);
             }
         }
 
-        Client::create(['business_id' => $businessId, ...$data]);
+        $client = Client::create([
+            ...$data,
+            'business_id' => $businessId,
+            'branch_id'   => $branchId,
+        ]);
 
-        return back();
+        return response()->json(['ok' => true, 'id' => $client->id]);
     }
 
     // ─── Actualizar ───────────────────────────────────────────────────────────
 
-    public function update(Request $request, Client $client): \Illuminate\Http\RedirectResponse
+    public function update(Request $request, Client $client): JsonResponse
     {
-        $businessId = Auth::user()->business->id;
+        $businessId = Auth::user()->business_id;
         abort_unless($client->business_id === $businessId, 403);
 
         $data = $request->validate([
@@ -118,7 +130,7 @@ class ClientController extends Controller
                 ->exists();
 
             if ($exists) {
-                return back()->withErrors(['cedula' => 'Ya existe un cliente con esa cédula.']);
+                return response()->json(['errors' => ['cedula' => ['Ya existe un cliente con esa cédula.']]], 422);
             }
         }
 
@@ -129,20 +141,36 @@ class ClientController extends Controller
                 ->exists();
 
             if ($exists) {
-                return back()->withErrors(['phone' => 'Ya existe un cliente con ese teléfono.']);
+                return response()->json(['errors' => ['phone' => ['Ya existe un cliente con ese teléfono.']]], 422);
             }
         }
 
         $client->update($data);
 
-        return back();
+        return response()->json(['ok' => true]);
+    }
+
+    // ─── Eliminar ─────────────────────────────────────────────────────────────
+
+    public function destroy(Client $client): JsonResponse
+    {
+        $businessId = Auth::user()->business_id;
+        abort_unless($client->business_id === $businessId, 403);
+
+        if ($client->sales()->exists()) {
+            $client->update(['active' => false]);
+            return response()->json(['ok' => true, 'deactivated' => true, 'message' => 'Cliente desactivado (tiene ventas asociadas).']);
+        }
+
+        $client->delete();
+        return response()->json(['ok' => true, 'deactivated' => false]);
     }
 
     // ─── Detalle + historial ──────────────────────────────────────────────────
 
     public function show(Client $client): Response
     {
-        $businessId = Auth::user()->business->id;
+        $businessId = Auth::user()->business_id;
         abort_unless($client->business_id === $businessId, 403);
 
         $sales = Sale::where('client_id', $client->id)
@@ -152,11 +180,11 @@ class ClientController extends Controller
             ->get();
 
         return Inertia::render('Clients/Index', [
-            'client'        => $client,
-            'clientSales'   => $sales,
-            'clients'       => [],
-            'kpis'          => null,
-            'filters'       => ['q' => ''],
+            'client'      => $client,
+            'clientSales' => $sales,
+            'clients'     => [],
+            'kpis'        => null,
+            'filters'     => ['q' => ''],
         ]);
     }
 
@@ -164,14 +192,20 @@ class ClientController extends Controller
 
     public function search(Request $request): JsonResponse
     {
-        $businessId = Auth::user()->business->id;
-        $q          = $request->get('q', '');
+        $user       = Auth::user();
+        $businessId = $user->business_id;
+        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? null);
+
+        $q = $request->get('q', '');
 
         if (strlen($q) < 2) {
             return response()->json([]);
         }
 
         $clients = Client::where('business_id', $businessId)
+            ->when($branchId, fn ($q2) => $q2->where('branch_id', $branchId))
             ->where('active', true)
             ->where(function ($query) use ($q) {
                 $query->where('name', 'like', "%{$q}%")

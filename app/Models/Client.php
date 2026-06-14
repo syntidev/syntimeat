@@ -12,6 +12,7 @@ class Client extends Model
 {
     protected $fillable = [
         'business_id',
+        'branch_id',
         'cedula',
         'name',
         'phone',

@@ -17,6 +17,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\QzController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SaleController;
+use App\Http\Controllers\ExportController;
 use App\Http\Controllers\FabricaController;
 use App\Http\Controllers\TeamController;
 use Illuminate\Foundation\Application;
@@ -138,6 +139,7 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
         Route::post('/clientes', [ClientController::class, 'store'])->name('clients.store');
         Route::get('/clientes/{client}', [ClientController::class, 'show'])->name('clients.show');
         Route::put('/clientes/{client}', [ClientController::class, 'update'])->name('clients.update');
+        Route::delete('/clientes/{client}', [ClientController::class, 'destroy'])->name('clients.destroy');
 
         // Pedidos
         Route::get('/pedidos', [OrderController::class, 'index'])->name('orders.index');
@@ -214,6 +216,7 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
         Route::put('/catalogo/subcategorias/{subcategory}', [CatalogController::class, 'updateSubcategory'])->name('catalog.subcategory.update');
         Route::delete('/catalogo/subcategorias/{subcategory}', [CatalogController::class, 'destroySubcategory'])->name('catalog.subcategory.destroy');
         Route::patch('/catalogo/productos/{product}/favorito', [CatalogController::class, 'toggleFavorite'])->name('catalog.product.favorite');
+        Route::get('/exportar/catalogo', [ExportController::class, 'catalogo'])->name('export.catalogo');
 
         // Fábrica
         Route::get('/fabrica',           [FabricaController::class, 'index'])->name('fabrica.index');

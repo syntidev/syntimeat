@@ -545,6 +545,7 @@ const helpFaqs = [
                     >Categorías</button>
                 </div>
                 <div v-if="mainTab === 'products'" class="header-actions">
+                    <a :href="route('export.catalogo')" class="btn-export" target="_blank">Exportar Excel</a>
                     <button class="btn-import" @click="openImportModal">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                         Importar
@@ -1896,4 +1897,21 @@ const helpFaqs = [
     color: var(--text-muted);
     font-variant-numeric: tabular-nums;
 }
+
+.btn-export {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.9rem;
+    background: rgba(34, 197, 94, 0.12);
+    color: #16a34a;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-radius: 0.5rem;
+    font-size: 0.82rem;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.btn-export:hover { background: rgba(34, 197, 94, 0.22); }
 </style>
