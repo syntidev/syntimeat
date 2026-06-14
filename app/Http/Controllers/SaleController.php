@@ -141,8 +141,9 @@ class SaleController extends Controller
             'items.*.quantity_value' => ['sometimes', 'numeric', 'min:0.001'],
             'origin'                 => ['sometimes', 'string', 'in:onsite,delivery,credit'],
             'channel'                => ['sometimes', 'string', 'in:physical,online'],
-            'client_name'            => ['required_if:origin,credit,delivery', 'nullable', 'string', 'max:100'],
+            'client_name'            => ['nullable', 'string', 'max:100'],
             'client_phone'           => ['nullable', 'string', 'max:30'],
+            'client_id'              => ['nullable', 'integer'],
         ]);
 
         $user       = Auth::user();
@@ -242,6 +243,21 @@ class SaleController extends Controller
         $origin  = $data['origin']  ?? 'onsite';
         $channel = $data['channel'] ?? 'physical';
 
+        // Cliente obligatorio para crédito/delivery (validación explícita — robusta ante empty→null)
+        if (in_array($origin, ['credit', 'delivery'], true) && blank($data['client_name'] ?? null)) {
+            return response()->json(['error' => 'Cliente obligatorio para crédito/delivery.'], 422);
+        }
+
+        // Verificar client_id contra el negocio (igual que pay())
+        $clientId = null;
+        if (! empty($data['client_id'])) {
+            $exists = \App\Models\Client::where('id', $data['client_id'])
+                ->where('business_id', $businessId)
+                ->exists();
+            abort_unless($exists, 403, 'Cliente no pertenece al negocio.');
+            $clientId = (int) $data['client_id'];
+        }
+
         // Caja activa del branch (delivery/crédito pueden no tener caja — continúa sin bloquear)
         $cashRegister = CashRegister::resolveActive($businessId, $branchId, session('active_cash_register_id'));
 
@@ -253,7 +269,7 @@ class SaleController extends Controller
                 : $nowCredit->toDateString();
 
             $sale = DB::transaction(function () use (
-                $businessId, $branchId, $user, $ticketNumber, $totalUsd, $totalBs, $itemsToCreate, $channel, $rate, $cashRegister, $accountingDate
+                $businessId, $branchId, $user, $ticketNumber, $totalUsd, $totalBs, $itemsToCreate, $channel, $rate, $cashRegister, $accountingDate, $data, $clientId
             ) {
 
                 $sale = Sale::create([
@@ -270,6 +286,9 @@ class SaleController extends Controller
                     'cashier_id'      => $user->id,
                     'origin'          => 'credit',
                     'channel'         => $channel,
+                    'client_name'     => $data['client_name']  ?? null,
+                    'client_phone'    => $data['client_phone'] ?? null,
+                    'client_id'       => $clientId,
                     'cash_register_id' => $cashRegister?->id,
                 ]);
 
@@ -314,7 +333,7 @@ class SaleController extends Controller
 
         $status  = $origin === 'delivery' ? 'pending' : 'open';
 
-        $sale = DB::transaction(function () use ($businessId, $branchId, $user, $ticketNumber, $totalUsd, $totalBs, $itemsToCreate, $origin, $channel, $status, $data, $cashRegister) {
+        $sale = DB::transaction(function () use ($businessId, $branchId, $user, $ticketNumber, $totalUsd, $totalBs, $itemsToCreate, $origin, $channel, $status, $data, $cashRegister, $clientId) {
             $sale = Sale::create([
                 'business_id'     => $businessId,
                 'branch_id'       => $branchId,
@@ -327,6 +346,7 @@ class SaleController extends Controller
                 'channel'         => $channel,
                 'client_name'     => $data['client_name']  ?? null,
                 'client_phone'    => $data['client_phone'] ?? null,
+                'client_id'       => $clientId,
                 'cash_register_id'=> $cashRegister?->id,
             ]);
 

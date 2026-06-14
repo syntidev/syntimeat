@@ -465,7 +465,13 @@ function confirmPay() {
 
     // ── Delivery: crea pedido pendiente, sin cobro inmediato ─────────────────
     if (saleOrigin.value === 'delivery') {
-        window.axios.post(route('sales.store'), { items, origin: 'delivery' })
+        window.axios.post(route('sales.store'), {
+            items,
+            origin: 'delivery',
+            client_id:    clientId.value || null,
+            client_name:  clientName.value.trim() || null,
+            client_phone: clientPhone.value.trim() || null,
+        })
             .then(({ data }) => {
                 if (!data.sale) throw new Error('Sin venta');
                 successTicket.value   = data.sale.ticket_number;
