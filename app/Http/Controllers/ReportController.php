@@ -747,16 +747,13 @@ class ReportController extends Controller
 
     private function buildDayData(int $businessId, string $fecha, array $categoryIds, ?int $branchId = null): array
     {
+        // Incluir paid y pending: ventas devengadas en la fecha (devengo vs cobro)
         $sales = Sale::where('business_id', $businessId)
-            ->where('status', 'paid')
-            ->where(function ($q) {
-                $q->whereNull('payment_status')
-                  ->orWhere('payment_status', '!=', 'pendiente_cobro');
-            })
+            ->whereIn('status', ['paid', 'pending'])
             ->whereDate('accounting_date', $fecha)
             ->when($branchId !== null, fn ($q) => $q->where('branch_id', $branchId))
             ->with(['items.product.category'])
-            ->get(['id', 'rate_used']);
+            ->get(['id', 'rate_used', 'status', 'total_bs', 'total_usd']);
 
         // Costo real: costo total bóveda del día / kg totales entrada
         $bovedaDia = DB::table('boveda_entries')
@@ -810,6 +807,7 @@ class ReportController extends Controller
                 if (!isset($byProd[$catId][$prodId])) {
                     $byProd[$catId][$prodId] = [
                         'producto'    => $prodName,
+                        'sale_mode'   => $item->product?->sale_mode ?? 'weight',
                         'kg'          => 0.0,
                         'vendido_usd' => 0.0,
                         'vendido_bs'  => 0.0,
@@ -841,6 +839,7 @@ class ReportController extends Controller
                 'productos'    => collect($byProd[$catId] ?? [])
                     ->map(fn (array $p): array => [
                         'producto'    => $p['producto'],
+                        'sale_mode'   => $p['sale_mode'],
                         'kg'          => round($p['kg'], 3),
                         'vendido_usd' => round($p['vendido_usd'], 2),
                         'vendido_bs'  => round($p['vendido_bs'], 2),
@@ -861,15 +860,39 @@ class ReportController extends Controller
             ? round(($totUtilidadUsd / $totVendidoUsd) * 100, 1)
             : 0.0;
 
+        // Totales separados: cobrado (paid) vs devengado (paid+pending)
+        $cobradoBs  = round((float) $sales->where('status', 'paid')->sum('total_bs'), 2);
+        $cobradoUsd = round((float) $sales->where('status', 'paid')->sum('total_usd'), 2);
+        $creditoBs  = round((float) $sales->where('status', 'pending')->sum('total_bs'), 2);
+        $creditoUsd = round((float) $sales->where('status', 'pending')->sum('total_usd'), 2);
+
+        // Ticket stats por status
+        $ticketStats = DB::table('sales')
+            ->where('business_id', $businessId)
+            ->when($branchId !== null, fn ($q) => $q->where('branch_id', $branchId))
+            ->whereDate('accounting_date', $fecha)
+            ->selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->get()
+            ->keyBy('status');
+
         return [
             'categories' => $categories,
+            'fecha'      => $fecha,
             'totals'     => [
-                'vendido_usd'  => round($totVendidoUsd, 2),
-                'vendido_bs'   => round($totVendidoBs, 2),
-                'costo_usd'    => round($totCostoUsd, 2),
-                'utilidad_usd' => round($totUtilidadUsd, 2),
-                'utilidad_bs'  => round($totUtilidadBs, 2),
-                'margen_pct'   => $totMargen,
+                'vendido_usd'        => round($totVendidoUsd, 2),
+                'vendido_bs'         => round($totVendidoBs, 2),
+                'cobrado_usd'        => $cobradoUsd,
+                'cobrado_bs'         => $cobradoBs,
+                'credito_usd'        => $creditoUsd,
+                'credito_bs'         => $creditoBs,
+                'costo_usd'          => round($totCostoUsd, 2),
+                'utilidad_usd'       => round($totUtilidadUsd, 2),
+                'utilidad_bs'        => round($totUtilidadBs, 2),
+                'margen_pct'         => $totMargen,
+                'tickets_paid'       => (int) ($ticketStats->get('paid')?->total ?? 0),
+                'tickets_cancelled'  => (int) ($ticketStats->get('cancelled')?->total ?? 0),
+                'tickets_pending'    => (int) ($ticketStats->get('pending')?->total ?? 0),
             ],
         ];
     }
@@ -880,7 +903,11 @@ class ReportController extends Controller
     {
         $businessName = htmlspecialchars($business->name ?? '');
         $cashierName  = htmlspecialchars($cashier->name ?? '');
+        $branchName   = htmlspecialchars($cashier->branch?->name ?? '');
         $fechaLabel   = date('d/m/Y', strtotime($fecha));
+        $rate         = (float) $this->rates->getTodayRate();
+        $rateLabel    = number_format($rate, 2);
+        $generatedAt  = now()->format('d/m/Y H:i');
 
         $logoHtml = '';
         if (!empty($business->logo_path)) {
@@ -893,68 +920,109 @@ class ReportController extends Controller
             }
         }
 
+        $tdP = 'padding:4px 8px;border:1px solid #ddd;';
         $rows = '';
         foreach ($categories as $cat) {
-            $utilColor = $cat['utilidad_usd'] >= 0 ? '#16a34a' : '#dc2626';
-            $catName   = htmlspecialchars($cat['categoria']);
-            $rows .= '<tr>'
-                . '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">' . $catName . '</td>'
-                . '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:right;">Bs. ' . number_format($cat['vendido_bs'], 2) . '</td>'
-                . '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:right;">$ ' . number_format($cat['costo_usd'], 2) . '</td>'
-                . '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:right;color:' . $utilColor . ';">$ ' . number_format($cat['utilidad_usd'], 2) . '</td>'
-                . '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:right;">' . $cat['margen_pct'] . '%</td>'
-                . '</tr>';
+            $catName = htmlspecialchars($cat['categoria']);
+            $rows .= '<tr><td colspan="4" style="padding:5px 8px;background:#f0f0f0;font-weight:bold;'
+                   . 'font-size:11px;border:1px solid #ccc;letter-spacing:0.02em;">'
+                   . strtoupper($catName) . '</td></tr>';
+
+            foreach ($cat['productos'] as $prod) {
+                $prodName = htmlspecialchars($prod['producto']);
+                $qty = ($prod['sale_mode'] ?? 'weight') === 'unit'
+                    ? number_format((float) $prod['kg'], 0) . ' und'
+                    : number_format((float) $prod['kg'], 3) . ' kg';
+                $rows .= '<tr>'
+                    . '<td style="' . $tdP . 'padding-left:20px;">' . $prodName . '</td>'
+                    . '<td style="' . $tdP . 'text-align:right;">' . $qty . '</td>'
+                    . '<td style="' . $tdP . 'text-align:right;">Bs. ' . number_format((float) $prod['vendido_bs'], 2) . '</td>'
+                    . '<td style="' . $tdP . 'text-align:right;">$ ' . number_format((float) $prod['vendido_usd'], 2) . '</td>'
+                    . '</tr>';
+            }
+
+            $catKg = array_sum(array_column($cat['productos'], 'kg'));
+            $rows .= '<tr style="background:#e8e8e8;font-weight:bold;">'
+                . '<td style="' . $tdP . '">Subtotal ' . $catName . '</td>'
+                . '<td style="' . $tdP . 'text-align:right;">' . number_format($catKg, 3) . ' kg</td>'
+                . '<td style="' . $tdP . 'text-align:right;">Bs. ' . number_format((float) $cat['vendido_bs'], 2) . '</td>'
+                . '<td style="' . $tdP . 'text-align:right;">$ ' . number_format((float) $cat['vendido_usd'], 2) . '</td>'
+                . '</tr>'
+                . '<tr><td colspan="4" style="height:4px;border:none;"></td></tr>';
         }
 
-        $totalColor   = $totals['utilidad_usd'] >= 0 ? '#16a34a' : '#dc2626';
-        $totVendidoBs = 'Bs. ' . number_format($totals['vendido_bs'], 2);
-        $totCostoUsd  = '$ '   . number_format($totals['costo_usd'], 2);
-        $totUtilidad  = '$ '   . number_format($totals['utilidad_usd'], 2);
-        $totMargen    = $totals['margen_pct'] . '%';
-        $generatedAt  = now()->format('d/m/Y H:i');
+        $ticketsPaid      = (int) ($totals['tickets_paid'] ?? 0);
+        $ticketsCancelled = (int) ($totals['tickets_cancelled'] ?? 0);
+        $ticketsPending   = (int) ($totals['tickets_pending'] ?? 0);
+
+        // Totales contables
+        $cobradoBs  = 'Bs. ' . number_format((float) ($totals['cobrado_bs']  ?? $totals['vendido_bs']),  2);
+        $cobradoUsd = '$ '   . number_format((float) ($totals['cobrado_usd'] ?? $totals['vendido_usd']), 2);
+        $creditoBs  = 'Bs. ' . number_format((float) ($totals['credito_bs']  ?? 0), 2);
+        $creditoUsd = '$ '   . number_format((float) ($totals['credito_usd'] ?? 0), 2);
+        $devBs      = 'Bs. ' . number_format((float)  $totals['vendido_bs'],  2);
+        $devUsd     = '$ '   . number_format((float)  $totals['vendido_usd'], 2);
+
+        $haCredito = ($totals['credito_bs'] ?? 0) > 0;
+        $creditRow = $haCredito
+            ? '<tr style="background:#fff8e1;">'
+              . '<td style="' . $tdP . 'color:#b45309;">Cr&#233;ditos despachados (pendiente cobro)</td>'
+              . '<td style="' . $tdP . 'text-align:right;"></td>'
+              . '<td style="' . $tdP . 'text-align:right;color:#b45309;">' . $creditoBs . '</td>'
+              . '<td style="' . $tdP . 'text-align:right;color:#b45309;">' . $creditoUsd . '</td>'
+              . '</tr>'
+            : '';
 
         return <<<HTML
 <!DOCTYPE html>
 <html lang="es">
 <head><meta charset="UTF-8"><style>
-  body { font-family: DejaVu Sans, sans-serif; font-size: 12px; color: #111827; margin: 0; padding: 20px; }
-  h1 { font-size: 18px; margin: 4px 0; }
-  h2 { font-size: 13px; font-weight: normal; color: #6b7280; margin: 2px 0 12px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-  th { background: #111827; color: #fff; padding: 8px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
-  th.r { text-align: right; }
-  .total-row td { background: #f9fafb; font-weight: bold; border-top: 2px solid #111827; }
-  .footer { margin-top: 24px; font-size: 10px; color: #9ca3af; text-align: right; }
+  body { font-family: Arial, sans-serif; font-size: 10px; color: #111; margin: 0; padding: 16px; }
+  h1 { font-size: 16px; margin: 2px 0; }
+  h2 { font-size: 11px; font-weight: normal; color: #555; margin: 2px 0 8px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  .total-row td { background: #1a1a2e; color: #fff; font-weight: bold; padding: 6px 8px; }
+  .footer { margin-top: 8px; font-size: 9px; color: #777; }
+  .sign { margin-top: 36px; border-top: 1px solid #aaa; width: 220px; padding-top: 4px; font-size: 9px; color: #555; }
+  .note { font-size: 8px; color: #888; margin-top: 6px; font-style: italic; }
 </style></head>
 <body>
-  <div style="margin-bottom:16px;">
+  <div style="margin-bottom:10px;">
     {$logoHtml}
     <h1>{$businessName}</h1>
-    <h2>Reporte del D&#237;a &#8212; {$fechaLabel}</h2>
-    <p style="margin:0;font-size:11px;color:#6b7280;">Cajero: {$cashierName}</p>
+    <h2>Reporte de Ventas &mdash; {$fechaLabel}</h2>
+    <p style="margin:0;font-size:10px;color:#555;">Tasa BCV: Bs.&nbsp;{$rateLabel}/USD &nbsp;|&nbsp; Sucursal: {$branchName} &nbsp;|&nbsp; Cajero: {$cashierName}</p>
   </div>
   <table>
     <thead>
-      <tr>
-        <th>Categor&#237;a</th>
-        <th class="r">Vendido Bs.</th>
-        <th class="r">Costo USD</th>
-        <th class="r">Utilidad USD</th>
-        <th class="r">Margen %</th>
+      <tr style="background:#333;color:#fff;">
+        <th style="padding:5px 8px;text-align:left;border:1px solid #555;">Producto</th>
+        <th style="padding:5px 8px;text-align:right;border:1px solid #555;">Cantidad</th>
+        <th style="padding:5px 8px;text-align:right;border:1px solid #555;">Total Bs.</th>
+        <th style="padding:5px 8px;text-align:right;border:1px solid #555;">Total USD</th>
       </tr>
     </thead>
     <tbody>
       {$rows}
+      <tr style="background:#2d5016;color:#fff;font-weight:bold;">
+        <td style="padding:5px 8px;">Ventas Cobradas &mdash; {$ticketsPaid} tickets</td>
+        <td></td>
+        <td style="padding:5px 8px;text-align:right;">{$cobradoBs}</td>
+        <td style="padding:5px 8px;text-align:right;">{$cobradoUsd}</td>
+      </tr>
+      {$creditRow}
       <tr class="total-row">
-        <td style="padding:8px;">TOTAL GENERAL</td>
-        <td style="padding:8px;text-align:right;">{$totVendidoBs}</td>
-        <td style="padding:8px;text-align:right;">{$totCostoUsd}</td>
-        <td style="padding:8px;text-align:right;color:{$totalColor};">{$totUtilidad}</td>
-        <td style="padding:8px;text-align:right;">{$totMargen}</td>
+        <td>Total Devengado del D&#237;a</td>
+        <td></td>
+        <td style="text-align:right;">{$devBs}</td>
+        <td style="text-align:right;">{$devUsd}</td>
       </tr>
     </tbody>
   </table>
-  <p class="footer">Generado el {$generatedAt} &#8212; SYNTImeat</p>
+  <p class="footer">Cobrados: {$ticketsPaid} &nbsp;|&nbsp; Anulados: {$ticketsCancelled} &nbsp;|&nbsp; Cr&#233;ditos/Delivery pendiente: {$ticketsPending}</p>
+  <p class="note">Las ventas a cr&#233;dito se registran en la fecha de despacho (devengo), independientemente de cu&#225;ndo se cobren.</p>
+  <p class="footer">Generado el {$generatedAt} &mdash; SYNTImeat</p>
+  <div class="sign">Firma responsable: ___________________________</div>
 </body>
 </html>
 HTML;

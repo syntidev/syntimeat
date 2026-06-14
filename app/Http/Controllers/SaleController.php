@@ -442,6 +442,7 @@ class SaleController extends Controller
         ) {
             $sale->update([
                 'status'              => 'paid',
+                'payment_status'      => 'paid',
                 'rate_used'           => $rate,
                 'total_bs'            => $totalBs,
                 'payment_method'      => substr($firstMethod->name, 0, 30),

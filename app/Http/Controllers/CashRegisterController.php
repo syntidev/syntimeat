@@ -394,17 +394,47 @@ class CashRegisterController extends Controller
             ->groupBy('boveda_entry_id')
             ->map(fn ($rows) => $rows->first()->category_name);
 
-        $bovedaActiva = BovedaEntry::active()
+        $bovedaEntries = BovedaEntry::active()
             ->where('business_id', $businessId)
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->where('created_at', '>=', $cashRegister->opened_at)
+            ->get();
+
+        // Kg despiezado a vitrina por boveda_entry_id (para atribución proporcional)
+        $kgPorBoveda = DB::table('inventory_entries')
+            ->where('business_id', $businessId)
+            ->whereIn('boveda_entry_id', $bovedaEntries->pluck('id'))
+            ->where('quantity_kg', '>', 0)
+            ->where('location', 'vitrina')
+            ->select('boveda_entry_id', DB::raw('SUM(quantity_kg) as kg_total'))
+            ->groupBy('boveda_entry_id')
             ->get()
-            ->map(function (BovedaEntry $entry) use ($bovedaCategoryMap, $categoryStats): array {
-                $catName    = $bovedaCategoryMap->get($entry->id);
-                $stats      = $catName ? $categoryStats->get($catName) : null;
-                $ventasUsd  = round((float) ($stats?->ventas_usd ?? 0), 2);
+            ->keyBy('boveda_entry_id');
+
+        // Kg total por categoría: suma de kg de todas las canales de esa categoría
+        $kgTotalPorCategoria = [];
+        foreach ($bovedaEntries as $be) {
+            $cn = $bovedaCategoryMap->get($be->id);
+            if ($cn) {
+                $kgTotalPorCategoria[$cn] = ($kgTotalPorCategoria[$cn] ?? 0.0)
+                    + (float) ($kgPorBoveda->get($be->id)?->kg_total ?? 0);
+            }
+        }
+
+        $bovedaActiva = $bovedaEntries
+            ->map(function (BovedaEntry $entry) use ($bovedaCategoryMap, $categoryStats, $kgPorBoveda, $kgTotalPorCategoria): array {
+                $catName      = $bovedaCategoryMap->get($entry->id);
+                $stats        = $catName ? $categoryStats->get($catName) : null;
+                $ventasTotUsd = (float) ($stats?->ventas_usd ?? 0);
+
+                // Atribución proporcional: esta canal recibe ingresos en proporción a sus kg despiezados
+                $kgEstaCanal = (float) ($kgPorBoveda->get($entry->id)?->kg_total ?? 0);
+                $kgTotalPool = (float) ($catName ? ($kgTotalPorCategoria[$catName] ?? 0) : 0);
+                $proporcion  = $kgTotalPool > 0 ? $kgEstaCanal / $kgTotalPool : 1.0;
+                $ventasUsd   = round($ventasTotUsd * $proporcion, 2);
+
                 $costoUsd   = round((float) $entry->costo_usd, 2);
-                $kgVendidos = round((float) ($stats?->kg_vendidos ?? 0), 3);
+                $kgVendidos = round((float) ($stats?->kg_vendidos ?? 0) * $proporcion, 3);
                 $utilidad   = round($ventasUsd - $costoUsd, 2);
                 $pct        = $costoUsd > 0 ? round(($ventasUsd / $costoUsd) * 100, 1) : 0.0;
 

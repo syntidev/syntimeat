@@ -120,6 +120,15 @@ function exportDayPdf() {
     window.location.href = route('reports.day-pdf') + '?' + params.toString()
 }
 
+function exportDayExcel() {
+    const params = new URLSearchParams({
+        tipo: 'ventas',
+        fecha_desde: dayFilters.fecha,
+        fecha_hasta: dayFilters.fecha,
+    })
+    window.location.href = route('reports.export') + '?' + params.toString()
+}
+
 // ─── Formato ──────────────────────────────────────────────────────────────────
 function fmtBs(n)  { return 'Bs. ' + Number(n ?? 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function fmtUsd(n) { return '$' + Number(n ?? 0).toFixed(2) }
@@ -302,6 +311,7 @@ const helpFaqs = [
                             {{ dayLoading ? 'Cargando…' : 'Consultar' }}
                         </button>
                         <button class="btn-outline" @click="exportDayPdf">↓ PDF del día</button>
+                        <button class="btn-outline" @click="exportDayExcel">↓ Excel</button>
                     </template>
                 </div>
             </div>
@@ -488,7 +498,7 @@ const helpFaqs = [
                                 </tr>
                                 <template v-if="expandedCats.has(row.categoria)">
                                     <tr v-for="p in row.productos" :key="p.producto" class="prod-row">
-                                        <td class="prod-name" data-label="Producto">↳ {{ p.producto }}<span class="prod-kg">{{ fmtKg(p.kg) }}</span></td>
+                                        <td class="prod-name" data-label="Producto">↳ {{ p.producto }}<span class="prod-kg">{{ p.sale_mode === 'unit' ? Math.round(p.kg) + ' und' : fmtKg(p.kg) }}</span></td>
                                         <td class="right amount" data-label="Vendido USD">{{ fmtUsd(p.vendido_usd) }}</td>
                                         <td class="right muted" data-label="Vendido Bs.">{{ fmtBs(p.vendido_bs) }}</td>
                                         <td class="right muted" data-label="Costo USD">{{ fmtUsd(p.costo_usd) }}</td>
@@ -500,7 +510,7 @@ const helpFaqs = [
                                 </template>
                                 </template>
                                 <tr class="dia-totals-row">
-                                    <td><strong>TOTAL</strong></td>
+                                    <td><strong>TOTAL DEVENGADO</strong></td>
                                     <td class="right"><strong>{{ fmtUsd(dayData.totals.vendido_usd) }}</strong></td>
                                     <td class="right muted"><strong>{{ fmtBs(dayData.totals.vendido_bs) }}</strong></td>
                                     <td class="right muted"><strong>{{ fmtUsd(dayData.totals.costo_usd) }}</strong></td>
@@ -509,6 +519,29 @@ const helpFaqs = [
                                 </tr>
                             </tbody>
                         </table>
+
+                        <!-- Resumen contable: cobrado vs crédito vs devengado -->
+                        <div v-if="dayData.totals.cobrado_bs !== undefined" class="dia-summary">
+                            <div class="dia-summary-row dia-summary-cobrado">
+                                <span class="dia-summary-label">Ventas cobradas ({{ dayData.totals.tickets_paid }} tickets)</span>
+                                <span class="dia-summary-val">{{ fmtBs(dayData.totals.cobrado_bs) }}</span>
+                                <span class="dia-summary-usd muted">{{ fmtUsd(dayData.totals.cobrado_usd) }}</span>
+                            </div>
+                            <div v-if="(dayData.totals.credito_bs ?? 0) > 0" class="dia-summary-row dia-summary-credito">
+                                <span class="dia-summary-label">Créditos/Delivery despachados ({{ dayData.totals.tickets_pending }} sin cobrar)</span>
+                                <span class="dia-summary-val">{{ fmtBs(dayData.totals.credito_bs) }}</span>
+                                <span class="dia-summary-usd muted">{{ fmtUsd(dayData.totals.credito_usd) }}</span>
+                            </div>
+                            <div class="dia-summary-row dia-summary-total">
+                                <span class="dia-summary-label">Total Devengado del día</span>
+                                <span class="dia-summary-val">{{ fmtBs(dayData.totals.vendido_bs) }}</span>
+                                <span class="dia-summary-usd">{{ fmtUsd(dayData.totals.vendido_usd) }}</span>
+                            </div>
+                            <div v-if="dayData.totals.tickets_cancelled > 0" class="dia-summary-anulados">
+                                Anuladas: {{ dayData.totals.tickets_cancelled }} tickets
+                            </div>
+                            <p class="dia-devengo-note">Las ventas a crédito se registran en la fecha de despacho, independientemente de cuándo se cobren.</p>
+                        </div>
 
                         <!-- Gráfica de barras HTML/CSS -->
                         <div class="bar-chart">
@@ -821,6 +854,48 @@ const helpFaqs = [
 .prod-name { padding-left: 2rem !important; font-style: italic; }
 .green { color: var(--green, #10b981); }
 .red   { color: #ef4444; }
+
+/* ─── Resumen contable ──────────────────────────────────────────────────────── */
+.dia-summary {
+    margin: 1rem 0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    font-size: 0.88rem;
+}
+.dia-summary-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.55rem 1rem;
+    border-bottom: 1px solid var(--border);
+}
+.dia-summary-label { flex: 1; color: var(--text-primary); }
+.dia-summary-val { font-weight: 700; font-size: 0.95rem; min-width: 140px; text-align: right; color: var(--text-primary); }
+.dia-summary-usd { min-width: 90px; text-align: right; font-size: 0.82rem; }
+.dia-summary-cobrado { background: color-mix(in srgb, var(--bg-card) 80%, #16a34a 20%); }
+.dia-summary-credito { background: color-mix(in srgb, var(--bg-card) 80%, #b45309 20%); }
+.dia-summary-total {
+    background: var(--bg-base);
+    font-weight: 700;
+    border-bottom: none;
+}
+.dia-summary-total .dia-summary-label { font-weight: 700; color: var(--text-primary); }
+.dia-summary-total .dia-summary-val { color: var(--brand); }
+.dia-summary-anulados {
+    padding: 0.3rem 1rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    background: var(--bg-base);
+    border-top: 1px solid var(--border);
+}
+.dia-devengo-note {
+    margin: 0.4rem 0 0;
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 0 1rem 0.5rem;
+}
 
 /* ─── Bar chart ─────────────────────────────────────────────────────────────── */
 .bar-chart {
