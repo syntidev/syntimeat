@@ -781,6 +781,36 @@ class SaleController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    public function assignClient(Request $request, Sale $sale): JsonResponse
+    {
+        $user = Auth::user();
+        abort_unless($sale->business_id === $user->business->id, 403);
+        abort_unless(
+            in_array($sale->status, ['pending'], true),
+            422,
+            'Solo se puede asignar cliente a ventas pendientes.'
+        );
+
+        $data = $request->validate([
+            'client_id'   => ['nullable', 'integer', 'exists:clients,id'],
+            'client_name' => ['required', 'string', 'max:100'],
+        ]);
+
+        // Verificar que el cliente pertenece al negocio
+        if (! empty($data['client_id'])) {
+            $client = \App\Models\Client::find($data['client_id']);
+            abort_unless($client && $client->business_id === $user->business->id, 403);
+            $data['client_name'] = $client->name;
+        }
+
+        $sale->update([
+            'client_id'   => $data['client_id'] ?? null,
+            'client_name' => $data['client_name'],
+        ]);
+
+        return response()->json(['ok' => true, 'client_name' => $sale->fresh()->client_name]);
+    }
+
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
     private function generateTicketNumber(int $businessId, string $prefix): string

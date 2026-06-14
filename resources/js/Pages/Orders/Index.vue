@@ -4,7 +4,7 @@ import HelpModal  from '@/Components/HelpModal.vue'
 import { ref, computed, reactive } from 'vue'
 import { usePage } from '@inertiajs/vue3'
 import axios from 'axios'
-import { FileText, Truck, Home } from '@lucide/vue'
+import { FileText, Truck, Home, UserPlus, Check } from '@lucide/vue'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 const props = defineProps({
@@ -370,6 +370,81 @@ async function confirmVoidPend() {
     }
 }
 
+// ─── Asignar / corregir cliente en venta pendiente ────────────────────────
+const showAssignModal   = ref(false)
+const assignSale        = ref(null)
+const assignSearch      = ref('')
+const assignResults     = ref([])
+const assignSearching   = ref(false)
+const assignSaving      = ref(false)
+const assignSelected    = ref(null)
+let   assignTimer       = null
+
+function openAssign(sale) {
+    assignSale.value     = sale
+    assignSearch.value   = sale.client_name ?? ''
+    assignResults.value  = []
+    assignSelected.value = null
+    assignSaving.value   = false
+    showAssignModal.value = true
+}
+
+function closeAssign() {
+    showAssignModal.value = false
+    assignSale.value      = null
+    assignSearch.value    = ''
+    assignResults.value   = []
+    assignSelected.value  = null
+}
+
+function onAssignSearch() {
+    clearTimeout(assignTimer)
+    assignSelected.value = null
+    if (assignSearch.value.trim().length < 2) {
+        assignResults.value = []
+        return
+    }
+    assignSearching.value = true
+    assignTimer = setTimeout(async () => {
+        try {
+            const r = await axios.get(route('clients.search'), { params: { q: assignSearch.value } })
+            assignResults.value = r.data
+        } catch {
+            assignResults.value = []
+        } finally {
+            assignSearching.value = false
+        }
+    }, 300)
+}
+
+function selectAssignClient(client) {
+    assignSelected.value = client
+    assignSearch.value   = client.name
+    assignResults.value  = []
+}
+
+async function confirmAssign() {
+    if (assignSaving.value) return
+    if (!assignSearch.value.trim()) return
+    assignSaving.value = true
+    try {
+        const payload = {
+            client_name: assignSelected.value?.name ?? assignSearch.value.trim(),
+            client_id:   assignSelected.value?.id   ?? null,
+        }
+        await axios.patch(route('sales.assign-client', { sale: assignSale.value.id }), payload)
+        const idx = cobrosPendientes.value.findIndex(s => s.id === assignSale.value.id)
+        if (idx !== -1) {
+            cobrosPendientes.value[idx].client_name = payload.client_name
+        }
+        closeAssign()
+    } catch (err) {
+        alert(err.response?.data?.message ?? 'Error al asignar cliente.')
+    } finally {
+        assignSaving.value = false
+    }
+}
+
 async function submitCancel() {
     if (!cancelReason.value.trim() || cancelReason.value.length < 5) {
         cancelError.value = 'El motivo debe tener al menos 5 caracteres.'
@@ -661,6 +736,11 @@ function methodName(id) {
                                 class="btn-void-pend"
                                 @click="openVoidPend(sale)"
                             >Anular</button>
+                            <button
+                                class="btn-assign-client"
+                                @click="openAssign(sale)"
+                                title="Asignar o corregir cliente"
+                            ><UserPlus :size="15" /> {{ sale.client_name ? 'Cambiar cliente' : 'Asignar cliente' }}</button>
                         </div>
                     </div>
                 </div>
@@ -1116,6 +1196,51 @@ function methodName(id) {
                         :disabled="voidPendProcessing"
                         @click="confirmVoidPend"
                     >Anular venta</button>
+                </div>
+            </div>
+        </div>
+    </Teleport>
+
+    <!-- ─── Modal asignar/corregir cliente ─────────────────────────────── -->
+    <Teleport to="body">
+        <div v-if="showAssignModal" class="modal-overlay">
+            <div class="modal-box modal-sm">
+                <div class="modal-header">
+                    <h3>{{ assignSale?.client_name ? 'Cambiar cliente' : 'Asignar cliente' }}</h3>
+                    <button class="close-btn" @click="closeAssign">×</button>
+                </div>
+                <p class="modal-sub">Ticket: <strong>{{ assignSale?.ticket_number }}</strong></p>
+                <div class="field-group" style="position:relative">
+                    <label class="field-label">Buscar cliente o escribir nombre</label>
+                    <input
+                        v-model="assignSearch"
+                        @input="onAssignSearch"
+                        class="field-input"
+                        placeholder="Nombre, cédula o teléfono..."
+                        autocomplete="off"
+                    />
+                    <div v-if="assignResults.length" class="assign-dropdown">
+                        <div
+                            v-for="c in assignResults"
+                            :key="c.id"
+                            class="assign-option"
+                            @click="selectAssignClient(c)"
+                        >
+                            <span>{{ c.name }}</span>
+                            <span class="text-muted" v-if="c.phone"> · {{ c.phone }}</span>
+                        </div>
+                    </div>
+                </div>
+                <p v-if="assignSelected" class="assign-confirm-text">
+                    <Check :size="14" /> Cliente seleccionado: <strong>{{ assignSelected.name }}</strong>
+                </p>
+                <div class="modal-actions">
+                    <button class="btn btn-ghost" @click="closeAssign">Cancelar</button>
+                    <button
+                        class="btn btn-brand"
+                        :disabled="assignSaving || !assignSearch.trim()"
+                        @click="confirmAssign"
+                    >{{ assignSaving ? 'Guardando...' : 'Confirmar' }}</button>
                 </div>
             </div>
         </div>
@@ -1579,4 +1704,43 @@ function methodName(id) {
     min-height: 36px;
 }
 .btn-void-pend:hover { background: rgba(239,68,68,0.22); }
+
+.btn-assign-client {
+    background: rgba(99,102,241,0.12);
+    color: #818cf8;
+    border: 1px solid rgba(99,102,241,0.3);
+    border-radius: 0.5rem;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+.btn-assign-client:hover { background: rgba(99,102,241,0.22); }
+.assign-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0; right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    z-index: 100;
+    max-height: 200px;
+    overflow-y: auto;
+}
+.assign-option {
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+.assign-option:hover { background: rgba(255,255,255,0.05); }
+.assign-confirm-text {
+    font-size: 0.85rem;
+    color: var(--success);
+    margin: 0.5rem 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
 </style>

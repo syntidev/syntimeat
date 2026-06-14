@@ -107,6 +107,7 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
     // ── Todos los roles ───────────────────────────────────────────────────────
     Route::middleware('role:super_admin,admin,owner,branch_admin,supervisor,analyst,cashier')->group(function () {
         Route::patch('/ventas/{sale}/anular', [SaleController::class, 'void'])->name('sales.void');
+        Route::patch('/ventas/{sale}/cliente', [SaleController::class, 'assignClient'])->name('sales.assign-client');
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
         Route::get('/dashboard/data', [DashboardController::class, 'data'])->name('dashboard.data');
 
