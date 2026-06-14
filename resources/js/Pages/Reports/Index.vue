@@ -1,7 +1,7 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue'
 import HelpModal from '@/Components/HelpModal.vue'
-import { ref, computed, reactive, watch } from 'vue'
+import { ref, computed, reactive, watch, onMounted } from 'vue'
 import { ChevronDown, ChevronRight } from '@lucide/vue'
 import axios from 'axios'
 
@@ -26,7 +26,7 @@ const filters = reactive({
 })
 
 // ─── Datos y paginación ───────────────────────────────────────────────────────
-const rows  = reactive({ ventas: [], inventario: [], cierres: [], pedidos: [] })
+const rows  = reactive({ ventas: [], inventario: [], cierres: [], pedidos: [], reporte_dia: [] })
 const pages = reactive({ ventas: 1, inventario: 1, cierres: 1, pedidos: 1 })
 
 const totalPages = computed(() => Math.max(1, Math.ceil(rows[activeTab.value].length / PAGE_SIZE)))
@@ -41,7 +41,8 @@ const pageRows = computed(() => {
 })
 
 // Resetear página al cambiar tab
-watch(activeTab, () => { currentPage.value = 1; errorMsg.value = '' })
+watch(activeTab, (val) => { currentPage.value = 1; errorMsg.value = ''; if (val === 'reporte_dia') loadDayReport() })
+onMounted(() => { if (activeTab.value === 'reporte_dia') loadDayReport() })
 
 // ─── Cargar datos ─────────────────────────────────────────────────────────────
 const routeMap = {
@@ -322,7 +323,7 @@ const helpFaqs = [
             <!-- ─── Resultados ────────────────────────────────────────────── -->
             <div class="card">
                 <!-- Contador -->
-                <div class="results-header">
+                <div class="results-header" v-if="activeTab !== 'reporte_dia'">
                     <span class="results-count">
                         {{ rows[activeTab].length }} registros
                         <span v-if="rows[activeTab].length > PAGE_SIZE">

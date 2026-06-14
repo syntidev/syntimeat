@@ -74,8 +74,8 @@ function logout() {
 // ─── Visibilidad del menú por rol ─────────────────────────────────────────────
 const rolePermissions = {
     admin:        ['dashboard','pos','inventory','boveda','fabrica','orders','sales','dayclose','catalog','clients','contingency','users','settings','cash'],
-    owner:        ['dashboard','pos','inventory','boveda','fabrica','orders','sales','dayclose','catalog','clients','contingency','users','settings','cash'],
-    branch_admin: ['dashboard','pos','inventory','boveda','fabrica','orders','sales','dayclose','catalog','clients','contingency','users','settings','cash'],
+    owner:        ['dashboard','pos','inventory','boveda','fabrica','orders','sales','dayclose','catalog','clients','contingency','users','settings','cash','reports'],
+    branch_admin: ['dashboard','pos','inventory','boveda','fabrica','orders','sales','dayclose','catalog','clients','contingency','users','settings','cash','reports'],
     supervisor:   ['dashboard','pos','cash','sales','dayclose','inventory','catalog','boveda','fabrica','orders','clients','reports','contingency'],
     analyst:      ['dashboard','pos','inventory','boveda','fabrica','orders','sales','dayclose','catalog','clients','contingency','settings','cash','reports'],
     cashier:      ['dashboard','pos','cash','sales','dayclose','orders','clients','inventory','contingency'],
@@ -191,6 +191,7 @@ const nav = [
         items: [
             { label: 'Resumen',           route: 'dashboard',            icon: 'chart',  perm: 'dashboard' },
             { label: 'Panel Empresarial', route: 'reports.consolidated', icon: 'chart',  perm: 'dashboard', roles: ['super_admin', 'owner'] },
+            { label: 'Reportes', route: 'reports.index', icon: 'file-text', perm: 'reports', roles: ['super_admin', 'owner', 'branch_admin', 'analyst'] },
         ],
     },
     {
@@ -208,6 +209,7 @@ const navOwner = [
         section: 'ANÁLISIS',
         items: [
             { label: 'Panel Empresarial', route: 'reports.consolidated', icon: 'chart',    perm: 'dashboard', roles: ['super_admin', 'owner'] },
+            { label: 'Reportes', route: 'reports.index', icon: 'file-text', perm: 'reports', roles: ['super_admin', 'owner', 'branch_admin', 'analyst'] },
             { label: 'Resumen',           route: 'dashboard',            icon: 'chart',    perm: 'dashboard' },
         ],
     },
@@ -527,6 +529,7 @@ const icons = {
     person:    `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/></svg>`,
     beaker:    `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 0 1-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 0 1 4.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15M14.25 3.104c.251.023.501.05.75.082M19.8 15a2.25 2.25 0 0 1 .45 1.32v.102a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 16.422V16.32a2.25 2.25 0 0 1 .45-1.32L5 14.5m14.8.5-6.75-6.75M5 14.5l6.75-6.75"/></svg>`,
     landmark:  `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0 0 12 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75Z"/></svg>`,
+    'file-text': `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>`,
     'book-open':`<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"/></svg>`,
 }
 </script>
