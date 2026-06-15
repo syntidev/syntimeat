@@ -332,8 +332,13 @@ class BovedaController extends Controller
 
         $requiresDespiece = (bool) ($bovedaProductType?->requires_despiece ?? false);
 
-        // Si requires_despiece=true y usuario eligió vitrina → tratar como directo
-        if ($requiresDespiece && $request->input('pollo_tipo') === 'vitrina') {
+        // El destino elegido por el usuario gana sobre el default del producto:
+        // 'fabrica' siempre va a despiece (entry negativa en bóveda); 'vitrina' va
+        // directo a la vitrina. Sin pollo_tipo se respeta el requires_despiece del producto.
+        $polloTipo = $request->input('pollo_tipo');
+        if ($polloTipo === 'fabrica') {
+            $requiresDespiece = true;
+        } elseif ($polloTipo === 'vitrina') {
             $requiresDespiece = false;
         }
 

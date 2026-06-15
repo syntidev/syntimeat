@@ -75,21 +75,12 @@ class SaleController extends Controller
             ->groupBy('product_id')
             ->pluck('total_net', 'product_id');
 
-        $stockOut = DB::table('sale_items')
-            ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
-            ->where('sales.business_id', $businessId)
-            ->when($branchId, fn ($q) => $q->where('sales.branch_id', $branchId))
-            ->where('sales.status', 'paid')
-            ->selectRaw('sale_items.product_id, SUM(sale_items.quantity_value) as total_sold')
-            ->groupBy('sale_items.product_id')
-            ->pluck('total_sold', 'product_id');
-
+        // Stock = SUM(net_kg) UNICAMENTE. Las ventas ya estan en net_kg como
+        // entradas negativas ("Venta"/"Credito"/"Delivery"); NUNCA restar de nuevo.
         $stockMap = [];
         foreach ($products as $product) {
             $poolId = $product->stock_product_id ?? $product->id;
-            $net    = (float) ($stockIn[$poolId]  ?? 0);
-            $sold   = (float) ($stockOut[$poolId] ?? 0);
-            $stockMap[$product->id] = round($net - $sold, 3);
+            $stockMap[$product->id] = round((float) ($stockIn[$poolId] ?? 0), 3);
         }
 
         $paymentMethods = PaymentMethod::where('business_id', $businessId)
@@ -354,7 +345,30 @@ class SaleController extends Controller
                 $sale->items()->create($item);
             }
 
-            return $sale->load('items');
+            $sale->load('items');
+
+            // Delivery descuenta inventario al generar el ticket (despacho sin cobro),
+            // igual que crédito. Onsite ('open') NO descuenta hasta pay().
+            if ($origin === 'delivery') {
+                foreach ($sale->items as $item) {
+                    if ($item->input_type !== 'weight') {
+                        continue;
+                    }
+                    InventoryEntry::create([
+                        'business_id' => $businessId,
+                        'branch_id'   => $branchId,
+                        'product_id'  => $item->product_id,
+                        'quantity_kg' => -abs((float) $item->quantity_value),
+                        'waste_kg'    => 0,
+                        'location'    => 'vitrina',
+                        'entered_at'  => now(),
+                        'created_by'  => $user->id,
+                        'notes'       => "Delivery {$sale->ticket_number}",
+                    ]);
+                }
+            }
+
+            return $sale;
         });
 
         return response()->json(['sale' => $sale]);
@@ -731,8 +745,9 @@ class SaleController extends Controller
             : ($sale->branch_id ?? null);
 
         DB::transaction(function () use ($sale, $user, $request, $branchId): void {
-            // Revertir stock solo si la venta estaba pagada (pending no desconta stock)
-            if ($sale->status === 'paid') {
+            // Revertir stock si la venta descontó inventario: 'paid' (onsite paga en pay())
+            // y 'pending' (crédito/delivery descuentan en store()).
+            if (in_array($sale->status, ['paid', 'pending'], true)) {
                 $sale->load('items.product');
                 foreach ($sale->items as $item) {
                     if ($item->input_type !== 'weight') {
