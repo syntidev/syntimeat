@@ -97,6 +97,12 @@ function barWidth(monto) { return Math.round((monto / maxMonto.value) * 100) }
 const totalMontoCat = computed(() =>
     (d.value.categorias_hoy ?? []).reduce((s, c) => s + c.total_bs, 0)
 )
+const utilidadDia = computed(() =>
+    (d.value.categorias_hoy ?? []).reduce((s, c) => s + (c.utilidad_usd ?? 0), 0)
+)
+const costoTotalDia = computed(() =>
+    (d.value.categorias_hoy ?? []).reduce((s, c) => s + (c.costo_usd ?? 0), 0)
+)
 const maxMontoCat = computed(() => Math.max(1, ...(d.value.categorias_hoy ?? []).map(c => c.total_bs)))
 const maxKgCat    = computed(() => Math.max(1, ...catCardsData.value.map(c => c.kg_vendidos)))
 function kgBarWidth(kg) { return Math.min(100, Math.round((kg / maxKgCat.value) * 100)) }
@@ -121,7 +127,7 @@ const catCardsData = computed(() => {
     const cats  = selectedCats.value.map(cat => {
         const stats = d.value.categorias_hoy?.find(c => c.category_name === cat) ?? null
         const bov   = d.value.utilidad_boveda?.find(b => b.category_name === cat) ?? null
-        return { name: cat, total_bs: stats?.total_bs ?? 0, total_usd: stats?.total_usd ?? 0, kg_vendidos: stats?.kg_vendidos ?? 0, boveda: bov }
+        return { name: cat, total_bs: stats?.total_bs ?? 0, total_usd: stats?.total_usd ?? 0, kg_vendidos: stats?.kg_vendidos ?? 0, costo_usd: stats?.costo_usd ?? 0, utilidad_usd: stats?.utilidad_usd ?? 0, margen_pct: stats?.margen_pct ?? 0, boveda: bov }
     })
     return [...cats].sort((a, b) => {
         const ai = ORDER.indexOf(a.nombre ?? a.categoria ?? a.name)
@@ -387,6 +393,15 @@ function dismissBankingAlert() {
                             <span class="kpi-sep">·</span>
                             <span class="kpi-rate">Tasa BCV: <strong>{{ d.tasa_hoy.toFixed(2) }}</strong></span>
                         </div>
+                        <div v-if="costoTotalDia > 0" class="kpi-utilidad-dia">
+                            <span class="kpi-util-label">Utilidad bruta</span>
+                            <span class="kpi-util-val" :class="utilidadDia >= 0 ? 'kpi-util-pos' : 'kpi-util-neg'">
+                                {{ fmtUsd(utilidadDia) }}
+                            </span>
+                            <span class="kpi-util-margen">
+                                {{ costoTotalDia > 0 ? (utilidadDia / (utilidadDia + costoTotalDia) * 100).toFixed(1) : 0 }}%
+                            </span>
+                        </div>
                     </div>
                     <div class="kpi-main-clock">{{ horaActual }}</div>
                 </div>
@@ -620,6 +635,24 @@ function dismissBankingAlert() {
                                 />
                             </div>
                             <span class="cc-kg-label">{{ fmtKg(cat.kg_vendidos) }} despachados</span>
+                        </div>
+                        <!-- Utilidad por categoría (cost_per_kg_usd × qty) -->
+                        <div v-if="cat.costo_usd > 0" class="cc-util-block">
+                            <div class="cc-bov-row" style="margin-top:0.5rem">
+                                <span class="cc-lbl">Utilidad</span>
+                                <span class="cc-val" :class="cat.utilidad_usd >= 0 ? 'val-green' : 'val-red'">
+                                    {{ cat.utilidad_usd >= 0 ? '+' : '' }}{{ fmtUsd(cat.utilidad_usd) }}
+                                </span>
+                            </div>
+                            <div class="cc-bov-row">
+                                <span class="cc-lbl">Margen</span>
+                                <span class="cc-val" :class="cat.margen_pct >= 0 ? 'val-green' : 'val-red'">
+                                    {{ cat.margen_pct.toFixed(1) }}%
+                                </span>
+                            </div>
+                        </div>
+                        <div v-else class="cc-no-bov">
+                            <span>Sin costo</span>
                         </div>
                         <div v-if="cat.boveda" class="cc-boveda">
                             <div class="cc-bov-row">
@@ -878,6 +911,18 @@ function dismissBankingAlert() {
 .kpi-sep        { color: var(--border); }
 .kpi-rate       { color: var(--text-muted); }
 .kpi-rate strong { color: var(--text-secondary); }
+.kpi-utilidad-dia {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.35rem;
+    font-size: 0.85rem;
+}
+.kpi-util-label  { color: var(--text-muted); }
+.kpi-util-val    { font-weight: 700; font-size: 1rem; }
+.kpi-util-pos    { color: var(--success, #22c55e); }
+.kpi-util-neg    { color: var(--danger,  #ef4444); }
+.kpi-util-margen { color: var(--text-muted); font-size: 0.78rem; }
 .kpi-main-clock {
     position: absolute;
     bottom: 1.1rem; right: 1.25rem;

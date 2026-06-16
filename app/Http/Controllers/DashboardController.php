@@ -175,6 +175,7 @@ class DashboardController extends Controller
                 DB::raw('SUM(sale_items.subtotal_bs) as total_bs'),
                 DB::raw('SUM(sale_items.subtotal_usd) as total_usd'),
                 DB::raw("SUM(CASE WHEN sale_items.input_type = 'weight' THEN sale_items.quantity_value ELSE 0 END) as kg_vendidos"),
+                DB::raw('COALESCE(SUM(sale_items.quantity_value * products.cost_per_kg_usd), 0) as costo_usd'),
             )
             ->get()
             ->keyBy('category_name');
@@ -185,6 +186,11 @@ class DashboardController extends Controller
             'total_bs'      => round((float) $r->total_bs, 2),
             'total_usd'     => round((float) $r->total_usd, 2),
             'kg_vendidos'   => round((float) $r->kg_vendidos, 3),
+            'costo_usd'     => round((float) $r->costo_usd, 2),
+            'utilidad_usd'  => round((float) $r->total_usd - (float) $r->costo_usd, 2),
+            'margen_pct'    => (float) $r->total_usd > 0
+                ? round(((float) $r->total_usd - (float) $r->costo_usd) / (float) $r->total_usd * 100, 1)
+                : 0.0,
         ])->values()->toArray();
 
         // ── Utilidad por Bóveda ───────────────────────────────────────────────
