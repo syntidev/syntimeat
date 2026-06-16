@@ -14,8 +14,11 @@ const props = defineProps({
     expectedBs:   { type: Number, default: 0 },
     expectedUsd:  { type: Number, default: 0 },
     todayRate:    { type: Number, default: 1 },
-    bovedaActiva: { type: Array,  default: () => [] },
-    macroStats:   { type: Array,  default: () => [] },
+    bovedaActiva:        { type: Array,  default: () => [] },
+    macroStats:          { type: Array,  default: () => [] },
+    creditos_bs:         { type: Number, default: 0 },
+    creditos_tickets:    { type: Number, default: 0 },
+    total_devengado_bs:  { type: Number, default: 0 },
 });
 
 // ─── Formato ──────────────────────────────────────────────────────────────────
@@ -312,6 +315,14 @@ function submitClose() {
                             <span>Ventas cobradas</span>
                             <strong>{{ fmtBs(totalBs) }}</strong>
                         </div>
+                        <div v-if="creditos_tickets > 0" class="dc-summary-row dc-creditos">
+                            <span>Créditos/Delivery despachados <span class="dc-badge">{{ creditos_tickets }} tickets</span></span>
+                            <strong>{{ fmtBs(creditos_bs) }}</strong>
+                        </div>
+                        <div v-if="creditos_tickets > 0" class="dc-summary-row dc-devengado">
+                            <span><strong>Total devengado del día</strong></span>
+                            <strong>{{ fmtBs(total_devengado_bs) }}</strong>
+                        </div>
                         <div class="dc-cuadre-row dc-cuadre-expected">
                             <span>Total esperado</span>
                             <strong>{{ fmtBs(expectedBs) }}</strong>
@@ -576,4 +587,20 @@ function submitClose() {
 .bov-bar--mid  { background: #f59e0b; }
 .bov-bar--low  { background: #ef4444; }
 .bov-progress-lbl { font-size: .7rem; color: var(--text-muted); }
+.dc-creditos { color: var(--brand); }
+.dc-devengado { 
+    border-top: 1px solid var(--border); 
+    margin-top: 0.5rem; 
+    padding-top: 0.5rem;
+    font-size: 1rem;
+}
+.dc-devengado strong { color: var(--success); font-size: 1.1rem; }
+.dc-badge {
+    background: rgba(99,102,241,0.15);
+    color: var(--brand);
+    font-size: 0.72rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 999px;
+    margin-left: 0.3rem;
+}
 </style>

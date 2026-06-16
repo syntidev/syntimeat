@@ -87,6 +87,15 @@ class CashRegisterController extends Controller
             $salesTotalBs = $cashRegister->sales()
                 ->where('status', 'paid')
                 ->sum('total_bs');
+            // Créditos/delivery despachados hoy — venta devengada (no cobrada aún)
+            $creditosDia = $cashRegister->sales()
+                ->whereIn('origin', ['credit', 'delivery'])
+                ->where('status', 'pending')
+                ->selectRaw('COUNT(*) as tickets, SUM(total_bs) as total_bs, SUM(total_usd) as total_usd')
+                ->first();
+            $creditosBs      = round((float) ($creditosDia->total_bs ?? 0), 2);
+            $creditosTickets = (int) ($creditosDia->tickets ?? 0);
+            $totalDevengadoBs = round((float) $salesTotalBs + $creditosBs, 2);
 
             // Movimientos en Bs. — usar amount_bs guardado, no reconvertir con tasa actual
             $movInBs  = (float) $cashRegister->movements()->where('type', 'in')->sum('amount_bs');
@@ -98,9 +107,12 @@ class CashRegisterController extends Controller
 
             $kpis = [
                 'expected_bs'     => $expectedBs,
-                'sales_total_bs'  => round((float) $salesTotalBs, 2),
-                'movements_count' => $cashRegister->movements()->count(),
-                'rate'            => $todayRate,
+                'sales_total_bs'      => round((float) $salesTotalBs, 2),
+                'creditos_bs'         => $creditosBs,
+                'creditos_tickets'    => $creditosTickets,
+                'total_devengado_bs'  => $totalDevengadoBs,
+                'movements_count'     => $cashRegister->movements()->count(),
+                'rate'                => $todayRate,
             ];
         }
 
@@ -500,6 +512,9 @@ class CashRegisterController extends Controller
             'expectedUsd'  => $expectedUsd,
             'todayRate'    => $rate,
             'bovedaActiva' => $bovedaActiva,
+            'creditos_bs'         => $creditosBs,
+            'creditos_tickets'    => $creditosTickets,
+            'total_devengado_bs'  => $totalDevengadoBs,
         ]);
     }
 
