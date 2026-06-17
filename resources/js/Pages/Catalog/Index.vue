@@ -2,7 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue'
 import { ref, computed, markRaw } from 'vue'
 import { useForm, router, usePage } from '@inertiajs/vue3'
-import { Scale, Package, Pencil, Star, ToggleLeft, ToggleRight, Trash2 } from '@lucide/vue'
+import { Scale, Package, Pencil, Star, ToggleLeft, ToggleRight, Trash2, Camera } from '@lucide/vue'
 import HelpModal from '@/Components/HelpModal.vue'
 
 const props = defineProps({
@@ -18,6 +18,7 @@ const userRole   = computed(() => page.props.auth?.user?.role ?? 'cashier')
 const canSeeCost = computed(() =>
     ['super_admin', 'admin', 'owner', 'branch_admin', 'analyst'].includes(userRole.value)
 )
+const isCashier  = computed(() => userRole.value === 'cashier')
 
 // ─── Tabs + búsqueda ──────────────────────────────────────────────────────────
 const activeTab   = ref(props.categories[0]?.id ?? null)
@@ -54,6 +55,12 @@ const showModal   = ref(false)
 const editProduct = ref(null)
 
 const submitting = ref(false)
+
+// ─── Modal imagen cashier ─────────────────────────────────────────────
+const showImageModal  = ref(false)
+const imageProduct    = ref(null)
+const imageFile       = ref(null)
+const imageSubmitting = ref(false)
 
 const form = useForm({
     name:               '',
@@ -224,6 +231,36 @@ function toggleActive(product) {
 
 function toggleFavorite(product) {
     router.patch(route('catalog.product.favorite', product.id), {}, { preserveScroll: true })
+}
+
+// ─── Imagen cashier ────────────────────────────────────────────────────────────
+function openImageModal(product) {
+    imageProduct.value   = product
+    imageFile.value      = null
+    showImageModal.value = true
+}
+
+function closeImageModal() {
+    showImageModal.value = false
+    imageProduct.value   = null
+    imageFile.value      = null
+}
+
+function onImageFileChange(e) {
+    imageFile.value = e.target.files[0] ?? null
+}
+
+function submitImage() {
+    if (!imageProduct.value) return
+    imageSubmitting.value = true
+    router.post(
+        route('catalog.update-image', imageProduct.value.id),
+        { image: imageFile.value, _method: 'PATCH' },
+        {
+            onSuccess: () => { imageSubmitting.value = false; closeImageModal() },
+            onError:   () => { imageSubmitting.value = false },
+        }
+    )
 }
 
 // ─── Stock utils ──────────────────────────────────────────────────────────────
@@ -550,7 +587,7 @@ const helpFaqs = [
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                         Importar
                     </button>
-                    <button class="btn-primary" @click="openNew">+ Nuevo Producto</button>
+                    <button v-if="!isCashier" class="btn-primary" @click="openNew">+ Nuevo Producto</button>
                 </div>
                 <button v-else class="btn-primary" @click="openNewCat">+ Nueva Categoría</button>
             </div>
@@ -651,22 +688,27 @@ const helpFaqs = [
                                 </span>
                             </td>
                             <td class="actions-cell" data-label="">
-                                <button class="btn-icon" title="Editar" @click="openEdit(p)"><Pencil :size="14" /></button>
-                                <button
-                                    class="btn-icon"
-                                    :title="p.active ? 'Desactivar' : 'Activar'"
-                                    @click="toggleActive(p)"
-                                >
-                                    <ToggleRight v-if="p.active" :size="16" class="toggle-on" />
-                                    <ToggleLeft v-else :size="16" class="toggle-off" />
-                                </button>
-                                <button
-                                    class="btn-icon"
-                                    :title="p.is_favorite ? 'Quitar de favoritos' : 'Marcar favorito'"
-                                    @click="toggleFavorite(p)"
-                                >
-                                    <Star :size="14" :class="p.is_favorite ? 'star-on' : 'star-off'" />
-                                </button>
+                                <template v-if="isCashier">
+                                    <button class="btn-icon" title="Actualizar imagen" @click="openImageModal(p)"><Camera :size="14" /></button>
+                                </template>
+                                <template v-else>
+                                    <button class="btn-icon" title="Editar" @click="openEdit(p)"><Pencil :size="14" /></button>
+                                    <button
+                                        class="btn-icon"
+                                        :title="p.active ? 'Desactivar' : 'Activar'"
+                                        @click="toggleActive(p)"
+                                    >
+                                        <ToggleRight v-if="p.active" :size="16" class="toggle-on" />
+                                        <ToggleLeft v-else :size="16" class="toggle-off" />
+                                    </button>
+                                    <button
+                                        class="btn-icon"
+                                        :title="p.is_favorite ? 'Quitar de favoritos' : 'Marcar favorito'"
+                                        @click="toggleFavorite(p)"
+                                    >
+                                        <Star :size="14" :class="p.is_favorite ? 'star-on' : 'star-off'" />
+                                    </button>
+                                </template>
                             </td>
                         </tr>
                     </tbody>
@@ -1117,6 +1159,40 @@ const helpFaqs = [
                         </button>
                     </div>
 
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- ── Modal imagen cashier ──────────────────────────────────────── -->
+        <Teleport to="body">
+            <div v-if="showImageModal" class="modal-overlay" @click.self="closeImageModal">
+                <div class="modal-box" style="max-width:400px">
+                    <div class="modal-header">
+                        <h3>Actualizar imagen</h3>
+                        <button class="modal-close" @click="closeImageModal">✕</button>
+                    </div>
+                    <div class="modal-body">
+                        <p style="margin-bottom:.75rem;font-size:.9rem">
+                            {{ imageProduct?.name }}
+                        </p>
+                        <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            @change="onImageFileChange"
+                            style="font-size:.9rem"
+                        />
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-secondary" @click="closeImageModal">Cancelar</button>
+                        <button
+                            type="button"
+                            class="btn-primary"
+                            :disabled="!imageFile || imageSubmitting"
+                            @click="submitImage"
+                        >
+                            {{ imageSubmitting ? 'Guardando…' : 'Guardar imagen' }}
+                        </button>
+                    </div>
                 </div>
             </div>
         </Teleport>
