@@ -551,8 +551,8 @@ class SaleController extends Controller
                 'cancellation_reason' => $data['reason'],
             ]);
 
-            // Revertir descuento de inventario solo si la venta estaba pagada
-            if ($sale->getOriginal('status') === 'paid') {
+            // Revertir inventario si la venta estaba pagada o pending (credit/delivery despachan con inventario)
+            if (in_array($sale->getOriginal('status'), ['paid', 'pending'])) {
                 $sale->load('items.product');
                 foreach ($sale->items as $item) {
                     if ($item->input_type !== 'weight') {

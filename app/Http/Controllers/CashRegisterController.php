@@ -322,7 +322,14 @@ class CashRegisterController extends Controller
             ->first();
 
         if ($cashRegister === null) {
-            return Inertia::render('Cash/DayClose', [
+            
+        // ── Créditos pendientes del turno (resumen contable) ─────────────────
+        $creditosQuery   = $cashRegister->sales()->where('status', 'pending')->get(['id', 'total_bs']);
+        $creditosBs      = round((float) $creditosQuery->sum('total_bs'), 2);
+        $creditosTickets = $creditosQuery->count();
+        $totalDevengadoBs = round(round($sales->sum('total_bs'), 2) + $creditosBs, 2);
+
+        return Inertia::render('Cash/DayClose', [
                 'cashRegister' => null,
                 'salesCount'   => 0,
                 'totalBs'      => 0,
@@ -492,6 +499,12 @@ class CashRegisterController extends Controller
             ])
             ->sortBy('macro')
             ->values();
+
+        // ── Créditos pendientes del turno (resumen contable) ─────────────────
+        $creditosQuery    = $cashRegister->sales()->where('status', 'pending')->get(['id', 'total_bs']);
+        $creditosBs       = round((float) $creditosQuery->sum('total_bs'), 2);
+        $creditosTickets  = $creditosQuery->count();
+        $totalDevengadoBs = round(round($sales->sum('total_bs'), 2) + $creditosBs, 2);
 
         return Inertia::render('Cash/DayClose', [
             'cashRegister' => $cashRegister,

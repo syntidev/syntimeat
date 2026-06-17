@@ -414,7 +414,7 @@ function dismissBankingAlert() {
                         <div class="kpi-stat-body">
                             <span class="kpi-stat-label">Tickets emitidos</span>
                             <span class="kpi-stat-val">{{ Math.round(animCount) }}</span>
-                            <span class="kpi-stat-sub">ventas pagadas hoy</span>
+                            <span class="kpi-stat-sub">ventas del día</span>
                         </div>
                     </div>
 

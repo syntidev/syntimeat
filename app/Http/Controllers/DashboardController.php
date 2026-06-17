@@ -59,7 +59,7 @@ class DashboardController extends Controller
 
         // ── Ventas del día ────────────────────────────────────────────────────
         $ventasHoyRaw = Sale::where('business_id', $businessId)
-            ->where('status', 'paid')
+            ->whereIn('status', ['paid', 'pending'])
             ->whereDate('accounting_date', $today)
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->selectRaw('COUNT(*) as count, COALESCE(SUM(total_bs), 0) as total_bs, COALESCE(SUM(total_usd), 0) as total_usd')
@@ -75,7 +75,7 @@ class DashboardController extends Controller
         $topProductos = SaleItem::query()
             ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
             ->where('sales.business_id', $businessId)
-            ->where('sales.status', 'paid')
+            ->whereIn('sales.status', ['paid', 'pending'])
             ->whereDate('sales.accounting_date', $today)
             ->when($branchId, fn ($q) => $q->where('sales.branch_id', $branchId))
             ->selectRaw('sale_items.product_id, sale_items.product_name, SUM(sale_items.quantity_value) as cantidad, SUM(sale_items.subtotal_bs) as monto_bs')
@@ -128,7 +128,7 @@ class DashboardController extends Controller
 
         // ── Últimas 8 ventas paid ─────────────────────────────────────────────
         $ultimasVentas = Sale::where('business_id', $businessId)
-            ->where('status', 'paid')
+            ->whereIn('status', ['paid', 'pending'])
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->withCount('items')
             ->orderByDesc('sold_at')
@@ -165,7 +165,7 @@ class DashboardController extends Controller
             ->join('products', 'products.id', '=', 'sale_items.product_id')
             ->join('categories', 'categories.id', '=', 'products.category_id')
             ->where('sales.business_id', $businessId)
-            ->where('sales.status', 'paid')
+            ->whereIn('sales.status', ['paid', 'pending'])
             ->whereDate('sales.accounting_date', $today)
             ->when($branchId, fn ($q) => $q->where('sales.branch_id', $branchId))
             ->groupBy('categories.id', 'categories.name')
