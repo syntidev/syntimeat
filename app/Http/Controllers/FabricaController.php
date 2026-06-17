@@ -67,20 +67,11 @@ class FabricaController extends Controller
             ->groupBy('product_id')
             ->pluck('total_net', 'product_id');
 
-        $stockOut = DB::table('sale_items')
-            ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
-            ->where('sales.business_id', $businessId)
-            ->when($branchId, fn ($q) => $q->where('sales.branch_id', $branchId))
-            ->where('sales.status', 'paid')
-            ->selectRaw('sale_items.product_id, SUM(sale_items.quantity_value) as total_sold')
-            ->groupBy('sale_items.product_id')
-            ->pluck('total_sold', 'product_id');
-
+        // Regla #1: stock = inventory_entries únicamente — sin restar sale_items
         $stockMap = [];
         foreach ($ingredientes as $ing) {
-            $net  = (float) ($stockIn[$ing['id']]  ?? 0);
-            $sold = (float) ($stockOut[$ing['id']] ?? 0);
-            $stockMap[$ing['id']] = round($net - $sold, 3);
+            $net = (float) ($stockIn[$ing['id']] ?? 0);
+            $stockMap[$ing['id']] = round($net, 3);
         }
 
         // Historial de batches
@@ -249,25 +240,16 @@ class FabricaController extends Controller
             ->groupBy('product_id')
             ->pluck('total_net', 'product_id');
 
-        $stockOut = DB::table('sale_items')
-            ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
-            ->where('sales.business_id', $businessId)
-            ->when($branchId, fn ($q) => $q->where('sales.branch_id', $branchId))
-            ->where('sales.status', 'paid')
-            ->whereIn('sale_items.product_id', $inputIds)
-            ->selectRaw('sale_items.product_id, SUM(sale_items.quantity_value) as total_sold')
-            ->groupBy('sale_items.product_id')
-            ->pluck('total_sold', 'product_id');
-
         $productNames = Product::whereIn('id', $inputIds)->pluck('name', 'id');
 
         foreach ($data['inputs'] as $input) {
             $pid        = $input['product_id'];
-            $disponible = round((float) ($stockIn[$pid] ?? 0) - (float) ($stockOut[$pid] ?? 0), 3);
+            $disponible = round((float) ($stockIn[$pid] ?? 0), 3);
             if ((float) $input['quantity_kg'] > $disponible) {
                 return back()->withErrors([
-                    'inputs' => 'Stock insuficiente para ' . ($productNames[$pid] ?? 'producto #' . $pid) .
-                                '. Disponible: ' . $disponible . ' kg',
+                    'inputs' => 'Stock insuficiente para ' .
+                        ($productNames[$pid] ?? 'producto #' . $pid) .
+                        '. Disponible: ' . $disponible . ' kg',
                 ]);
             }
         }

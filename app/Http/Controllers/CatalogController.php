@@ -224,7 +224,47 @@ class CatalogController extends Controller
         return redirect()->route('catalog.index')->with('success', 'Producto actualizado.');
     }
 
-    public function destroy(Product $product): RedirectResponse
+    // ─── Actualizar imagen — accesible para cashier ───────────────────────────
+
+    public function updateImage(Request , Product ): RedirectResponse
+    {
+        abort_unless($product->business_id === Auth::user()->business_id, 403);
+
+        $request->validate([
+            'image'        => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'remove_image' => ['nullable', 'boolean'],
+        ]);
+
+        $updates = [];
+
+        if ($request->boolean('remove_image') && $product->image_path) {
+            $this->deleteProductImage($product->image_path);
+            $updates['image_path'] = null;
+        }
+
+        if ($request->hasFile('image')) {
+            if ($product->image_path) {
+                $this->deleteProductImage($product->image_path);
+            }
+            $imagePath = $this->processProductImage(
+                $request->file('image'),
+                $product->id,
+                $product->name,
+                $product->business_id,
+            );
+            if ($imagePath !== '') {
+                $updates['image_path'] = $imagePath;
+            }
+        }
+
+        if (! empty($updates)) {
+            $product->update($updates);
+        }
+
+        return redirect()->route('catalog.index')->with('success', 'Imagen actualizada.');
+    }
+
+        public function destroy(Product $product): RedirectResponse
     {
         $hasActiveSales = $product->saleItems()
             ->whereHas('sale', fn ($q) => $q->whereIn('status', ['open', 'pending']))

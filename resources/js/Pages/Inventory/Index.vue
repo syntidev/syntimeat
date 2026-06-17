@@ -3,7 +3,8 @@ import AppLayout from '@/Layouts/AppLayout.vue'
 import HelpModal  from '@/Components/HelpModal.vue'
 import { ref, computed, watch } from 'vue'
 import { useForm, usePage } from '@inertiajs/vue3'
-import { Scale } from '@lucide/vue'
+import { Scale, RefreshCw } from '@lucide/vue'
+import axios from 'axios'
 
 const props = defineProps({
     products:     Array,
@@ -309,6 +310,59 @@ function submitAdjust() {
 }
 
 watch(drawerProduct, (val) => { if (! val) closeAdjust() })
+
+// ─── Reciclar remanente ─────────────────────────────────────────────────────
+const showReciclar    = ref(false)
+const reciclarStep    = ref(1)
+const reciclarProd    = ref(null)
+const reciclarCosto   = ref('')
+const reciclarNotas   = ref('')
+const reciclarLoading = ref(false)
+const reciclarError   = ref('')
+
+const reciclarKg    = computed(() => reciclarProd.value ? stockValue(reciclarProd.value.id) : 0)
+const reciclarTotal = computed(() => (reciclarKg.value * (parseFloat(reciclarCosto.value) || 0)).toFixed(2))
+
+function canReciclar(p) {
+    if (!p) return false
+    const role = page.props.auth.user.role
+    return p.sale_mode === 'weight'
+        && stockValue(p.id) > 0
+        && ['owner', 'branch_admin', 'super_admin'].includes(role)
+}
+
+function openReciclar(product) {
+    reciclarProd.value    = product
+    reciclarCosto.value   = ''
+    reciclarNotas.value   = ''
+    reciclarStep.value    = 1
+    reciclarError.value   = ''
+    reciclarLoading.value = false
+    showReciclar.value    = true
+}
+
+function closeReciclar() {
+    showReciclar.value    = false
+    reciclarLoading.value = false
+    reciclarError.value   = ''
+}
+
+async function submitReciclar() {
+    reciclarLoading.value = true
+    reciclarError.value   = ''
+    try {
+        await axios.post(route('inventory.reciclar'), {
+            product_id:      reciclarProd.value.id,
+            new_cost_per_kg: parseFloat(reciclarCosto.value),
+            notes:           reciclarNotas.value || null,
+        })
+        closeReciclar()
+        window.location.reload()
+    } catch (e) {
+        reciclarError.value   = e.response?.data?.error ?? 'Error al procesar.'
+        reciclarLoading.value = false
+    }
+}
 </script>
 
 <template>
@@ -572,6 +626,17 @@ watch(drawerProduct, (val) => { if (! val) closeAdjust() })
                             </div>
                         </template>
 
+                        <!-- Reciclar remanente -->
+                        <template v-if="canReciclar(drawerProduct)">
+                            <button
+                                class="btn btn-ghost btn-full reciclar-btn"
+                                @click="openReciclar(drawerProduct)"
+                            >
+                                <RefreshCw :size="16" />
+                                Reciclar remanente
+                            </button>
+                        </template>
+
                         <!-- Historial del día -->
                         <div class="drawer-history">
                             <h3 class="drawer-section">Movimientos de hoy</h3>
@@ -704,6 +769,109 @@ watch(drawerProduct, (val) => { if (! val) closeAdjust() })
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- ── Modal Reciclar Remanente ──────────────────────────────────────── -->
+        <Teleport to="body">
+            <div v-if="showReciclar" class="modal-overlay" @click.self="closeReciclar">
+                <div class="modal-box">
+
+                    <!-- PASO 1 — Formulario -->
+                    <template v-if="reciclarStep === 1">
+                        <h2 class="modal-title">Reciclar remanente</h2>
+                        <div class="reciclar-info">
+                            <div class="field-group">
+                                <label class="field-label">Producto</label>
+                                <div class="field-readonly">{{ reciclarProd?.name }}</div>
+                            </div>
+                            <div class="form-row">
+                                <div class="field-group">
+                                    <label class="field-label">Stock disponible</label>
+                                    <div class="field-readonly mono">{{ fmtKg(reciclarKg) }} kg</div>
+                                </div>
+                                <div class="field-group">
+                                    <label class="field-label">Costo actual (ref.)</label>
+                                    <div class="field-readonly mono">
+                                        {{ getLastCost(reciclarProd) ? fmtUsd(getLastCost(reciclarProd)) + '/kg' : '—' }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="field-group">
+                                <label class="field-label">Nuevo costo por kg (USD) *</label>
+                                <input
+                                    v-model="reciclarCosto"
+                                    type="number"
+                                    step="0.01"
+                                    min="0.01"
+                                    class="field-input"
+                                    placeholder="0.00"
+                                />
+                            </div>
+                            <div class="field-group">
+                                <label class="field-label">Motivo (opcional)</label>
+                                <input
+                                    v-model="reciclarNotas"
+                                    type="text"
+                                    maxlength="200"
+                                    class="field-input"
+                                    placeholder="Ej: carne de ayer"
+                                />
+                            </div>
+                            <p v-if="reciclarError" class="error-msg">{{ reciclarError }}</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-ghost" @click="closeReciclar">Cancelar</button>
+                            <button
+                                type="button"
+                                class="btn btn-primary"
+                                :disabled="!reciclarCosto || parseFloat(reciclarCosto) <= 0"
+                                @click="reciclarStep = 2"
+                            >
+                                Continuar →
+                            </button>
+                        </div>
+                    </template>
+
+                    <!-- PASO 2 — Confirmación -->
+                    <template v-if="reciclarStep === 2">
+                        <h2 class="modal-title">Confirmar reciclaje</h2>
+                        <div class="reciclar-confirm">
+                            <p class="confirm-line">
+                                <strong>{{ fmtKg(reciclarKg) }} kg</strong> de
+                                <strong>{{ reciclarProd?.name }}</strong>
+                                a <strong>{{ fmtUsd(parseFloat(reciclarCosto)) }}/kg</strong>
+                            </p>
+                            <p class="confirm-line">
+                                Costo total nuevo lote:
+                                <strong>{{ fmtUsd(parseFloat(reciclarTotal)) }}</strong>
+                            </p>
+                            <p class="confirm-warn">
+                                Esta acción no se puede deshacer. Se cerrará el lote actual y se creará uno nuevo con el costo indicado.
+                            </p>
+                            <p v-if="reciclarError" class="error-msg">{{ reciclarError }}</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button
+                                type="button"
+                                class="btn btn-ghost"
+                                :disabled="reciclarLoading"
+                                @click="reciclarStep = 1"
+                            >
+                                ← Atrás
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-danger"
+                                :disabled="reciclarLoading"
+                                @click="submitReciclar"
+                            >
+                                {{ reciclarLoading ? 'Procesando...' : 'Confirmar' }}
+                            </button>
+                        </div>
+                    </template>
+
                 </div>
             </div>
         </Teleport>
@@ -1208,6 +1376,14 @@ watch(drawerProduct, (val) => { if (! val) closeAdjust() })
 }
 
 /* ─── Ajuste de stock ─────────────────────────────────────────────────────── */
+.reciclar-btn { display: flex; align-items: center; justify-content: center; gap: 0.4rem; color: var(--amber, #f59e0b); border-color: var(--amber, #f59e0b); }
+.reciclar-btn:hover { background: rgba(245, 158, 11, 0.1); }
+.btn-danger { background: var(--red); color: #fff; border-color: var(--red); }
+.btn-danger:hover { opacity: 0.9; }
+.btn-danger:disabled { opacity: 0.55; cursor: not-allowed; }
+.reciclar-info, .reciclar-confirm { display: flex; flex-direction: column; gap: 0.85rem; margin-bottom: 1rem; }
+.confirm-line { font-size: 1rem; color: var(--text-primary); }
+.confirm-warn { font-size: 0.85rem; color: var(--text-muted); background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); border-radius: 0.4rem; padding: 0.6rem 0.75rem; }
 .adjust-btn { display: flex; align-items: center; justify-content: center; gap: 0.4rem; }
 .adjust-panel {
     background: var(--bg-base);

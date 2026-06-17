@@ -8,6 +8,7 @@ use App\Models\ActivityLog;
 use App\Models\Category;
 use App\Models\InventoryEntry;
 use App\Models\Product;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -240,5 +241,150 @@ class InventoryController extends Controller
         ]);
 
         return back()->with('success', 'Stock ajustado correctamente.');
+    }
+
+    // ─── Reciclar remanente con nuevo costo ──────────────────────────────────
+
+    public function reciclarRemanente(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'product_id'      => ['required', 'integer', 'exists:products,id'],
+            'new_cost_per_kg' => ['required', 'numeric', 'min:0.01'],
+            'notes'           => ['nullable', 'string', 'max:200'],
+        ]);
+
+        $user       = Auth::user();
+        $businessId = $user->business->id;
+        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id')
+                ?? \App\Models\Branch::where('business_id', $businessId)
+                    ->orderBy('id')->value('id'));
+
+        abort_unless(
+            in_array($user->role, ['owner', 'super_admin', 'branch_admin'], true),
+            403,
+            'No tienes permiso para reciclar remanentes.'
+        );
+
+        $product = Product::where('id', $data['product_id'])
+            ->where('business_id', $businessId)
+            ->where('sale_mode', 'weight')
+            ->firstOrFail();
+
+        // Stock actual del producto (Regla #1 — solo inventory_entries)
+        $stockActual = (float) InventoryEntry::where('business_id', $businessId)
+            ->where('branch_id', $branchId)
+            ->where('product_id', $product->id)
+            ->sum('net_kg');
+
+        if ($stockActual <= 0) {
+            return response()->json(
+                ['error' => 'No hay stock disponible para reciclar.'],
+                422
+            );
+        }
+
+        // Lote origen — inventory_entry positiva más reciente con boveda_entry_id
+        $loteOrigen = InventoryEntry::where('business_id', $businessId)
+            ->where('branch_id', $branchId)
+            ->where('product_id', $product->id)
+            ->where('location', 'vitrina')
+            ->where('quantity_kg', '>', 0)
+            ->whereNotNull('boveda_entry_id')
+            ->orderByDesc('entered_at')
+            ->orderByDesc('id')
+            ->first();
+
+        $bovadaEntryId = $loteOrigen?->boveda_entry_id;
+        $costoAnterior = $loteOrigen?->cost_per_kg_usd ?? 0;
+
+        $newCost    = (float) $data['new_cost_per_kg'];
+        $kgReciclar = round($stockActual, 3);
+        $costoTotal = round($kgReciclar * $newCost, 2);
+        $motivo     = $data['notes'] ?? 'Reciclaje de remanente';
+
+        DB::transaction(function () use (
+            $businessId, $branchId, $user, $product,
+            $kgReciclar, $newCost, $costoTotal,
+            $bovadaEntryId, $costoAnterior, $motivo
+        ): void {
+            // 1. Entrada negativa — cierra el lote actual
+            InventoryEntry::create([
+                'business_id'     => $businessId,
+                'branch_id'       => $branchId,
+                'product_id'      => $product->id,
+                'boveda_entry_id' => $bovadaEntryId,
+                'quantity_kg'     => -$kgReciclar,
+                'waste_kg'        => 0,
+                'cost_per_kg_usd' => $costoAnterior,
+                'location'        => 'vitrina',
+                'entered_at'      => now(),
+                'created_by'      => $user->id,
+                'notes'           => "Cierre lote reciclaje — {$motivo}",
+            ]);
+
+            // 2. Nueva BovedaEntry con nuevo costo
+            $nuevaBoveda = \App\Models\BovedaEntry::create([
+                'business_id'            => $businessId,
+                'branch_id'              => $branchId,
+                'product_type'           => $product->name,
+                'description'            => "Remanente reciclado — {$motivo}",
+                'kg_entrada'             => $kgReciclar,
+                'costo_usd'              => $costoTotal,
+                'supplier'               => 'Remanente',
+                'entered_at'             => now(),
+                'kg_surtido_vitrina'     => $kgReciclar,
+                'despiece_completado_at' => now(),
+            ]);
+
+            // 3. Entrada positiva vitrina con nuevo costo — listo para FIFO
+            InventoryEntry::create([
+                'business_id'     => $businessId,
+                'branch_id'       => $branchId,
+                'product_id'      => $product->id,
+                'boveda_entry_id' => $nuevaBoveda->id,
+                'quantity_kg'     => $kgReciclar,
+                'waste_kg'        => 0,
+                'cost_per_kg_usd' => $newCost,
+                'location'        => 'vitrina',
+                'entered_at'      => now(),
+                'created_by'      => $user->id,
+                'notes'           => "Remanente reciclado a \${$newCost}/kg — {$motivo}",
+            ]);
+
+            // 4. Actualizar costo referencia en el producto
+            $product->update(['cost_per_kg_usd' => $newCost]);
+
+            // 5. Cerrar BovedaEntry origen si tiene 0 disponible
+            if ($bovadaEntryId) {
+                $entradaOrigen = \App\Models\BovedaEntry::find($bovadaEntryId);
+                if ($entradaOrigen && (float) $entradaOrigen->kg_disponible <= 0) {
+                    $entradaOrigen->update(['closed_at' => now()]);
+                }
+            }
+
+            ActivityLog::create([
+                'business_id' => $businessId,
+                'user_id'     => $user->id,
+                'action'      => 'inventory.reciclar_remanente',
+                'model_type'  => 'InventoryEntry',
+                'model_id'    => $product->id,
+                'new_values'  => [
+                    'product'         => $product->name,
+                    'kg_reciclados'   => $kgReciclar,
+                    'costo_anterior'  => $costoAnterior,
+                    'nuevo_costo'     => $newCost,
+                    'nueva_boveda_id' => $nuevaBoveda->id,
+                ],
+            ]);
+        });
+
+        return response()->json([
+            'ok'            => true,
+            'kg_reciclados' => $kgReciclar,
+            'nuevo_costo'   => $newCost,
+            'costo_total'   => $costoTotal,
+        ]);
     }
 }
