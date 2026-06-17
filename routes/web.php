@@ -167,6 +167,10 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
         Route::get('/contingencia/plantilla-inventario', [ContingencyController::class, 'downloadInventoryTemplate'])->name('contingency.inventory-template');
         Route::post('/contingencia/importar-ventas', [ContingencyController::class, 'importSales'])->name('contingency.import-sales');
         Route::post('/contingencia/importar-inventario', [ContingencyController::class, 'importInventory'])->name('contingency.import-inventory');
+
+        // Catálogo — vista accesible para cashier
+        Route::get('/catalogo', [CatalogController::class, 'index'])->name('catalog.index');
+        Route::patch('/catalogo/productos/{product}/imagen', [CatalogController::class, 'updateImage'])->name('catalog.update-image');
     });
 
     // ── Panel Empresarial — solo super_admin / owner (vista multi-sucursal) ───
@@ -205,7 +209,7 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
         });
 
         // Catálogo
-        Route::get('/catalogo', [CatalogController::class, 'index'])->name('catalog.index');
+        Route::get('/catalogo', [CatalogController::class, 'index']);
         Route::get('/catalogo/plantilla-productos', [CatalogController::class, 'downloadProductTemplate'])->name('catalog.product-template');
         Route::post('/catalogo/importar', [CatalogController::class, 'importProducts'])->name('catalog.import');
         Route::post('/catalogo/productos', [CatalogController::class, 'store'])->name('catalog.store');
