@@ -481,28 +481,60 @@ class SaleController extends Controller
                 ]);
             }
 
-            // Descontar inventario solo para items tipo weight
-            // Eager-load product para acceder a stock_product_id sin N+1
+            // ── FIFO: descontar por lote más antiguo primero ──────────────
             $sale->load('items.product');
             foreach ($sale->items as $item) {
                 if ($item->input_type !== 'weight') {
                     continue;
                 }
 
-                // Si el producto apunta a un pool de stock, descontar del pool
                 $stockProductId = $item->product?->stock_product_id ?? $item->product_id;
+                $kgRestante     = round(abs((float) $item->quantity_value), 4);
 
-                InventoryEntry::create([
-                    'business_id' => $businessId,
-                    'branch_id'   => $branchId,
-                    'product_id'  => $stockProductId,
-                    'quantity_kg' => -abs((float) $item->quantity_value),
-                    'waste_kg'    => 0,
-                    'location'    => 'vitrina',
-                    'entered_at'  => now(),
-                    'created_by'  => $user->id,
-                    'notes'       => "Venta {$sale->ticket_number}",
-                ]);
+                // Lotes positivos en vitrina ordenados por entered_at ASC
+                $lotes = \App\Models\InventoryEntry::where('business_id', $businessId)
+                    ->where('branch_id', $branchId)
+                    ->where('product_id', $stockProductId)
+                    ->where('location', 'vitrina')
+                    ->where('quantity_kg', '>', 0)
+                    ->whereNotNull('boveda_entry_id')
+                    ->orderBy('entered_at', 'asc')
+                    ->orderBy('id', 'asc')
+                    ->get();
+
+                foreach ($lotes as $lote) {
+                    if ($kgRestante <= 0) break;
+                    $kgDescontar = min($kgRestante, (float) $lote->quantity_kg);
+                    \App\Models\InventoryEntry::create([
+                        'business_id'     => $businessId,
+                        'branch_id'       => $branchId,
+                        'product_id'      => $stockProductId,
+                        'boveda_entry_id' => $lote->boveda_entry_id,
+                        'quantity_kg'     => -$kgDescontar,
+                        'waste_kg'        => 0,
+                        'cost_per_kg_usd' => $lote->cost_per_kg_usd,
+                        'location'        => 'vitrina',
+                        'entered_at'      => now(),
+                        'created_by'      => $user->id,
+                        'notes'           => "Venta FIFO {$sale->ticket_number} lote#{$lote->id}",
+                    ]);
+                    $kgRestante = round($kgRestante - $kgDescontar, 4);
+                }
+
+                // kg sin lote conocido — stock negativo permitido
+                if ($kgRestante > 0.0001) {
+                    \App\Models\InventoryEntry::create([
+                        'business_id' => $businessId,
+                        'branch_id'   => $branchId,
+                        'product_id'  => $stockProductId,
+                        'quantity_kg' => -$kgRestante,
+                        'waste_kg'    => 0,
+                        'location'    => 'vitrina',
+                        'entered_at'  => now(),
+                        'created_by'  => $user->id,
+                        'notes'       => "Venta FIFO {$sale->ticket_number} sin lote",
+                    ]);
+                }
             }
 
             ActivityLog::create([
