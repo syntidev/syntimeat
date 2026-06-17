@@ -226,7 +226,7 @@ class CatalogController extends Controller
 
     // ─── Actualizar imagen — accesible para cashier ───────────────────────────
 
-    public function updateImage(Request , Product ): RedirectResponse
+    public function updateImage(Request $request, Product $product): RedirectResponse
     {
         abort_unless($product->business_id === Auth::user()->business_id, 403);
 
@@ -264,7 +264,7 @@ class CatalogController extends Controller
         return redirect()->route('catalog.index')->with('success', 'Imagen actualizada.');
     }
 
-        public function destroy(Product $product): RedirectResponse
+    public function destroy(Product $product): RedirectResponse
     {
         $hasActiveSales = $product->saleItems()
             ->whereHas('sale', fn ($q) => $q->whereIn('status', ['open', 'pending']))
