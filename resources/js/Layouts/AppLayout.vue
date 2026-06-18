@@ -134,9 +134,15 @@ function changeBranch(branchId) {
 // ─── Tasa ─────────────────────────────────────────────────────────────────────
 const tasa = computed(() => page.props.tasa ?? { rate: 40, source: 'fallback', hora: null })
 const canEditRate = computed(() =>
-    ['admin', 'owner', 'super_admin', 'branch_admin', 'cashier'].includes(user.value?.role ?? '')
+    ['super_admin', 'admin', 'owner', 'branch_admin', 'supervisor', 'cashier', 'analyst'].includes(user.value?.role ?? '')
 )
 const showRateModal = ref(false)
+const showInput = ref(false)
+
+watch(showRateModal, (val) => {
+    if (!val) showInput.value = false
+})
+
 const rateForm = useForm({ rate: '' })
 
 const sourceLabels = {
@@ -148,13 +154,16 @@ const sourceLabels = {
 }
 function sourceLabel(s) { return sourceLabels[s] ?? s }
 
-const manualOverrideActive = computed(() => tasa.value?.manual_override ?? false)
+const manualOverrideActive = computed(() =>
+    tasa.value?.manual_override === true || tasa.value?.source === 'manual'
+)
 
 function submitRate() {
     rateForm.post(route('rate.manual'), {
         preserveScroll: true,
         onSuccess: () => {
             showRateModal.value = false
+            showInput.value = false
             rateForm.reset()
         },
     })
@@ -163,7 +172,10 @@ function submitRate() {
 function releaseManualRate() {
     router.post(route('rate.manual.release'), {}, {
         preserveScroll: true,
-        onSuccess: () => { showRateModal.value = false },
+        onSuccess: () => {
+            showRateModal.value = false
+            showInput.value = false
+        },
     })
 }
 
@@ -412,7 +424,7 @@ function routeExists(routeName) {
                     <!-- Badge tasa -->
                     <button
                         :class="['rate-badge', manualOverrideActive ? 'rate-badge--manual' : '']"
-                        @click="canEditRate ? showRateModal = true : null"
+                        @click="canEditRate ? (showRateModal = true) : null"
                         :style="canEditRate ? '' : 'cursor:default'"
                         :title="canEditRate ? (manualOverrideActive ? 'Tasa manual activa — click para cambiar' : 'Cambiar tasa manualmente') : 'Tasa del día'"
                     >
@@ -492,46 +504,66 @@ function routeExists(routeName) {
     <Teleport to="body">
         <div v-if="showRateModal" class="rate-overlay" @click.self="showRateModal = false">
             <div class="rate-modal">
-                <h3 class="rate-modal__title">Ajustar tasa del día</h3>
+                <h3 class="rate-modal__title">Tasa del día</h3>
                 <p class="rate-modal__sub">
-                    Tasa actual: <strong>Bs. {{ tasa.rate.toFixed(2) }}</strong>
-                    ({{ sourceLabel(tasa.source) }}
-                    <span v-if="tasa.hora">· {{ tasa.hora }}</span>)
+                    BCV actual: <strong>Bs. {{ tasa.rate.toFixed(2) }}</strong>
+                    <span v-if="tasa.hora">· {{ tasa.hora }}</span>
                 </p>
-                <form @submit.prevent="submitRate">
+
+                <!-- Toggle -->
+                <div class="rate-toggle-row">
+                    <div>
+                        <span class="rate-toggle-label">Usar tasa manual</span>
+                        <span class="rate-toggle-status">
+                            {{ manualOverrideActive ? '● Activa' : '○ Inactiva' }}
+                        </span>
+                    </div>
+                    <button
+                        type="button"
+                        :class="['rate-toggle', manualOverrideActive ? 'rate-toggle--on' : '']"
+                        @click.prevent="manualOverrideActive ? releaseManualRate() : (showInput = !showInput)"
+                    >
+                        <span class="rate-toggle__thumb" />
+                    </button>
+                </div>
+
+                <!-- Input solo visible cuando toggle está OFF y usuario quiere activar -->
+                <div v-if="!manualOverrideActive && showInput">
                     <input
                         v-model="rateForm.rate"
                         type="number"
                         step="0.01"
                         min="1"
-                        placeholder="Ej. 52.30"
+                        placeholder="Ej. 602.33"
                         class="rate-modal__input"
                         autofocus
                     />
                     <p class="rate-modal__hint">
-                        <span v-if="manualOverrideActive">
-                            ● Tasa manual activa — el sistema ignora la BCV automática.
-                        </span>
-                        <span v-else>
-                            Al aplicar, el sistema usará esta tasa hasta que la liberes manualmente.
-                        </span>
+                        Ingresa el valor y presiona Aplicar.
                     </p>
                     <div class="rate-modal__actions">
                         <button type="button" class="rate-modal__cancel" @click="showRateModal = false">Cancelar</button>
-                        <button
-                            v-if="manualOverrideActive"
-                            type="button"
-                            class="rate-modal__cancel"
-                            style="color: #D97706; border-color: rgba(245,158,11,0.4);"
-                            @click="releaseManualRate"
-                        >
-                            Liberar → BCV automática
-                        </button>
-                        <button type="submit" class="rate-modal__submit" :disabled="rateForm.processing">
-                            {{ manualOverrideActive ? 'Actualizar tasa manual' : 'Aplicar tasa manual' }}
+                        <button type="button" class="rate-modal__submit" @click.prevent="submitRate" :disabled="rateForm.processing">
+                            Aplicar tasa manual
                         </button>
                     </div>
-                </form>
+                </div>
+
+                <!-- Mensaje cuando manual activa -->
+                <div v-if="manualOverrideActive">
+                    <p class="rate-modal__hint" style="color:#D97706;">
+                        ● Tasa manual activa. Toca el toggle para volver a BCV automática.
+                    </p>
+                    <div class="rate-modal__actions">
+                        <button type="button" class="rate-modal__cancel" @click="showRateModal = false">Cerrar</button>
+                    </div>
+                </div>
+
+                <!-- Botón cerrar cuando toggle OFF e input no visible -->
+                <div v-if="!manualOverrideActive && !showInput" class="rate-modal__actions">
+                    <button type="button" class="rate-modal__cancel" @click="showRateModal = false">Cancelar</button>
+                </div>
+
             </div>
         </div>
     </Teleport>
@@ -1174,5 +1206,57 @@ const icons = {
 }
 @media (max-width: 1023px) {
     .sidebar-close { display: flex; }
+}
+
+/* ── Toggle manual/automático ─────────────────────────────────────────────── */
+.rate-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    padding: 0.625rem 0.75rem;
+    background: var(--bg-input);
+    border-radius: 0.5rem;
+    border: 1px solid var(--border);
+}
+.rate-toggle-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.rate-toggle {
+    width: 44px;
+    height: 24px;
+    border-radius: 999px;
+    border: none;
+    cursor: pointer;
+    padding: 2px;
+    background: var(--border);
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+}
+.rate-toggle--on {
+    background: #D97706;
+}
+.rate-toggle__thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.2s;
+    display: block;
+}
+.rate-toggle--on .rate-toggle__thumb {
+    transform: translateX(20px);
+}
+.rate-toggle-status {
+    font-size: 0.72rem;
+    font-weight: 600;
+    margin-left: 0.375rem;
+    color: var(--text-muted);
+}
+.rate-toggle-row:has(.rate-toggle--on) .rate-toggle-status {
+    color: #D97706;
 }
 </style>

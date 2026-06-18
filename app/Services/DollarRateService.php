@@ -39,6 +39,22 @@ class DollarRateService
      */
     public function releaseManualRate(): void
     {
+        DollarRate::query()
+            ->where('currency_type', 'USD')
+            ->where('source', 'manual')
+            ->where('is_active', true)
+            ->update(['is_active' => false, 'effective_until' => Carbon::now()]);
+
+        $bcv = DollarRate::query()
+            ->where('currency_type', 'USD')
+            ->where('source', 'bcv')
+            ->orderByDesc('effective_from')
+            ->first();
+
+        if ($bcv !== null) {
+            $bcv->update(['is_active' => true, 'effective_until' => null]);
+        }
+
         Cache::forget(self::MANUAL_OVERRIDE_KEY);
         Cache::forget(self::CACHE_KEY);
     }

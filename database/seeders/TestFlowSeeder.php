@@ -448,6 +448,7 @@ class TestFlowSeeder extends Seeder
                 'subtotal_bs'        => $subtotalBs,
                 'rate_used'          => $this->tasa,
                 'discount_usd'       => 0,
+                'cost_per_kg_usd'    => $this->p('Primera')->cost_per_kg_usd,
             ]);
 
             InventoryEntry::create([

@@ -184,6 +184,12 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
         Route::post('/reportes/canal-cerrar', [ReportController::class, 'cerrarCanal'])->name('reports.canal.cerrar');
     });
 
+    // ── Tasa manual — todos los roles (cajera puede actuar sin esperar) ─────────
+    Route::middleware('role:super_admin,admin,owner,branch_admin,supervisor,cashier,analyst')->group(function () {
+        Route::post('/tasa/manual', [SettingsController::class, 'setManualRate'])->name('rate.manual');
+        Route::post('/tasa/manual/release', [SettingsController::class, 'releaseManualRate'])->name('rate.manual.release');
+    });
+
     // ── Reportes — incluye analyst (rol de solo-lectura / contable) ───────────
     Route::middleware('role:super_admin,admin,owner,branch_admin,supervisor,analyst')->group(function () {
         Route::get('/reportes', [ReportController::class, 'index'])->name('reports.index');
@@ -200,11 +206,7 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
     Route::middleware('role:super_admin,admin,owner,branch_admin,supervisor,analyst')->group(function () {
 
         // Acciones de caja/venta sensibles — solo admin/super_admin (anular, tasa)
-        Route::middleware('role:super_admin,admin,owner,branch_admin,supervisor,cashier')->group(function () {
-            // Tasa manual
-            Route::post('/tasa/manual', [SettingsController::class, 'setManualRate'])->name('rate.manual');
-            Route::post('/tasa/manual/release', [SettingsController::class, 'releaseManualRate'])->name('rate.manual.release');
-
+        Route::middleware('role:super_admin,admin,owner,branch_admin,supervisor,cashier,analyst')->group(function () {
             // Anular venta
 
         });

@@ -23,7 +23,7 @@ class HandleInertiaRequests extends Middleware
 
     public function share(Request $request): array
     {
-        $tasa                   = ['rate' => 40.0, 'source' => 'fallback', 'hora' => null];
+        $tasa                   = ['rate' => 40.0, 'source' => 'fallback', 'hora' => null, 'manual_override' => false];
         $stockCriticoCount      = 0;
         $cobrosPendientesCount  = 0;
         $despiecePendienteCount = 0;
