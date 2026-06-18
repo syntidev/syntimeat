@@ -26,6 +26,29 @@ function fmtBs(n)    { return 'Bs. ' + Number(n ?? 0).toLocaleString('es-VE', { 
 function fmtUsd(n)   { return '$ ' + Number(n ?? 0).toFixed(2); }
 function fmtTime(d)  { return d ? new Date(d).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : '—'; }
 function fmtDate(d)  { return d ? new Date(d).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'; }
+function fmtDateTime(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleString('es-VE', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+    });
+}
+
+// Período del sistema: apertura de caja → hora de cierre (19:00 del mismo día contable)
+function periodoSistema(openedAt) {
+    if (!openedAt) return null;
+    const apertura = new Date(openedAt);
+    const cierre   = new Date(openedAt);
+    cierre.setHours(19, 0, 0, 0);
+    // Si apertura es después de las 19:00, el cierre es al día siguiente
+    if (apertura.getHours() >= 19) {
+        cierre.setDate(cierre.getDate() + 1);
+    }
+    return {
+        desde: fmtDateTime(apertura),
+        hasta: cierre.toLocaleString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    };
+}
 
 // ─── Formulario cierre ────────────────────────────────────────────────────────
 const form = useForm({
@@ -123,6 +146,25 @@ function submitClose() {
                     <button class="btn btn-ghost btn-help" @click="showHelp = true" title="Ayuda">?</button>
                     <a :href="route('cash.index')" class="btn btn-ghost">← Volver a Caja</a>
                 </div>
+            </div>
+
+            <!-- Banner período del sistema ──────────────────────────────── -->
+            <div class="dc-period-banner" v-if="cashRegister?.opened_at">
+                <div class="dc-period-main">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span>
+                        Período del sistema:
+                        <strong>{{ periodoSistema(cashRegister.opened_at)?.desde }}</strong>
+                        →
+                        <strong>{{ periodoSistema(cashRegister.opened_at)?.hasta }}</strong>
+                    </span>
+                </div>
+                <p class="dc-period-note">
+                    Los terminales bancarios (POS) hacen su propio corte en un horario distinto al del sistema.
+                    Si los totales por método de pago no coinciden exactamente con el reporte del banco,
+                    verifique que el corte del terminal coincide con este período. La diferencia casi siempre
+                    son transacciones procesadas entre el cierre del POS y las 7:00 p.m. del sistema.
+                </p>
             </div>
 
             <!-- KPIs ───────────────────────────────────────────────────────── -->
@@ -595,6 +637,33 @@ function submitClose() {
     font-size: 1rem;
 }
 .dc-devengado strong { color: var(--success); font-size: 1.1rem; }
+
+/* ── Banner período ──────────────────────────────────────────────────────── */
+.dc-period-banner {
+    background: color-mix(in srgb, var(--brand, #6366f1) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--brand, #6366f1) 30%, transparent);
+    border-radius: .625rem;
+    padding: .875rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+.dc-period-main {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    font-size: .875rem;
+    font-weight: 600;
+    color: var(--brand, #6366f1);
+}
+.dc-period-main strong { color: var(--text-primary); }
+.dc-period-note {
+    font-size: .78rem;
+    color: var(--text-secondary, var(--text-muted));
+    line-height: 1.55;
+    margin: 0;
+}
+
 .dc-badge {
     background: rgba(99,102,241,0.15);
     color: var(--brand);
