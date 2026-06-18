@@ -34,16 +34,33 @@ class HandleInertiaRequests extends Middleware
 
         if ($user = $request->user()) {
             try {
-                $record = DollarRate::where('currency_type', 'USD')
-                    ->where('is_active', true)
-                    ->orderByDesc('effective_from')
-                    ->first();
+                // Si el switch manual está activo, priorizar tasa manual
+                $manualOverride = \Illuminate\Support\Facades\Cache::get('syntimeat_manual_rate_override', false);
+
+                $record = $manualOverride
+                    ? DollarRate::where('currency_type', 'USD')
+                        ->where('is_active', true)
+                        ->where('source', 'manual')
+                        ->orderByDesc('effective_from')
+                        ->first()
+                        ?? DollarRate::where('currency_type', 'USD')
+                            ->where('is_active', true)
+                            ->orderByDesc('effective_from')
+                            ->first()
+                    : DollarRate::where('currency_type', 'USD')
+                        ->where('is_active', true)
+                        ->orderByDesc('effective_from')
+                        ->first();
+
+                // Pasar estado del switch al frontend
+                $manualOverrideActive = $manualOverride;
 
                 if ($record) {
                     $tasa = [
-                        'rate'   => round((float) $record->rate, 2),
-                        'source' => $record->source,
-                        'hora'   => $record->created_at?->format('H:i'),
+                        'rate'            => round((float) $record->rate, 2),
+                        'source'          => $record->source,
+                        'hora'            => $record->created_at?->format('H:i'),
+                        'manual_override' => (bool) ($manualOverrideActive ?? false),
                     ];
                 }
             } catch (Throwable $_) {

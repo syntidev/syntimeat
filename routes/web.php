@@ -203,6 +203,7 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
         Route::middleware('role:super_admin,admin,owner,branch_admin,supervisor,cashier')->group(function () {
             // Tasa manual
             Route::post('/tasa/manual', [SettingsController::class, 'setManualRate'])->name('rate.manual');
+            Route::post('/tasa/manual/release', [SettingsController::class, 'releaseManualRate'])->name('rate.manual.release');
 
             // Anular venta
 

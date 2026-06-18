@@ -28,10 +28,28 @@ use Throwable;
  */
 class DollarRateService
 {
-    private const CACHE_KEY      = 'syntimeat_dollar_rate_usd';
-    private const CACHE_TTL      = 3600;   // 1 hora
-    private const MAX_CHANGE_PCT = 60.0;   // % máximo de variación diaria aceptada (VES es volátil)
-    private const FALLBACK       = 40.00;
+    private const CACHE_KEY           = 'syntimeat_dollar_rate_usd';
+    private const MANUAL_OVERRIDE_KEY = 'syntimeat_manual_rate_override';
+    private const CACHE_TTL           = 3600;   // 1 hora
+    private const MAX_CHANGE_PCT      = 60.0;   // % máximo de variación diaria aceptada (VES es volátil)
+    private const FALLBACK            = 40.00;
+
+    /**
+     * Desactiva el switch manual — el cron BCV retoma el control.
+     */
+    public function releaseManualRate(): void
+    {
+        Cache::forget(self::MANUAL_OVERRIDE_KEY);
+        Cache::forget(self::CACHE_KEY);
+    }
+
+    /**
+     * Estado del switch manual.
+     */
+    public function isManualOverrideActive(): bool
+    {
+        return (bool) Cache::get(self::MANUAL_OVERRIDE_KEY, false);
+    }
 
     public function __construct(
         private readonly CurrencyFetcherService $fetcher
@@ -165,21 +183,24 @@ class DollarRateService
         }
 
         try {
-            // Desactivar tasas anteriores activas
+            // Si el switch manual está activo, guardar la tasa BCV pero no activarla
+            $manualOverride = Cache::get(self::MANUAL_OVERRIDE_KEY, false);
+
+            // Desactivar tasas anteriores activas de esta fuente
             DollarRate::query()
                 ->where('currency_type', 'USD')
                 ->where('source', $sourceName)
                 ->where('is_active', true)
                 ->update(['is_active' => false, 'effective_until' => Carbon::now()]);
 
-            // Insertar nueva tasa
+            // Insertar nueva tasa — inactiva si el switch manual está ON
             DollarRate::create([
                 'rate'            => $newRate,
                 'source'          => $sourceName,
                 'currency_type'   => 'USD',
                 'effective_from'  => Carbon::now(),
                 'effective_until' => null,
-                'is_active'       => true,
+                'is_active'       => ! $manualOverride,
             ]);
 
             Cache::forget(self::CACHE_KEY);
@@ -218,6 +239,8 @@ class DollarRateService
                 'is_active'       => true,
             ]);
 
+            // Activar switch: el sistema usa tasa manual hasta que se desactive
+            Cache::put(self::MANUAL_OVERRIDE_KEY, true, now()->addHours(48));
             Cache::forget(self::CACHE_KEY);
 
             return true;

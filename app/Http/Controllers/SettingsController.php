@@ -31,7 +31,14 @@ class SettingsController extends Controller
 
         $rates->storeManualRate((float) $request->input('rate'));
 
-        return back()->with('success', 'Tasa manual aplicada.');
+        return back()->with('success', 'Tasa manual activada. El sistema usará esta tasa hasta que la desactives.');
+    }
+
+    public function releaseManualRate(DollarRateService $rates): RedirectResponse
+    {
+        $rates->releaseManualRate();
+
+        return back()->with('success', 'Tasa manual desactivada. El sistema vuelve a la tasa BCV automática.');
     }
 
     // ─── General ─────────────────────────────────────────────────────────────

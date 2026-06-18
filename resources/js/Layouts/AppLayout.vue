@@ -134,7 +134,7 @@ function changeBranch(branchId) {
 // ─── Tasa ─────────────────────────────────────────────────────────────────────
 const tasa = computed(() => page.props.tasa ?? { rate: 40, source: 'fallback', hora: null })
 const canEditRate = computed(() =>
-    ['admin', 'owner', 'super_admin', 'branch_admin'].includes(user.value?.role ?? '')
+    ['admin', 'owner', 'super_admin', 'branch_admin', 'cashier'].includes(user.value?.role ?? '')
 )
 const showRateModal = ref(false)
 const rateForm = useForm({ rate: '' })
@@ -148,6 +148,8 @@ const sourceLabels = {
 }
 function sourceLabel(s) { return sourceLabels[s] ?? s }
 
+const manualOverrideActive = computed(() => tasa.value?.manual_override ?? false)
+
 function submitRate() {
     rateForm.post(route('rate.manual'), {
         preserveScroll: true,
@@ -155,6 +157,13 @@ function submitRate() {
             showRateModal.value = false
             rateForm.reset()
         },
+    })
+}
+
+function releaseManualRate() {
+    router.post(route('rate.manual.release'), {}, {
+        preserveScroll: true,
+        onSuccess: () => { showRateModal.value = false },
     })
 }
 
@@ -402,13 +411,13 @@ function routeExists(routeName) {
 
                     <!-- Badge tasa -->
                     <button
-                        :class="['rate-badge', tasa.source === 'manual' ? 'rate-badge--manual' : '']"
+                        :class="['rate-badge', manualOverrideActive ? 'rate-badge--manual' : '']"
                         @click="canEditRate ? showRateModal = true : null"
                         :style="canEditRate ? '' : 'cursor:default'"
-                        :title="canEditRate ? 'Cambiar tasa manualmente' : 'Tasa del día'"
+                        :title="canEditRate ? (manualOverrideActive ? 'Tasa manual activa — click para cambiar' : 'Cambiar tasa manualmente') : 'Tasa del día'"
                     >
                         <span class="rate-badge__value">Bs. {{ tasa.rate.toFixed(2) }}</span>
-                        <span class="rate-badge__src">{{ sourceLabel(tasa.source) }}</span>
+                        <span class="rate-badge__src">{{ manualOverrideActive ? 'Manual ●' : sourceLabel(tasa.source) }}</span>
                         <svg v-if="canEditRate" xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="opacity:0.6">
                             <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
                         </svg>
@@ -499,10 +508,28 @@ function routeExists(routeName) {
                         class="rate-modal__input"
                         autofocus
                     />
-                    <p class="rate-modal__hint">Se registrará como tasa manual hasta la próxima actualización automática.</p>
+                    <p class="rate-modal__hint">
+                        <span v-if="manualOverrideActive">
+                            ● Tasa manual activa — el sistema ignora la BCV automática.
+                        </span>
+                        <span v-else>
+                            Al aplicar, el sistema usará esta tasa hasta que la liberes manualmente.
+                        </span>
+                    </p>
                     <div class="rate-modal__actions">
                         <button type="button" class="rate-modal__cancel" @click="showRateModal = false">Cancelar</button>
-                        <button type="submit" class="rate-modal__submit" :disabled="rateForm.processing">Aplicar tasa</button>
+                        <button
+                            v-if="manualOverrideActive"
+                            type="button"
+                            class="rate-modal__cancel"
+                            style="color: #D97706; border-color: rgba(245,158,11,0.4);"
+                            @click="releaseManualRate"
+                        >
+                            Liberar → BCV automática
+                        </button>
+                        <button type="submit" class="rate-modal__submit" :disabled="rateForm.processing">
+                            {{ manualOverrideActive ? 'Actualizar tasa manual' : 'Aplicar tasa manual' }}
+                        </button>
                     </div>
                 </form>
             </div>
