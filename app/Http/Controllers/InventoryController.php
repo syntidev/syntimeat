@@ -170,6 +170,11 @@ class InventoryController extends Controller
             $product->update(['cost_per_kg_usd' => $data['cost_per_kg_usd']]);
         }
 
+        // Propagar cost_per_kg_usd al producto para que reportes reflejen costo real
+        if (! empty($data['cost_per_kg_usd'])) {
+            $product->update(['cost_per_kg_usd' => $data['cost_per_kg_usd']]);
+        }
+
         ActivityLog::create([
             'business_id' => $businessId,
             'user_id'     => $userId,

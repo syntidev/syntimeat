@@ -175,7 +175,7 @@ class DashboardController extends Controller
                 DB::raw('SUM(sale_items.subtotal_bs) as total_bs'),
                 DB::raw('SUM(sale_items.subtotal_usd) as total_usd'),
                 DB::raw("SUM(CASE WHEN sale_items.input_type = 'weight' THEN sale_items.quantity_value ELSE 0 END) as kg_vendidos"),
-                DB::raw('COALESCE(SUM(sale_items.quantity_value * products.cost_per_kg_usd), 0) as costo_usd'),
+                DB::raw('COALESCE(SUM(sale_items.quantity_value * COALESCE(sale_items.cost_per_kg_usd, products.cost_per_kg_usd, 0)), 0) as costo_usd'),
             )
             ->get()
             ->keyBy('category_name');
