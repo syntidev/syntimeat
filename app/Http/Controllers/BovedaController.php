@@ -411,6 +411,9 @@ class BovedaController extends Controller
                         'boveda_entry_id' => $entry->id,
                         'quantity_kg'     => -$kg,
                         'waste_kg'        => 0,
+                        'cost_per_kg_usd' => (float) $entry->kg_entrada > 0
+                            ? round((float) $entry->costo_usd / (float) $entry->kg_entrada, 4)
+                            : null,
                         'location'        => 'boveda',
                         'notes'           => 'Salida bóveda → vitrina para despiece (entrada #' . $entry->id . ')',
                         'entered_at'      => now(),
@@ -418,6 +421,10 @@ class BovedaController extends Controller
                     ]);
                 }
             } else {
+                $costoPorKgSurte = (float) $entry->kg_entrada > 0
+                    ? round((float) $entry->costo_usd / (float) $entry->kg_entrada, 4)
+                    : null;
+
                 InventoryEntry::create([
                     'business_id'     => $businessId,
                     'branch_id'       => $branchId,
@@ -425,11 +432,16 @@ class BovedaController extends Controller
                     'boveda_entry_id' => $entry->id,
                     'quantity_kg'     => $kg,
                     'waste_kg'        => 0,
+                    'cost_per_kg_usd' => $costoPorKgSurte,
                     'location'        => 'vitrina',
                     'notes'           => 'Surtido directo desde bóveda — ' . $entry->product_type . ' (entrada #' . $entry->id . ')',
                     'entered_at'      => now(),
                     'created_by'      => $userId,
                 ]);
+
+                if ($costoPorKgSurte !== null && $vitrinaProduct !== null) {
+                    $vitrinaProduct->update(['cost_per_kg_usd' => $costoPorKgSurte]);
+                }
             }
 
             ActivityLog::create([
