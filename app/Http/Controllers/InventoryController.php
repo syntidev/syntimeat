@@ -228,11 +228,12 @@ class InventoryController extends Controller
             'business_id' => $businessId,
             'branch_id'   => $branchId,
             'product_id'  => $data['product_id'],
-            'quantity_kg' => $diferencia,
-            'waste_kg'    => 0,
-            'entered_at'  => now(),
-            'created_by'  => $userId,
-            'notes'       => 'Ajuste de inventario — stock real: ' . $data['stock_real'],
+            'quantity_kg'     => $diferencia,
+            'waste_kg'        => 0,
+            'cost_per_kg_usd' => $diferencia > 0 ? $product->cost_per_kg_usd : null,
+            'entered_at'      => now(),
+            'created_by'      => $userId,
+            'notes'           => 'Ajuste de inventario — stock real: ' . $data['stock_real'],
         ]);
 
         ActivityLog::create([
