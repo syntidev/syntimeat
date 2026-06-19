@@ -384,14 +384,33 @@ class ReportController extends Controller
         $branchId   = $isAdmin ? null : $user->branch_id;
         $fecha      = $request->input('fecha', now('America/Caracas')->toDateString());
 
-        // Canales activas + cerradas hoy del negocio
+        // Calcular el rango del ciclo del día actual (corte a las 19:00 Caracas)
+        $ahora       = now('America/Caracas');
+        $horaCorte   = 19;
+        $inicioCiclo = $ahora->copy()->setTime($horaCorte, 0, 0);
+        if ($ahora->hour < $horaCorte) {
+            $inicioCiclo->subDay();
+        }
+        $finCiclo = $inicioCiclo->copy()->addDay();
+
+        // Canales del ciclo actual: activas + pendientes + procesadas hoy
         $canales = \App\Models\BovedaEntry::where('business_id', $businessId)
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
-            ->whereDate('entered_at', '<=', $fecha)
             ->whereIn('product_type', ['RES - Medio Canal', 'CERDO - Canal', 'POLLO - Entero Congelado', 'JAMON - Pierna Sellado'])
-            ->whereNull('closed_at')
+            ->where('entered_at', '>=', $inicioCiclo)
+            ->where('entered_at', '<', $finCiclo)
             ->orderByDesc('entered_at')
-            ->get();
+            ->get()
+            ->map(function ($canal) {
+                if ((float) $canal->kg_surtido_vitrina === 0.0) {
+                    $canal->estado = 'pendiente';
+                } elseif ($canal->closed_at === null) {
+                    $canal->estado = 'activa';
+                } else {
+                    $canal->estado = 'procesada';
+                }
+                return $canal;
+            });
 
         // Ingresos del día por product_id: una query para todas las canales
         $ingresosDelDia = \DB::table('sale_items')
@@ -420,7 +439,25 @@ class ReportController extends Controller
             ->get()
             ->keyBy('product_id');
 
-        $resultado = $canales->map(function ($canal) use ($fecha, $businessId, $branchId, $ingresosDelDia, $kgTotalPorProducto) {
+        // Stock REAL del pool por product_id (única fuente de verdad).
+        // Se calcula UNA sola vez: el remanente es del pool, no de cada canal.
+        $stockIdsPool = \App\Models\Product::whereIn('id', $kgTotalPorProducto->keys())
+            ->get()
+            ->map(fn ($p) => $p->stock_product_id ?? $p->id)
+            ->unique()
+            ->values();
+
+        $stockRealPorPool = \App\Models\InventoryEntry::where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->where('location', 'vitrina')
+            ->whereIn('product_id', $stockIdsPool)
+            ->whereDate('entered_at', '<=', $fecha)
+            ->select('product_id', \DB::raw('SUM(net_kg) as stock_kg'))
+            ->groupBy('product_id')
+            ->get()
+            ->keyBy('product_id');
+
+        $resultado = $canales->map(function ($canal) use ($fecha, $businessId, $branchId, $ingresosDelDia, $kgTotalPorProducto, $stockRealPorPool) {
             // Productos despiezados de esta canal: inventory_entries con boveda_entry_id = canal.id,
             // quantity_kg > 0, location = 'vitrina' (las entradas positivas de cortes)
             $despiezadosRaw = \App\Models\InventoryEntry::where('business_id', $businessId)
@@ -432,7 +469,7 @@ class ReportController extends Controller
                 ->get();
 
             // Mapear a productos con sus datos
-            $productos = $despiezadosRaw->map(function ($entry) use ($fecha, $businessId, $branchId, $ingresosDelDia, $kgTotalPorProducto) {
+            $productos = $despiezadosRaw->map(function ($entry) use ($fecha, $businessId, $branchId, $ingresosDelDia, $kgTotalPorProducto, $stockRealPorPool) {
                 $prod = \App\Models\Product::find($entry->product_id);
                 if (!$prod) {
                     return null;
@@ -440,12 +477,6 @@ class ReportController extends Controller
 
                 // Pool: si tiene stock_product_id usar ese para calcular stock
                 $stockId = $prod->stock_product_id ?? $prod->id;
-
-                // Stock remanente (SUM net_kg de inventory_entries del stockId, SIN doble resta)
-                $kgRemanente = (float) \App\Models\InventoryEntry::where('business_id', $businessId)
-                    ->where('product_id', $stockId)
-                    ->whereDate('entered_at', '<=', $fecha)
-                    ->sum('net_kg');
 
                 // Vendido HOY (entradas negativas de venta del día)
                 $vendidoHoy = (float) \App\Models\InventoryEntry::where('business_id', $businessId)
@@ -472,6 +503,11 @@ class ReportController extends Controller
                 $proporcion    = $kgTotalGlobal > 0 ? $kgEstaCanal / $kgTotalGlobal : 1.0;
                 $ingresosHoy   = $totalUsdProducto * $proporcion;
                 $ingresosHoyBs = $totalBsProducto  * $proporcion;
+
+                // Remanente: stock REAL del pool repartido por proporción de despiece de esta canal.
+                // La suma de todas las canales reconcilia con el pool real — sin doble conteo.
+                $poolStock   = (float) ($stockRealPorPool[$stockId]->stock_kg ?? 0);
+                $kgRemanente = max(0, $poolStock * $proporcion);
 
                 return [
                     'product_id'     => $prod->id,
@@ -509,6 +545,7 @@ class ReportController extends Controller
                 'fecha_entrada'   => $canal->entered_at->format('d/m/Y'),
                 'kg_entrada'      => round((float) $canal->kg_entrada, 2),
                 'costo_usd'       => $costoCanal,
+                'estado'          => $canal->estado,
                 'costo_kg'        => $canal->kg_entrada > 0 ? round($costoCanal / $canal->kg_entrada, 4) : 0,
                 'ingresos_usd'    => round($ingresosTotal, 2),
                 'ingresos_bs'     => round($ingresosTotalBs, 2),
@@ -522,7 +559,13 @@ class ReportController extends Controller
             ];
         })->filter()->values();
 
-        return response()->json(['canales' => $resultado]);
+        // Remanente real del pool (verdad física, calculado una sola vez)
+        $remananteTotal = round((float) $stockRealPorPool->sum('stock_kg'), 3);
+
+        return response()->json([
+            'canales'         => $resultado,
+            'remanente_total' => $remananteTotal,
+        ]);
     }
 
     // ─── Helper: agregación consolidada por sucursal ─────────────────────────
