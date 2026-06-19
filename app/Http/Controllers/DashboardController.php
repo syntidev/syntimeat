@@ -80,11 +80,19 @@ class DashboardController extends Controller
             ->selectRaw('COALESCE(SUM(total_usd), 0) as total_usd, COALESCE(SUM(total_bs), 0) as total_bs')
             ->first();
 
-        // Invertido hoy = suma de costo_usd de bóvedas activas
-        $invertidoHoy = BovedaEntry::active()
-            ->where('business_id', $businessId)
-            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
-            ->sum('costo_usd');
+        // Invertido hoy = costo real de lo que se vendió hoy por categoría
+        // Usa products.cost_per_kg_usd — mismo campo que categorias_hoy
+        $invertidoHoy = (float) DB::table('sale_items')
+            ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
+            ->join('products', 'products.id', '=', 'sale_items.product_id')
+            ->where('sales.business_id', $businessId)
+            ->whereIn('sales.status', ['paid', 'pending'])
+            ->whereDate('sales.accounting_date', $today)
+            ->when($branchId, fn ($q) => $q->where('sales.branch_id', $branchId))
+            ->whereNotNull('products.cost_per_kg_usd')
+            ->where('products.cost_per_kg_usd', '>', 0)
+            ->selectRaw('COALESCE(SUM(sale_items.quantity_value * products.cost_per_kg_usd), 0) as total')
+            ->value('total') ?? 0.0;
 
         $ventasHoy = [
             'count'          => (int)   ($ventasHoyRaw->count    ?? 0),
@@ -221,16 +229,35 @@ class DashboardController extends Controller
         ])->values()->toArray();
 
         // ── Utilidad por Bóveda ───────────────────────────────────────────────
-        // product_type es texto libre — mapeamos a categoría de vitrina
-        $bovedaCategoryMap = [
+        // Mapa legacy + keyword fallback para product_type libre
+        $legacyMap = [
             'RES - Medio Canal'        => 'Res',
-            'CERDO - Canal'            => 'Cerdo',
-            'POLLO - Entero Congelado' => 'Pollo',
-            // Legacy (por si hay entradas antiguas en DB)
             'Medio Canal Res'          => 'Res',
+            '1 vaca'                   => 'Res',
+            'CERDO - Canal'            => 'Cerdo',
             'Canal Cerdo'              => 'Cerdo',
+            'POLLO - Entero Congelado' => 'Pollo',
             'Pollo Entero Congelado'   => 'Pollo',
-            'Jamón Pierna Sellado'     => 'Charcutería',
+        ];
+
+        $bovedaCategoryMap = $legacyMap;
+
+        // Para product_type sin mapa exacto, intentar match por palabras clave
+        $keywordMap = [
+            'res'        => 'Res',
+            'vaca'       => 'Res',
+            'novillo'    => 'Res',
+            'cerdo'      => 'Cerdo',
+            'cochino'    => 'Cerdo',
+            'pollo'      => 'Pollo',
+            'jamon'      => 'Charcutería',
+            'jamón'      => 'Charcutería',
+            'salchicha'  => 'Charcutería',
+            'mortadela'  => 'Charcutería',
+            'tocineta'   => 'Charcutería',
+            'queso'      => 'Charcutería',
+            'pavo'       => 'Charcutería',
+            'chorizo'    => 'Charcutería',
         ];
 
         $utilidadBoveda = BovedaEntry::active()
@@ -238,8 +265,19 @@ class DashboardController extends Controller
             ->where('business_id', $businessId)
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->get()
-            ->map(function (BovedaEntry $entry) use ($bovedaCategoryMap, $categoriaStats): array {
-                $catName   = $bovedaCategoryMap[$entry->product_type] ?? null;
+            ->map(function (BovedaEntry $entry) use ($bovedaCategoryMap, $keywordMap, $categoriaStats): array {
+                // Buscar categoría: 1) mapa exacto, 2) keyword match en minúsculas
+                $catName = $bovedaCategoryMap[$entry->product_type] ?? null;
+                if ($catName === null) {
+                    $lower = mb_strtolower($entry->product_type);
+                    foreach ($keywordMap as $keyword => $cat) {
+                        if (str_contains($lower, $keyword)) {
+                            $catName = $cat;
+                            break;
+                        }
+                    }
+                }
+
                 $stats     = $catName ? $categoriaStats->get($catName) : null;
                 $ventasUsd = round((float) ($stats?->total_usd ?? 0), 2);
                 $costoUsd  = round((float) $entry->costo_usd, 2);

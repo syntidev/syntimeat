@@ -651,16 +651,16 @@ function dismissBankingAlert() {
                             </div>
                             <span class="cc-kg-label">{{ fmtKg(cat.kg_vendidos) }} despachados</span>
                         </div>
-                        <!-- Invertido y Utilidad desde bóveda activa -->
+                        <!-- Invertido y Utilidad desde ventas reales del día -->
                         <div class="cc-util-block">
                             <div class="cc-bov-row" style="margin-top:0.5rem">
                                 <span class="cc-lbl">Invertido</span>
-                                <span class="cc-val">{{ cat.boveda ? fmtUsd(cat.boveda.costo) : '—' }}</span>
+                                <span class="cc-val">{{ fmtUsd(cat.costo_usd) }}</span>
                             </div>
                             <div class="cc-bov-row">
                                 <span class="cc-lbl">Utilidad</span>
-                                <span class="cc-val" :class="(cat.boveda?.utilidad ?? cat.utilidad_usd) >= 0 ? 'val-green' : 'val-red'">
-                                    {{ fmtUsd(cat.boveda ? cat.boveda.utilidad : cat.utilidad_usd) }}
+                                <span class="cc-val" :class="cat.utilidad_usd >= 0 ? 'val-green' : 'val-red'">
+                                    {{ fmtUsd(cat.utilidad_usd) }}
                                 </span>
                             </div>
                             <div class="cc-bov-row">
@@ -853,7 +853,7 @@ function dismissBankingAlert() {
     gap: 0.6rem;
     margin: 0.75rem 0 0.5rem;
 }
-@media (min-width: 480px) {
+@media (min-width: 540px) {
     .kpi-macro-grid {
         grid-template-columns: repeat(3, 1fr);
     }
@@ -1241,7 +1241,7 @@ function dismissBankingAlert() {
 .cc-chip--on { border-color: var(--brand); background: rgba(37,99,235,0.12); color: var(--brand); }
 .cc-chip:hover:not(.cc-chip--on) { border-color: var(--text-muted); color: var(--text-secondary); }
 
-.cc-grid  { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; }
+.cc-grid  { display: grid; grid-template-columns: 1fr; gap: 1rem; }
 .cc-card  {
     background: var(--bg-base);
     border: 1px solid var(--border);
@@ -1251,11 +1251,13 @@ function dismissBankingAlert() {
     flex-direction: column;
     gap: 0.75rem;
     transition: border-color 0.2s, transform 0.2s;
+    min-width: 0;
+    overflow: hidden;
 }
 .cc-card:hover { border-color: var(--brand); transform: translateY(-2px); }
-.cc-card-header { display: flex; justify-content: space-between; align-items: flex-start; }
-.cc-cat-name { font-size: 0.92rem; font-weight: 800; color: var(--text-primary); }
-.cc-cat-bs   { font-size: 0.82rem; font-weight: 700; color: #f59e0b; font-variant-numeric: tabular-nums; }
+.cc-card-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.25rem; min-width: 0; }
+.cc-cat-name { font-size: 0.92rem; font-weight: 800; color: var(--text-primary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cc-cat-bs   { font-size: 0.82rem; font-weight: 700; color: #f59e0b; font-variant-numeric: tabular-nums; flex-shrink: 0; }
 .cc-stats    { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
 .cc-stat     { display: flex; flex-direction: column; gap: 0.12rem; }
 .cc-lbl      { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
@@ -1263,7 +1265,9 @@ function dismissBankingAlert() {
 .val-green   { color: #10b981; }
 .val-red     { color: #ef4444; }
 .cc-boveda   { border-top: 1px solid var(--border); padding-top: 0.6rem; display: flex; flex-direction: column; gap: 0.4rem; }
-.cc-bov-row  { display: flex; justify-content: space-between; align-items: center; }
+.cc-bov-row  { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; min-width: 0; }
+.cc-bov-row .cc-val { text-align: right; flex-shrink: 0; }
+.cc-bov-row .cc-lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cc-progress { display: flex; flex-direction: column; gap: 0.25rem; }
 .cc-track    { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
 .cc-fill     { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
@@ -1343,7 +1347,9 @@ function dismissBankingAlert() {
     .show-sm { display: flex; flex-direction: column; }
 
     .cc-grid  { grid-template-columns: 1fr; }
+    .cc-stats { grid-template-columns: 1fr; }
     .cc-chips { gap: 0.4rem; }
+    .kpi-macro-item:last-child:nth-child(odd) { grid-column: span 2; }
     .cc-chip  {
         min-height: 44px;
         padding: 0 0.85rem;
@@ -1355,21 +1361,22 @@ function dismissBankingAlert() {
     .stock-item { min-height: 52px; }
 }
 
-/* sm: 640px – 959px */
-@media (min-width: 640px) and (max-width: 959px) {
-    .dash-wrap { padding: 1rem; gap: 1rem; }
-    .kpi-hero  { grid-template-columns: 1fr; }
-    .kpi-side  { grid-template-rows: none; grid-template-columns: repeat(3, 1fr); }
-    .main-row  { grid-template-columns: 1fr; }
-    .cc-grid   { grid-template-columns: repeat(2, 1fr); }
-    .cc-chip   { min-height: 44px; display: inline-flex; align-items: center; -webkit-tap-highlight-color: transparent; }
+/* sm: 540px – 959px */
+@media (min-width: 540px) and (max-width: 959px) {
+    .dash-wrap  { padding: 1rem; gap: 1rem; }
+    .kpi-hero   { grid-template-columns: 1fr; }
+    .kpi-side   { grid-template-rows: none; grid-template-columns: repeat(3, 1fr); }
+    .main-row   { grid-template-columns: 1fr; }
+    .cc-grid    { grid-template-columns: 1fr; }
+    .cc-stats   { grid-template-columns: 1fr 1fr; }
+    .cc-chip    { min-height: 44px; display: inline-flex; align-items: center; -webkit-tap-highlight-color: transparent; }
     .btn-export { min-height: 44px; }
 }
 
 /* tablet: ≤ 1023px — sidebar y canal en columna */
 @media (max-width: 1023px) {
     .main-row { grid-template-columns: 1fr; }
-    .cc-grid  { grid-template-columns: repeat(2, 1fr); }
+    .cc-grid  { grid-template-columns: 1fr; }
 }
 
 /* md: 960px+ — layout completo */
@@ -1377,6 +1384,8 @@ function dismissBankingAlert() {
     .kpi-hero { grid-template-columns: 1fr 1fr; }
     .kpi-side { grid-template-columns: none; grid-template-rows: repeat(3, 1fr); }
     .main-row { grid-template-columns: 1.4fr 1fr; }
+    .cc-grid  { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+    .cc-stats { grid-template-columns: 1fr 1fr; }
 }
 
 /* ═══ BANNER CORTE BANCARIO ═══════════════════════════════════════════════════ */
@@ -1498,7 +1507,7 @@ function dismissBankingAlert() {
 }
 .canal-tab-active { border-color: var(--brand); background: rgba(37,99,235,0.12); color: var(--brand); }
 .canal-tab-btn:hover:not(.canal-tab-active) { border-color: var(--text-muted); color: var(--text-secondary); }
-.canal-hist-view { margin-top: 0; }
+.canal-hist-view { margin-top: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .canal-hist-empty {
     text-align: center;
     color: var(--text-muted);
@@ -1510,6 +1519,7 @@ function dismissBankingAlert() {
 }
 .canal-hist-table {
     width: 100%;
+    min-width: 480px;
     border-collapse: collapse;
     font-size: 0.84rem;
     background: var(--bg-card);
