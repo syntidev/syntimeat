@@ -381,27 +381,42 @@ function dismissBankingAlert() {
                     <div class="kpi-main-glow" aria-hidden="true" />
                     <div class="kpi-main-inner">
                         <div class="kpi-main-top">
-                            <span class="kpi-eyebrow">Ventas del día</span>
+                            <span class="kpi-eyebrow">Resumen del día</span>
                             <div class="live-dot">
                                 <span class="live-ring" />
                                 <span class="live-core" />
                             </div>
                         </div>
-                        <div class="kpi-main-number">{{ fmtUsd(d.ventas_hoy.total_usd) }}</div>
-                        <div class="kpi-main-meta">
-                            <span class="kpi-usd">{{ fmtBs(animTotalBs) }}</span>
-                            <span class="kpi-sep">·</span>
-                            <span class="kpi-rate">Tasa BCV: <strong>{{ d.tasa_hoy.toFixed(2) }}</strong></span>
+                        <div class="kpi-macro-grid">
+                            <div class="kpi-macro-item">
+                                <span class="kpi-macro-lbl">Cobrado</span>
+                                <span class="kpi-macro-val kpi-macro-val--green">{{ fmtUsd(d.ventas_hoy.cobrado_usd ?? 0) }}</span>
+                                <span class="kpi-macro-sub">{{ fmtBs(d.ventas_hoy.cobrado_bs ?? 0) }}</span>
+                            </div>
+                            <div class="kpi-macro-item">
+                                <span class="kpi-macro-lbl">Crédito</span>
+                                <span class="kpi-macro-val kpi-macro-val--amber">{{ fmtUsd(d.ventas_hoy.credito_usd ?? 0) }}</span>
+                                <span class="kpi-macro-sub">Pendiente cobro</span>
+                            </div>
+                            <div class="kpi-macro-item">
+                                <span class="kpi-macro-lbl">Total devengado</span>
+                                <span class="kpi-macro-val">{{ fmtUsd(d.ventas_hoy.total_usd) }}</span>
+                                <span class="kpi-macro-sub">{{ fmtBs(animTotalBs) }}</span>
+                            </div>
+                            <div class="kpi-macro-item">
+                                <span class="kpi-macro-lbl">Invertido</span>
+                                <span class="kpi-macro-val">{{ fmtUsd(d.ventas_hoy.invertido_usd ?? 0) }}</span>
+                                <span class="kpi-macro-sub">Costo bóveda activa</span>
+                            </div>
+                            <div class="kpi-macro-item kpi-macro-item--highlight">
+                                <span class="kpi-macro-lbl">Utilidad</span>
+                                <span class="kpi-macro-val" :class="(d.ventas_hoy.utilidad_usd ?? 0) >= 0 ? 'kpi-macro-val--green' : 'kpi-macro-val--red'">
+                                    {{ (d.ventas_hoy.utilidad_usd ?? 0) >= 0 ? '+' : '' }}{{ fmtUsd(d.ventas_hoy.utilidad_usd ?? 0) }}
+                                </span>
+                                <span class="kpi-macro-sub">Total − Invertido</span>
+                            </div>
                         </div>
-                        <div v-if="costoTotalDia > 0" class="kpi-utilidad-dia">
-                            <span class="kpi-util-label">Utilidad bruta</span>
-                            <span class="kpi-util-val" :class="utilidadDia >= 0 ? 'kpi-util-pos' : 'kpi-util-neg'">
-                                {{ fmtUsd(utilidadDia) }}
-                            </span>
-                            <span class="kpi-util-margen">
-                                {{ costoTotalDia > 0 ? (utilidadDia / (utilidadDia + costoTotalDia) * 100).toFixed(1) : 0 }}%
-                            </span>
-                        </div>
+                        <div class="kpi-main-rate">Tasa: <strong>{{ d.tasa_hoy.toFixed(2) }}</strong> Bs/USD</div>
                     </div>
                     <div class="kpi-main-clock">{{ horaActual }}</div>
                 </div>
@@ -636,12 +651,16 @@ function dismissBankingAlert() {
                             </div>
                             <span class="cc-kg-label">{{ fmtKg(cat.kg_vendidos) }} despachados</span>
                         </div>
-                        <!-- Utilidad por categoría (cost_per_kg_usd × qty) -->
-                        <div v-if="cat.costo_usd > 0" class="cc-util-block">
+                        <!-- Invertido y Utilidad desde bóveda activa -->
+                        <div class="cc-util-block">
                             <div class="cc-bov-row" style="margin-top:0.5rem">
+                                <span class="cc-lbl">Invertido</span>
+                                <span class="cc-val">{{ cat.boveda ? fmtUsd(cat.boveda.costo) : '—' }}</span>
+                            </div>
+                            <div class="cc-bov-row">
                                 <span class="cc-lbl">Utilidad</span>
-                                <span class="cc-val" :class="cat.utilidad_usd >= 0 ? 'val-green' : 'val-red'">
-                                    {{ cat.utilidad_usd >= 0 ? '+' : '' }}{{ fmtUsd(cat.utilidad_usd) }}
+                                <span class="cc-val" :class="(cat.boveda?.utilidad ?? cat.utilidad_usd) >= 0 ? 'val-green' : 'val-red'">
+                                    {{ fmtUsd(cat.boveda ? cat.boveda.utilidad : cat.utilidad_usd) }}
                                 </span>
                             </div>
                             <div class="cc-bov-row">
@@ -650,9 +669,6 @@ function dismissBankingAlert() {
                                     {{ cat.margen_pct.toFixed(1) }}%
                                 </span>
                             </div>
-                        </div>
-                        <div v-else class="cc-no-bov">
-                            <span>Sin costo</span>
                         </div>
                         <div v-if="cat.boveda" class="cc-boveda">
                             <div class="cc-bov-row">
@@ -830,6 +846,59 @@ function dismissBankingAlert() {
 </template>
 
 <style scoped>
+/* ═══ MACRO KPIs ══════════════════════════════════════════════════════════════ */
+.kpi-macro-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.6rem;
+    margin: 0.75rem 0 0.5rem;
+}
+@media (min-width: 480px) {
+    .kpi-macro-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+@media (min-width: 960px) {
+    .kpi-macro-grid {
+        grid-template-columns: repeat(5, 1fr);
+    }
+}
+.kpi-macro-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0.5rem 0.75rem;
+    background: rgba(255,255,255,0.06);
+    border-radius: 0.5rem;
+}
+.kpi-macro-item--highlight {
+    border: 1px solid rgba(255,255,255,0.15);
+}
+.kpi-macro-lbl {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: rgba(255,255,255,0.55);
+}
+.kpi-macro-val {
+    font-size: 1.15rem;
+    font-weight: 500;
+    color: #fff;
+}
+.kpi-macro-val--green { color: #4ade80; }
+.kpi-macro-val--amber { color: #fbbf24; }
+.kpi-macro-val--red   { color: #f87171; }
+.kpi-macro-sub {
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.45);
+}
+.kpi-main-rate {
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.4);
+    margin-top: 0.25rem;
+}
+
 /* ═══ HEADER AYUDA ════════════════════════════════════════════════════════════ */
 .dash-header {
     display: flex;
@@ -870,9 +939,12 @@ function dismissBankingAlert() {
 /* ═══ HERO KPIs ═══════════════════════════════════════════════════════════════ */
 .kpi-hero {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 1rem;
     align-items: stretch;
+}
+@media (min-width: 768px) {
+    .kpi-hero { grid-template-columns: 1fr 1fr; }
 }
 
 /* Card grande — ventas */
@@ -983,8 +1055,11 @@ function dismissBankingAlert() {
 /* ═══ FILA PRINCIPAL ══════════════════════════════════════════════════════════ */
 .main-row {
     display: grid;
-    grid-template-columns: 1.4fr 1fr;
+    grid-template-columns: 1fr;
     gap: 1rem;
+}
+@media (min-width: 768px) {
+    .main-row { grid-template-columns: 1.4fr 1fr; }
 }
 
 /* ═══ PANEL BASE ══════════════════════════════════════════════════════════════ */

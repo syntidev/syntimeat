@@ -65,10 +65,37 @@ class DashboardController extends Controller
             ->selectRaw('COUNT(*) as count, COALESCE(SUM(total_bs), 0) as total_bs, COALESCE(SUM(total_usd), 0) as total_usd')
             ->first();
 
+        // Cobrado real (paid) vs crédito pendiente (pending)
+        $ventasCobradas = Sale::where('business_id', $businessId)
+            ->where('status', 'paid')
+            ->whereDate('accounting_date', $today)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->selectRaw('COALESCE(SUM(total_usd), 0) as total_usd, COALESCE(SUM(total_bs), 0) as total_bs')
+            ->first();
+
+        $ventasCredito = Sale::where('business_id', $businessId)
+            ->where('status', 'pending')
+            ->whereDate('accounting_date', $today)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->selectRaw('COALESCE(SUM(total_usd), 0) as total_usd, COALESCE(SUM(total_bs), 0) as total_bs')
+            ->first();
+
+        // Invertido hoy = suma de costo_usd de bóvedas activas
+        $invertidoHoy = BovedaEntry::active()
+            ->where('business_id', $businessId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->sum('costo_usd');
+
         $ventasHoy = [
-            'count'    => (int)   ($ventasHoyRaw->count    ?? 0),
-            'total_bs' => (float) ($ventasHoyRaw->total_bs ?? 0),
-            'total_usd'=> (float) ($ventasHoyRaw->total_usd ?? 0),
+            'count'          => (int)   ($ventasHoyRaw->count    ?? 0),
+            'total_bs'       => (float) ($ventasHoyRaw->total_bs ?? 0),
+            'total_usd'      => (float) ($ventasHoyRaw->total_usd ?? 0),
+            'cobrado_usd'    => (float) ($ventasCobradas->total_usd ?? 0),
+            'cobrado_bs'     => (float) ($ventasCobradas->total_bs  ?? 0),
+            'credito_usd'    => (float) ($ventasCredito->total_usd  ?? 0),
+            'credito_bs'     => (float) ($ventasCredito->total_bs   ?? 0),
+            'invertido_usd'  => round((float) $invertidoHoy, 2),
+            'utilidad_usd'   => round((float) ($ventasHoyRaw->total_usd ?? 0) - (float) $invertidoHoy, 2),
         ];
 
         // ── Top 5 productos del día por monto Bs ─────────────────────────────
