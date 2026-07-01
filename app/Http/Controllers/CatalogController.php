@@ -264,20 +264,42 @@ class CatalogController extends Controller
         return redirect()->route('catalog.index')->with('success', 'Imagen actualizada.');
     }
 
-    public function destroy(Product $product): RedirectResponse
+    public function destroy(Product $product): RedirectResponse|\Illuminate\Http\JsonResponse
     {
-        $hasActiveSales = $product->saleItems()
-            ->whereHas('sale', fn ($q) => $q->whereIn('status', ['open', 'pending']))
-            ->exists();
+        $user = Auth::user();
 
-        if ($hasActiveSales) {
-            return redirect()->route('catalog.index')
-                ->with('error', 'No se puede eliminar: el producto tiene ventas activas.');
+        // Autorizacion
+        abort_unless($product->business_id === $user->business_id, 403);
+
+        // Bloqueo 1: stock activo
+        $stockActual = (float) InventoryEntry::where('product_id', $product->id)
+            ->where('business_id', $product->business_id)
+            ->sum('net_kg');
+
+        if ($stockActual > 0) {
+            return back()->with('error', 'No se puede eliminar: el producto tiene ' . round($stockActual, 3) . ' kg en stock.');
         }
 
-        $product->delete();
+        // Bloqueo 2: ventas ultimos 7 dias
+        $ventasRecientes = \App\Models\SaleItem::whereHas('sale', fn ($q) => $q
+            ->where('business_id', $product->business_id)
+            ->where('accounting_date', '>=', now()->subDays(7)->toDateString())
+        )->where('product_id', $product->id)->exists();
 
-        return redirect()->route('catalog.index')->with('success', 'Producto eliminado.');
+        if ($ventasRecientes) {
+            return back()->with('error', 'No se puede eliminar: el producto tiene ventas en los ultimos 7 dias.');
+        }
+
+        // Bloqueo 3: catch-all — inventory_entries/sale_items/order_items tienen FK
+        // restrictOnDelete() en DB; historial fuera de los guards de arriba (ventas
+        // viejas, entries en 0) igual bloquea el DELETE a nivel de base de datos.
+        try {
+            $product->delete();
+        } catch (\Illuminate\Database\QueryException $e) {
+            return back()->with('error', 'No se puede eliminar: el producto tiene historial de inventario o ventas asociado.');
+        }
+
+        return back()->with('success', 'Producto eliminado permanentemente.');
     }
 
     public function toggleFavorite(Product $product): RedirectResponse

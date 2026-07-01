@@ -19,6 +19,7 @@ const canSeeCost = computed(() =>
     ['super_admin', 'admin', 'owner', 'branch_admin', 'analyst'].includes(userRole.value)
 )
 const isCashier  = computed(() => userRole.value === 'cashier')
+const canDeleteProduct = computed(() => ['super_admin', 'owner', 'branch_admin'].includes(userRole.value))
 
 // ─── Tabs + búsqueda ──────────────────────────────────────────────────────────
 const activeTab   = ref(props.categories[0]?.id ?? null)
@@ -231,6 +232,11 @@ function toggleActive(product) {
 
 function toggleFavorite(product) {
     router.patch(route('catalog.product.favorite', product.id), {}, { preserveScroll: true })
+}
+
+function deleteProduct(product) {
+    if (!confirm(`¿Eliminar "${product.name}"? Esta acción es PERMANENTE e irreversible.`)) return
+    router.delete(route('catalog.destroy', product.id), { preserveScroll: true })
 }
 
 // ─── Imagen cashier ────────────────────────────────────────────────────────────
@@ -707,6 +713,14 @@ const helpFaqs = [
                                         @click="toggleFavorite(p)"
                                     >
                                         <Star :size="14" :class="p.is_favorite ? 'star-on' : 'star-off'" />
+                                    </button>
+                                    <button
+                                        v-if="canDeleteProduct"
+                                        class="btn-icon"
+                                        title="Eliminar producto"
+                                        @click="deleteProduct(p)"
+                                    >
+                                        <Trash2 :size="14" />
                                     </button>
                                 </template>
                             </td>
