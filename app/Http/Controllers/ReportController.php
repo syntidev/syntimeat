@@ -29,7 +29,11 @@ class ReportController extends Controller
 
     public function index(): Response
     {
-        $businessId = Auth::user()->business->id;
+        $user       = Auth::user();
+        $businessId = $user->business->id;
+        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? null);
 
         $categories = Category::where('business_id', $businessId)
             ->where('active', true)
@@ -38,6 +42,7 @@ class ReportController extends Controller
 
         $products = Product::where('business_id', $businessId)
             ->where('active', true)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->orderBy('name')
             ->get(['id', 'name', 'category_id']);
 
