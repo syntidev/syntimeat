@@ -1313,17 +1313,17 @@ HTML;
             ->get()
             ->keyBy('categoria');
 
-        $categorias = $rows->groupBy('categoria')->map(function($items, $cat) use ($bovedaInvertido, $ventasPorCategoria, $invertidoPorCategoria) {
+        $categorias = $rows->groupBy('categoria')->map(function($items, $cat) use ($bovedaInvertido, $invertidoPorCategoria) {
             $invertidoBoveda = (float) ($bovedaInvertido[$cat] ?? 0);
             $invertido = $invertidoBoveda > 0
                 ? $invertidoBoveda
                 : (float) ($invertidoPorCategoria->get($cat)?->invertido_real ?? 0);
-            $vendido   = $ventasPorCategoria->get($cat)?->vendido ?? 0;
-            $utilidad  = round($vendido - $invertido, 2);
+            $ventaPotencial = round($items->sum(fn ($p) => (float) $p->kg_disponible * (float) ($p->precio_venta_kg ?? 0)), 2);
+            $utilidad  = round($ventaPotencial - $invertido, 2);
             return [
                 'categoria'          => $cat,
                 'total_invertido'    => round((float) $invertido, 2),
-                'total_venta'        => round((float) $vendido, 2),
+                'total_venta'        => $ventaPotencial,
                 'utilidad_potencial' => $utilidad,
                 'kg_total'           => round($items->sum('kg_disponible'), 3),
                 'productos'          => $items->map(function ($p) {
