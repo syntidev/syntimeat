@@ -80,7 +80,12 @@ class DollarRateService
      */
     public function getTodayRate(string $source = 'bcv'): float
     {
-        $source = $this->sanitizeSource($source);
+        $manualRate = \App\Models\DollarRate::where("currency_type","USD")->where("source","manual")->where("is_active",1)->orderByDesc("effective_from")->value("rate");
+        if ($manualRate) return round((float)$manualRate, 4);
+        if ($this->isManualOverrideActive()) {
+            $manualRate2 = DollarRate::query()->where('currency_type', 'USD')->where('source', 'manual')->where('is_active', true)->orderByDesc('effective_from')->value('rate');
+            if ($manualRate2 !== null) { return round((float) $manualRate2, 4); }
+        }
 
         try {
             $rate = DollarRate::query()

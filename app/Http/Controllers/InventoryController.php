@@ -267,11 +267,7 @@ class InventoryController extends Controller
                 ?? \App\Models\Branch::where('business_id', $businessId)
                     ->orderBy('id')->value('id'));
 
-        abort_unless(
-            in_array($user->role, ['owner', 'super_admin', 'branch_admin'], true),
-            403,
-            'No tienes permiso para reciclar remanentes.'
-        );
+        // Todos los roles operativos pueden reciclar remanentes
 
         $product = Product::where('id', $data['product_id'])
             ->where('business_id', $businessId)

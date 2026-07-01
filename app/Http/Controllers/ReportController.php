@@ -1213,6 +1213,120 @@ HTML;
 
     // ─── Historial de canales cerradas ───────────────────────────────────────
 
+    public function valorVitrinaryPage(): \Inertia\Response
+    {
+        return \Inertia\Inertia::render('Reports/ValorVitrina');
+    }
+
+    public function valorVitrina(Request $request): JsonResponse
+    {
+        $user       = Auth::user();
+        $businessId = $user->business->id;
+        $isAdmin    = in_array($user->role, ['owner', 'super_admin'], true);
+        $branchId   = $isAdmin
+            ? (session('current_branch_id') ?? null)
+            : $user->branch_id;
+
+        // Invertido = SUM(costo_usd) de boveda_entries del ciclo actual (closed_at >= ayer)
+        $bovedaInvertido = DB::table('boveda_entries as be')
+            ->join('products as p', DB::raw('1'), DB::raw('1')) // cross para category lookup
+            ->where('be.business_id', $businessId)
+            ->when($branchId, fn($q) => $q->where('be.branch_id', $branchId))
+            ->where('be.closed_at', '>=', now('America/Caracas')->subDay()->startOfDay())
+            ->select('be.id', 'be.product_type', 'be.costo_usd')
+            ->distinct()
+            ->get();
+
+        // Keyword map para clasificar boveda_entries por categoria
+        $keywordMap = [
+            'res'       => 'Res',    'vaca'    => 'Res',   'novillo' => 'Res',   'canal res' => 'Res',
+            'cerdo'     => 'Cerdo',  'cochino' => 'Cerdo', 'canal cerdo' => 'Cerdo',
+            'pollo'     => 'Pollo',
+            'jamon'     => 'Charcutería', 'jamón' => 'Charcutería', 'salchicha' => 'Charcutería',
+            'mortadela' => 'Charcutería', 'tocineta' => 'Charcutería', 'queso' => 'Charcutería',
+            'pavo'      => 'Charcutería', 'chorizo'  => 'Charcutería', 'chuleta' => 'Charcutería',
+            'carne total' => 'Res', 'remanente' => 'Res',
+        ];
+
+        $bovedas = DB::table('boveda_entries as be')
+            ->where('be.business_id', $businessId)
+            ->when($branchId, fn($q) => $q->where('be.branch_id', $branchId))
+            ->where('be.closed_at', '>=', now('America/Caracas')->subDay()->startOfDay())
+            ->select('be.product_type', 'be.costo_usd')
+            ->get();
+
+        $bovedaInvertido = collect();
+        foreach ($bovedas as $b) {
+            $lower = mb_strtolower($b->product_type);
+            $cat = null;
+            foreach ($keywordMap as $kw => $catName) {
+                if (str_contains($lower, $kw)) { $cat = $catName; break; }
+            }
+            if ($cat) {
+                $bovedaInvertido[$cat] = ($bovedaInvertido[$cat] ?? 0) + (float) $b->costo_usd;
+            }
+        }
+
+        // Ventas del ciclo por categoria
+        $ventasPorCategoria = DB::table('sale_items as si')
+            ->join('sales as s', 's.id', '=', 'si.sale_id')
+            ->join('products as p', 'p.id', '=', 'si.product_id')
+            ->join('categories as c', 'c.id', '=', 'p.category_id')
+            ->where('s.business_id', $businessId)
+            ->whereIn('s.status', ['paid', 'pending'])
+            ->whereDate('s.accounting_date', now('America/Caracas')->toDateString())
+            ->when($branchId, fn($q) => $q->where('s.branch_id', $branchId))
+            ->groupBy('c.id', 'c.name')
+            ->select('c.id as categoria_id', 'c.name as categoria', DB::raw('SUM(si.subtotal_usd) as vendido'))
+            ->get()
+            ->keyBy('categoria');
+
+        // Stock disponible por producto
+        $rows = DB::table('inventory_entries as ie')
+            ->join('products as p', 'p.id', '=', 'ie.product_id')
+            ->join('categories as c', 'c.id', '=', 'p.category_id')
+            ->where('ie.business_id', $businessId)
+            ->where('ie.location', 'vitrina')
+            ->when($branchId, fn($q) => $q->where('ie.branch_id', $branchId))
+            ->groupBy('p.id', 'p.name', 'c.id', 'c.name', 'p.price_per_kg_usd', 'p.cost_per_kg_usd')
+            ->havingRaw('SUM(ie.quantity_kg - ie.waste_kg) > 0')
+            ->orderBy('c.name')
+            ->select([
+                'c.id as categoria_id',
+                'c.name as categoria',
+                'p.id as product_id',
+                'p.name as producto',
+                DB::raw('ROUND(SUM(ie.quantity_kg - ie.waste_kg), 3) as kg_disponible'),
+                DB::raw('p.cost_per_kg_usd as costo_kg'),
+                DB::raw('p.price_per_kg_usd as precio_venta_kg'),
+            ])
+            ->get();
+
+        $categorias = $rows->groupBy('categoria')->map(function($items, $cat) use ($bovedaInvertido, $ventasPorCategoria) {
+            $invertido = $bovedaInvertido[$cat] ?? 0;
+            $vendido   = $ventasPorCategoria->get($cat)?->vendido ?? 0;
+            $utilidad  = round($vendido - $invertido, 2);
+            return [
+                'categoria'          => $cat,
+                'total_invertido'    => round((float) $invertido, 2),
+                'total_venta'        => round((float) $vendido, 2),
+                'utilidad_potencial' => $utilidad,
+                'kg_total'           => round($items->sum('kg_disponible'), 3),
+                'productos'          => $items->values(),
+            ];
+        })->values();
+
+        $totalInvertido = round($categorias->sum('total_invertido'), 2);
+        $totalVenta     = round($categorias->sum('total_venta'), 2);
+
+        return response()->json([
+            'categorias'         => $categorias,
+            'total_invertido'    => $totalInvertido,
+            'total_venta'        => $totalVenta,
+            'utilidad_potencial' => round($totalVenta - $totalInvertido, 2),
+        ]);
+    }
+
     public function canalHistorial(Request $request): \Illuminate\Http\JsonResponse
     {
         $user       = Auth::user();

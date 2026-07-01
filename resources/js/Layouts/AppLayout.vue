@@ -78,13 +78,14 @@ const rolePermissions = {
     branch_admin: ['dashboard','pos','inventory','boveda','fabrica','orders','sales','dayclose','catalog','clients','contingency','users','settings','cash','reports'],
     supervisor:   ['dashboard','pos','cash','sales','dayclose','inventory','catalog','boveda','fabrica','orders','clients','reports','contingency'],
     analyst:      ['dashboard','pos','inventory','boveda','fabrica','orders','sales','dayclose','catalog','clients','contingency','settings','cash','reports'],
-    cashier:      ['dashboard','pos','cash','sales','dayclose','orders','clients','inventory','contingency'],
+    cashier:      ['dashboard','pos','cash','sales','dayclose','orders','clients','inventory','contingency','catalog'],
 }
 function canAccess(permission) {
     const role  = user.value?.role ?? 'admin'
+    // super_admin y owner tienen acceso a todo
+    if (role === 'super_admin' || role === 'owner') return true
     const perms = user.value?.permissions
-    // Permisos personalizados por usuario tienen prioridad; si es null → fallback al rol
-    if (Array.isArray(perms)) {
+    if (Array.isArray(perms) && perms.length > 0) {
         return perms.includes(permission)
     }
     return (rolePermissions[role] ?? rolePermissions['admin']).includes(permission)
@@ -202,7 +203,7 @@ const nav = [
     {
         section: 'GESTIÓN',
         items: [
-            { label: 'Catálogo',     route: 'catalog.index',    icon: 'tag',       perm: 'catalog' },
+            { label: 'Catálogo',     route: 'catalog.index',    icon: 'tag',       perm: 'catalog', url: '/catalogo' },
             { label: 'Clientes',     route: 'clients.index',    icon: 'person',    perm: 'clients' },
             { label: 'Contingencia', route: 'contingency.index',icon: 'lightning', perm: 'contingency' },
         ],
@@ -213,6 +214,7 @@ const nav = [
             { label: 'Resumen',           route: 'dashboard',            icon: 'chart',  perm: 'dashboard' },
             { label: 'Panel Empresarial', route: 'reports.consolidated', icon: 'chart',  perm: 'dashboard', roles: ['super_admin', 'owner'] },
             { label: 'Reportes', route: 'reports.index', icon: 'file-text', perm: 'reports', roles: ['super_admin', 'owner', 'branch_admin', 'analyst'] },
+            { label: 'Valor Vitrina', route: 'reports.valor-vitrina', icon: 'package', perm: 'reports', roles: ['super_admin', 'owner', 'branch_admin', 'analyst'] },
         ],
     },
     {
@@ -231,6 +233,7 @@ const navOwner = [
         items: [
             { label: 'Panel Empresarial', route: 'reports.consolidated', icon: 'chart',    perm: 'dashboard', roles: ['super_admin', 'owner'] },
             { label: 'Reportes', route: 'reports.index', icon: 'file-text', perm: 'reports', roles: ['super_admin', 'owner', 'branch_admin', 'analyst'] },
+            { label: 'Valor Vitrina', route: 'reports.valor-vitrina', icon: 'package', perm: 'reports', roles: ['super_admin', 'owner', 'branch_admin', 'analyst'] },
             { label: 'Resumen',           route: 'dashboard',            icon: 'chart',    perm: 'dashboard' },
         ],
     },
@@ -255,7 +258,7 @@ const navOwner = [
     {
         section: 'GESTIÓN',
         items: [
-            { label: 'Catálogo',     route: 'catalog.index',    icon: 'tag',       perm: 'catalog' },
+            { label: 'Catálogo',     route: 'catalog.index',    icon: 'tag',       perm: 'catalog', url: '/catalogo' },
             { label: 'Clientes',     route: 'clients.index',    icon: 'person',    perm: 'clients' },
             { label: 'Contingencia', route: 'contingency.index',icon: 'lightning', perm: 'contingency' },
         ],
@@ -292,12 +295,7 @@ function isActive(routeName) {
 }
 
 function routeExists(routeName) {
-    try {
-        route(routeName)
-        return true
-    } catch (_) {
-        return false
-    }
+    return true
 }
 </script>
 
@@ -335,7 +333,7 @@ function routeExists(routeName) {
                     <template v-for="item in group.items" :key="item.route">
                         <Link
                             v-if="routeExists(item.route)"
-                            :href="route(item.route)"
+                            :href="item.url ?? (() => { try { return route(item.route) } catch(_) { return '#' } })()"
                             :class="['nav-item', { 'nav-item--active': isActive(item.route) }]"
                             @click="closeSidebar"
                         >

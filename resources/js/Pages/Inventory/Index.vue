@@ -355,7 +355,7 @@ async function submitReciclar() {
             product_id:      reciclarProd.value.id,
             new_cost_per_kg: parseFloat(reciclarCosto.value),
             notes:           reciclarNotas.value || null,
-        })
+        }, { withCredentials: true })
         closeReciclar()
         window.location.reload()
     } catch (e) {

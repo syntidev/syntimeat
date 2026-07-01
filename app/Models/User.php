@@ -63,7 +63,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password'          => 'hashed',
             'access_days'       => 'array',
-            'permissions'       => 'array',
+            'permissions'       => 'json',
         ];
     }
 

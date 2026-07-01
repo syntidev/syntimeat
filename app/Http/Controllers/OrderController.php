@@ -493,9 +493,8 @@ class OrderController extends Controller
         ]);
 
         $rate         = (float) $data['rate'];
-        $totalBs      = $sale->total_bs !== null
-            ? (float) $sale->total_bs
-            : round((float) $sale->total_usd * $rate, 2);
+        // Recalcular total_bs con tasa del dia del cobro
+        $totalBs      = round((float) $sale->total_usd * $rate, 2);
         $totalAbonoBs = round(array_sum(array_column($data['payments'], 'amount_bs')), 2);
 
         $methodIds = array_column($data['payments'], 'payment_method_id');

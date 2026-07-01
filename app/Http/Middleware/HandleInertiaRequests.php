@@ -123,6 +123,9 @@ class HandleInertiaRequests extends Middleware
                                     })->orWhere(function ($q2): void {
                                         $q2->where('origin', 'delivery')
                                            ->where('status', 'pending');
+                                    })->orWhere(function ($q2): void {
+                                        $q2->where('origin', 'credit')
+                                           ->where('status', 'pending');
                                     });
                                 })
                                 ->count();

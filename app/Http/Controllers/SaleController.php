@@ -255,9 +255,7 @@ class SaleController extends Controller
         // Crédito: despacho inmediato, cobro pendiente
         if ($origin === 'credit') {
             $nowCredit      = now('America/Caracas');
-            $accountingDate = $nowCredit->hour >= 19
-                ? $nowCredit->copy()->addDay()->toDateString()
-                : $nowCredit->toDateString();
+            $accountingDate = $nowCredit->toDateString();
 
             $sale = DB::transaction(function () use (
                 $businessId, $branchId, $user, $ticketNumber, $totalUsd, $totalBs, $itemsToCreate, $channel, $rate, $cashRegister, $accountingDate, $data, $clientId
@@ -446,9 +444,7 @@ class SaleController extends Controller
         $firstMethod = $methods[$data['payments'][0]['payment_method_id']];
 
         $nowPay           = now('America/Caracas');
-        $accountingDatePay = $nowPay->hour >= 19
-            ? $nowPay->copy()->addDay()->toDateString()
-            : $nowPay->toDateString();
+        $accountingDatePay = $nowPay->toDateString();
 
         DB::transaction(function () use (
             $sale, $rate, $totalBs, $changeBs, $changeUsd,

@@ -180,6 +180,8 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
     });
     Route::middleware('role:super_admin,owner,branch_admin,analyst')->group(function () {
         Route::get('/reportes/canal-rendimiento', [ReportController::class, 'canalRendimiento'])->name('reports.canal');
+        Route::get('/reportes/valor-vitrina', [ReportController::class, 'valorVitrinaryPage'])->name('reports.valor-vitrina');
+        Route::get('/reportes/valor-vitrina/data', [ReportController::class, 'valorVitrina'])->name('reports.valor-vitrina-data');
         Route::get('/reportes/canal-historial', [ReportController::class, 'canalHistorial'])->name('reports.canal.historial');
         Route::post('/reportes/canal-cerrar', [ReportController::class, 'cerrarCanal'])->name('reports.canal.cerrar');
     });
@@ -212,7 +214,7 @@ Route::middleware(['auth', 'verified', 'check.onboarding', 'subscription'])->gro
         });
 
         // Catálogo
-        Route::get('/catalogo', [CatalogController::class, 'index']);
+        // Route::get('/catalogo', [CatalogController::class, 'index']); // duplicada - usar la nombrada arriba
         Route::get('/catalogo/plantilla-productos', [CatalogController::class, 'downloadProductTemplate'])->name('catalog.product-template');
         Route::post('/catalogo/importar', [CatalogController::class, 'importProducts'])->name('catalog.import');
         Route::post('/catalogo/productos', [CatalogController::class, 'store'])->name('catalog.store');
