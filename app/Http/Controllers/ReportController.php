@@ -1227,21 +1227,11 @@ HTML;
     {
         $user       = Auth::user();
         $businessId = $user->business->id;
-        $isAdmin    = in_array($user->role, ['owner', 'super_admin'], true);
-        $branchId   = $isAdmin
-            ? (session('current_branch_id') ?? null)
-            : $user->branch_id;
+        $branchId   = in_array($user->role, ['branch_admin', 'cashier'], true)
+            ? $user->branch_id
+            : (session('current_branch_id') ?? null);
 
         // Invertido = SUM(costo_usd) de boveda_entries del ciclo actual (closed_at >= ayer)
-        $bovedaInvertido = DB::table('boveda_entries as be')
-            ->join('products as p', DB::raw('1'), DB::raw('1')) // cross para category lookup
-            ->where('be.business_id', $businessId)
-            ->when($branchId, fn($q) => $q->where('be.branch_id', $branchId))
-            ->where('be.closed_at', '>=', now('America/Caracas')->subDay()->startOfDay())
-            ->select('be.id', 'be.product_type', 'be.costo_usd')
-            ->distinct()
-            ->get();
-
         // Keyword map para clasificar boveda_entries por categoria
         $keywordMap = [
             'res'       => 'Res',    'vaca'    => 'Res',   'novillo' => 'Res',   'canal res' => 'Res',
@@ -1317,7 +1307,14 @@ HTML;
                 'total_venta'        => round((float) $vendido, 2),
                 'utilidad_potencial' => $utilidad,
                 'kg_total'           => round($items->sum('kg_disponible'), 3),
-                'productos'          => $items->values(),
+                'productos'          => $items->map(function ($p) {
+                    $invertidoProducto = round((float) $p->kg_disponible * (float) ($p->costo_kg ?? 0), 2);
+                    $ventaPotencial    = round((float) $p->kg_disponible * (float) ($p->precio_venta_kg ?? 0), 2);
+                    $p->total_invertido       = $invertidoProducto;
+                    $p->total_venta_potencial = $ventaPotencial;
+                    $p->utilidad_potencial    = round($ventaPotencial - $invertidoProducto, 2);
+                    return $p;
+                })->values(),
             ];
         })->values();
 
