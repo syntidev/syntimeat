@@ -214,7 +214,7 @@ const nav = [
             { label: 'Resumen',           route: 'dashboard',            icon: 'chart',  perm: 'dashboard' },
             { label: 'Panel Empresarial', route: 'reports.consolidated', icon: 'chart',  perm: 'dashboard', roles: ['super_admin', 'owner'] },
             { label: 'Reportes', route: 'reports.index', icon: 'file-text', perm: 'reports', roles: ['super_admin', 'owner', 'branch_admin', 'analyst'] },
-            { label: 'Valor Vitrina', route: 'reports.valor-vitrina', icon: 'package', perm: 'reports', roles: ['super_admin', 'owner', 'branch_admin', 'analyst'] },
+            { label: 'Valor Vitrina', route: 'reports.valor-vitrina', icon: 'package', perm: 'reports', roles: ['super_admin', 'owner', 'branch_admin', 'analyst'], directUrl: '/reportes/valor-vitrina' },
         ],
     },
     {
@@ -233,7 +233,7 @@ const navOwner = [
         items: [
             { label: 'Panel Empresarial', route: 'reports.consolidated', icon: 'chart',    perm: 'dashboard', roles: ['super_admin', 'owner'] },
             { label: 'Reportes', route: 'reports.index', icon: 'file-text', perm: 'reports', roles: ['super_admin', 'owner', 'branch_admin', 'analyst'] },
-            { label: 'Valor Vitrina', route: 'reports.valor-vitrina', icon: 'package', perm: 'reports', roles: ['super_admin', 'owner', 'branch_admin', 'analyst'] },
+            { label: 'Valor Vitrina', route: 'reports.valor-vitrina', icon: 'package', perm: 'reports', roles: ['super_admin', 'owner', 'branch_admin', 'analyst'], directUrl: '/reportes/valor-vitrina' },
             { label: 'Resumen',           route: 'dashboard',            icon: 'chart',    perm: 'dashboard' },
         ],
     },
@@ -274,7 +274,7 @@ const navOwner = [
 
 const visibleNav = computed(() => {
     const role      = user.value?.role
-    const activeNav = (role === 'owner' || role === 'branch_admin') ? navOwner : nav
+    const activeNav = (role === 'owner' || role === 'branch_admin' || role === 'super_admin') ? navOwner : nav
     return activeNav
         .map(group => ({
             ...group,
