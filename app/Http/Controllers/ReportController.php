@@ -1297,8 +1297,27 @@ HTML;
             ])
             ->get();
 
-        $categorias = $rows->groupBy('categoria')->map(function($items, $cat) use ($bovedaInvertido, $ventasPorCategoria) {
-            $invertido = $bovedaInvertido[$cat] ?? 0;
+        // Invertido real por categoria via inventory_entries — fallback cuando la categoria
+        // no tiene boveda_entries (productos que entran directo a vitrina, ej. Trastes, Viveres)
+        $invertidoPorCategoria = DB::table('inventory_entries as ie')
+            ->join('products as p', 'p.id', '=', 'ie.product_id')
+            ->join('categories as c', 'c.id', '=', 'p.category_id')
+            ->where('ie.business_id', $businessId)
+            ->where('ie.location', 'vitrina')
+            ->where('ie.quantity_kg', '>', 0)
+            ->whereNotNull('ie.cost_per_kg_usd')
+            ->where('ie.cost_per_kg_usd', '>', 0)
+            ->when($branchId, fn($q) => $q->where('ie.branch_id', $branchId))
+            ->groupBy('c.id', 'c.name')
+            ->select('c.name as categoria', DB::raw('ROUND(SUM(ie.quantity_kg * ie.cost_per_kg_usd), 2) as invertido_real'))
+            ->get()
+            ->keyBy('categoria');
+
+        $categorias = $rows->groupBy('categoria')->map(function($items, $cat) use ($bovedaInvertido, $ventasPorCategoria, $invertidoPorCategoria) {
+            $invertidoBoveda = (float) ($bovedaInvertido[$cat] ?? 0);
+            $invertido = $invertidoBoveda > 0
+                ? $invertidoBoveda
+                : (float) ($invertidoPorCategoria->get($cat)?->invertido_real ?? 0);
             $vendido   = $ventasPorCategoria->get($cat)?->vendido ?? 0;
             $utilidad  = round($vendido - $invertido, 2);
             return [
