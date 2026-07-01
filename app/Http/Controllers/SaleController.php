@@ -207,9 +207,6 @@ class SaleController extends Controller
 
         // Validar stock suficiente antes de crear la venta
         foreach ($itemsToCreate as $item) {
-            if ($item['input_type'] !== 'weight') {
-                continue;
-            }
             $stockCheckId    = Product::find($item['product_id'])?->stock_product_id ?? $item['product_id'];
             $stockDisponible = InventoryEntry::where('business_id', $businessId)
                 ->where('product_id', $stockCheckId)
@@ -289,9 +286,6 @@ class SaleController extends Controller
 
                 // Descontar inventario inmediatamente (despacho sin cobro)
                 foreach ($sale->items as $item) {
-                    if ($item->input_type !== 'weight') {
-                        continue;
-                    }
                     InventoryEntry::create([
                         'business_id' => $businessId,
                         'branch_id'   => $branchId,
@@ -349,9 +343,6 @@ class SaleController extends Controller
             // igual que crédito. Onsite ('open') NO descuenta hasta pay().
             if ($origin === 'delivery') {
                 foreach ($sale->items as $item) {
-                    if ($item->input_type !== 'weight') {
-                        continue;
-                    }
                     InventoryEntry::create([
                         'business_id' => $businessId,
                         'branch_id'   => $branchId,
@@ -480,10 +471,6 @@ class SaleController extends Controller
             // ── FIFO: descontar por lote más antiguo primero ──────────────
             $sale->load('items.product');
             foreach ($sale->items as $item) {
-                if ($item->input_type !== 'weight') {
-                    continue;
-                }
-
                 $stockProductId = $item->product?->stock_product_id ?? $item->product_id;
                 $kgRestante     = round(abs((float) $item->quantity_value), 4);
 
@@ -583,10 +570,6 @@ class SaleController extends Controller
             if (in_array($sale->getOriginal('status'), ['paid', 'pending'])) {
                 $sale->load('items.product');
                 foreach ($sale->items as $item) {
-                    if ($item->input_type !== 'weight') {
-                        continue;
-                    }
-
                     $stockProductId = $item->product?->stock_product_id ?? $item->product_id;
 
                     InventoryEntry::create([
@@ -778,10 +761,6 @@ class SaleController extends Controller
             if (in_array($sale->status, ['paid', 'pending'], true)) {
                 $sale->load('items.product');
                 foreach ($sale->items as $item) {
-                    if ($item->input_type !== 'weight') {
-                        continue;
-                    }
-
                     $stockProductId = $item->product?->stock_product_id ?? $item->product_id;
 
                     InventoryEntry::create([
