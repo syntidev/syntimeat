@@ -315,8 +315,9 @@ class SaleController extends Controller
         }
 
         $status  = $origin === 'delivery' ? 'pending' : 'open';
+        $accountingDate = now('America/Caracas')->toDateString();
 
-        $sale = DB::transaction(function () use ($businessId, $branchId, $user, $ticketNumber, $totalUsd, $totalBs, $itemsToCreate, $origin, $channel, $status, $data, $cashRegister, $clientId) {
+        $sale = DB::transaction(function () use ($businessId, $branchId, $user, $ticketNumber, $totalUsd, $totalBs, $itemsToCreate, $origin, $channel, $status, $data, $cashRegister, $clientId, $accountingDate) {
             $sale = Sale::create([
                 'business_id'     => $businessId,
                 'branch_id'       => $branchId,
@@ -331,6 +332,9 @@ class SaleController extends Controller
                 'client_phone'    => $data['client_phone'] ?? null,
                 'client_id'       => $clientId,
                 'cash_register_id'=> $cashRegister?->id,
+                'accounting_date' => $origin === 'delivery' ? $accountingDate : null,
+                'sold_at'         => $origin === 'delivery' ? now() : null,
+                'payment_status'  => $origin === 'delivery' ? 'pendiente_cobro' : 'paid',
             ]);
 
             foreach ($itemsToCreate as $item) {
