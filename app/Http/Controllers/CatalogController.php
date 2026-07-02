@@ -274,6 +274,7 @@ class CatalogController extends Controller
         // Bloqueo 1: stock activo
         $stockActual = (float) InventoryEntry::where('product_id', $product->id)
             ->where('business_id', $product->business_id)
+            ->where('branch_id', $product->branch_id)
             ->sum('net_kg');
 
         if ($stockActual > 0) {
