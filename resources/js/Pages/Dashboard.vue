@@ -17,6 +17,7 @@ const props = defineProps({
     pedidos_pendientes: { type: Number, default: 0 },
     categorias_hoy:     { type: Array,  default: () => [] },
     utilidad_boveda:    { type: Array,  default: () => [] },
+    carne_economica_hoy: { type: Object, default: () => ({}) },
     banking_alert:      { type: String, default: null },
 })
 
@@ -30,6 +31,7 @@ const d = ref({
     pedidos_pendientes:  props.pedidos_pendientes,
     categorias_hoy:      props.categorias_hoy,
     utilidad_boveda:     props.utilidad_boveda,
+    carne_economica_hoy: props.carne_economica_hoy,
     banking_alert:       props.banking_alert,
 })
 
@@ -108,7 +110,7 @@ const maxKgCat    = computed(() => Math.max(1, ...catCardsData.value.map(c => c.
 function kgBarWidth(kg) { return Math.min(100, Math.round((kg / maxKgCat.value) * 100)) }
 
 // ─── Centro de Control ────────────────────────────────────────────────────────
-const ALL_CATS    = ['Res', 'Pollo', 'Cerdo', 'Charcutería', 'Trastes', 'Víveres']
+const ALL_CATS    = ['Res', 'Pollo', 'Cerdo', 'Charcutería', 'Trastes', 'Víveres', 'Carne Economica']
 const LS_KEY      = 'syntimeat_dashboard_cats'
 const selectedCats = ref((() => {
     try { const v = localStorage.getItem(LS_KEY); return v ? JSON.parse(v) : [...ALL_CATS] }
@@ -125,6 +127,10 @@ function toggleCat(cat) {
 const catCardsData = computed(() => {
     const ORDER = ['Res', 'Pollo', 'Cerdo', 'Charcutería', 'Trastes', 'Víveres']
     const cats  = selectedCats.value.map(cat => {
+        if (cat === 'Carne Economica') {
+            const stats = d.value.carne_economica_hoy ?? {}
+            return { name: cat, total_bs: stats.total_bs ?? 0, total_usd: stats.total_usd ?? 0, kg_vendidos: stats.kg_vendidos ?? 0, costo_usd: stats.costo_usd ?? 0, utilidad_usd: stats.utilidad_usd ?? 0, margen_pct: stats.margen_pct ?? 0, boveda: null }
+        }
         const stats = d.value.categorias_hoy?.find(c => c.category_name === cat) ?? null
         const bov   = d.value.utilidad_boveda?.find(b => b.category_name === cat) ?? null
         return { name: cat, total_bs: stats?.total_bs ?? 0, total_usd: stats?.total_usd ?? 0, kg_vendidos: stats?.kg_vendidos ?? 0, costo_usd: stats?.costo_usd ?? 0, utilidad_usd: stats?.utilidad_usd ?? 0, margen_pct: stats?.margen_pct ?? 0, boveda: bov }

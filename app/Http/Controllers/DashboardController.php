@@ -215,6 +215,38 @@ class DashboardController extends Controller
             ->get()
             ->keyBy('category_name');
 
+        // ── Card individual: Carne Economica (id=348) ────────────────────────
+        $carneEconomicaHoy = (function () use ($businessId, $branchId, $today) {
+            $PRODUCT_ID = 348;
+            $row = DB::table('sale_items')
+                ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
+                ->join('products', 'products.id', '=', 'sale_items.product_id')
+                ->where('sales.business_id', $businessId)
+                ->whereIn('sales.status', ['paid', 'pending'])
+                ->whereDate('sales.accounting_date', $today)
+                ->when($branchId, fn ($q) => $q->where('sales.branch_id', $branchId))
+                ->where('sale_items.product_id', $PRODUCT_ID)
+                ->selectRaw('
+                    SUM(sale_items.subtotal_bs) as total_bs,
+                    SUM(sale_items.subtotal_usd) as total_usd,
+                    SUM(CASE WHEN sale_items.input_type = \'weight\' THEN sale_items.quantity_value ELSE 0 END) as kg_vendidos,
+                    COALESCE(SUM(sale_items.quantity_value * COALESCE(sale_items.cost_per_kg_usd, products.cost_per_kg_usd, 0)), 0) as costo_usd
+                ')
+                ->first();
+
+            $totalUsd = round((float) ($row->total_usd ?? 0), 2);
+            $costoUsd = round((float) ($row->costo_usd ?? 0), 2);
+
+            return [
+                'total_bs'     => round((float) ($row->total_bs ?? 0), 2),
+                'total_usd'    => $totalUsd,
+                'kg_vendidos'  => round((float) ($row->kg_vendidos ?? 0), 3),
+                'costo_usd'    => $costoUsd,
+                'utilidad_usd' => round($totalUsd - $costoUsd, 2),
+                'margen_pct'   => $totalUsd > 0 ? round(($totalUsd - $costoUsd) / $totalUsd * 100, 1) : 0.0,
+            ];
+        })();
+
         $categoriasHoy = $categoriaStats->map(fn ($r) => [
             'category_id'   => $r->category_id,
             'category_name' => $r->category_name,
@@ -309,6 +341,7 @@ class DashboardController extends Controller
             'pedidos_pendientes'=> $pedidosPendientes,
             'categorias_hoy'    => $categoriasHoy,
             'utilidad_boveda'   => $utilidadBoveda,
+            'carne_economica_hoy' => $carneEconomicaHoy,
             'banking_alert'     => Cache::get('banking_alert'),
         ];
     }
